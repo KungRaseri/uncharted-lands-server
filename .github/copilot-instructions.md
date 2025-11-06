@@ -454,121 +454,231 @@ const [updated] = await db
 
 ## Common Tasks & Patterns
 
-### Adding New Message Types
+### Starting Development Server
 
-1. Define TypeScript interfaces:
+```bash
+npm run dev
+```
+
+Runs server with hot-reload using tsx watch mode on port 3001.
+
+### Database Migrations
+
+```bash
+# Generate migration from schema changes
+npm run db:generate
+
+# Push schema changes directly (dev only)
+npm run db:push
+
+# View database in Drizzle Studio
+npm run db:studio
+```
+
+### Testing Socket.IO Events
+
+Use the client's test files or Socket.IO client directly:
 
 ```typescript
-// src/types/messages.ts
-export interface PlayerActionMessage {
-  type: 'player_action';
+import { io } from 'socket.io-client';
+
+const socket = io('ws://localhost:3001');
+
+socket.on('connect', () => {
+  console.log('Connected:', socket.id);
+  
+  socket.emit('authenticate', {
+    playerId: 'player-123',
+    token: 'auth-token'
+  }, (response) => {
+    console.log('Auth response:', response);
+  });
+});
+```
+
+### Adding New Event Handler
+
+1. Define event types in `src/types/socket-events.ts`:
+
+```typescript
+export interface ClientToServerEvents {
+  'new-event': (data: NewEventData, callback: ResponseCallback) => void;
+}
+
+export interface NewEventData {
+  settlementId: string;
   action: string;
-  payload: unknown;
-  timestamp: number;
 }
 ```
 
-2. Add handler in `src/index.ts`:
+2. Implement handler in `src/events/handlers.ts`:
 
 ```typescript
-ws.on('message', (data: Buffer) => {
-  const message = JSON.parse(data.toString());
-  
-  switch (message.type) {
-    case 'player_action':
-      handlePlayerAction(ws, message);
-      break;
-    // ... other cases
+export function handleNewEvent(socket: Socket, data: NewEventData): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Validate
+      if (!data.settlementId) {
+        throw new Error('Settlement ID required');
+      }
+      
+      // Database query
+      const settlement = await getSettlementWithDetails(data.settlementId);
+      
+      // Business logic
+      // ...
+      
+      // Respond
+      socket.emit('new-event-response', { success: true });
+      resolve();
+    } catch (error) {
+      logger.error('[NEW EVENT ERROR]', error);
+      reject(error);
+    }
+  });
+}
+```
+
+3. Register in `registerEventHandlers()`:
+
+```typescript
+socket.on('new-event', async (data, callback) => {
+  try {
+    await handleNewEvent(socket, data);
+    callback?.({ success: true });
+  } catch (error) {
+    callback?.({ success: false, error: error.message });
   }
 });
 ```
 
-### Broadcasting to Specific Clients
+### Adding Database Query
+
+1. Add query function to `src/db/queries.ts`:
 
 ```typescript
-// Broadcast to all clients
-function broadcastToAll(message: object): void {
-  const payload = JSON.stringify(message);
-  clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-    }
-  });
+export async function getNewData(id: string) {
+  try {
+    const result = await db
+      .select()
+      .from(tableName)
+      .where(eq(tableName.id, id))
+      .limit(1);
+    
+    return result[0] || null;
+  } catch (error) {
+    logger.error('[QUERY ERROR]', error);
+    throw error;
+  }
 }
+```
 
-// Broadcast to specific game room
-function broadcastToRoom(roomId: string, message: object): void {
-  const payload = JSON.stringify(message);
-  const roomClients = rooms.get(roomId);
-  
-  roomClients?.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-    }
-  });
-}
+2. Export from `src/db/index.ts` if needed:
+
+```typescript
+export { getNewData } from './queries.js';
+```
+
+3. Use in handlers:
+
+```typescript
+import { getNewData } from '../db/index.js';
+
+const data = await getNewData(id);
+```
+
+### Broadcasting Updates
+
+```typescript
+// Broadcast to specific world room
+io.to(`world:${worldId}`).emit('state-update', {
+  type: 'resource-update',
+  data: newResources
+});
+
+// Broadcast to all except sender
+socket.to(`world:${worldId}`).emit('player-action', action);
+
+// Broadcast to specific player
+io.to(socket.id).emit('personal-update', data);
 ```
 
 ### Health Check Endpoint
 
+Already implemented in `src/index.ts`:
+
 ```typescript
-// Already implemented in src/index.ts
-http.createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ 
-      status: 'healthy', 
-      uptime: process.uptime(),
-      connections: clients.size 
-    }));
-  }
-});
+// HTTP GET /health
+// Returns: { status: 'ok', uptime: number, timestamp: number }
 ```
 
 ---
 
 ## Testing
 
-### Manual WebSocket Testing
+### Manual Socket.IO Testing
 
-Using `wscat` (install globally):
+Using Socket.IO client library:
 
-```powershell
-# Install
-npm install -g wscat
+```typescript
+import { io } from 'socket.io-client';
 
-# Connect to server
-wscat -c ws://localhost:8080
+const socket = io('ws://localhost:3001');
 
-# Send messages
-> {"type":"join_game","playerId":"player1","gameId":"game123"}
+socket.on('connect', () => {
+  console.log('Connected:', socket.id);
+  
+  // Test authentication
+  socket.emit('authenticate', {
+    playerId: 'test-player',
+    token: 'test-token'
+  }, (response) => {
+    console.log('Auth response:', response);
+  });
+  
+  // Test resource collection
+  socket.emit('collect-resources', {
+    settlementId: 'settlement-123'
+  }, (response) => {
+    console.log('Collect response:', response);
+  });
+});
+
+socket.on('resource-update', (data) => {
+  console.log('Resource update:', data);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason);
+});
 ```
 
 ### Testing with Client
 
 ```typescript
-// From SvelteKit client
-const ws = new WebSocket('ws://localhost:8080');
+// From SvelteKit client (src/lib/server/socket.ts)
+const socket = io('ws://localhost:3001');
 
-ws.onopen = () => {
-  console.log('Connected');
-  ws.send(JSON.stringify({ type: 'join_game', playerId: 'player1' }));
-};
-
-ws.onmessage = (event) => {
-  const message = JSON.parse(event.data);
-  console.log('Received:', message);
-};
+socket.on('connect', () => {
+  socket.emit('authenticate', { playerId, token }, (response) => {
+    if (response.success) {
+      // Request game state
+      socket.emit('game-state-request', { worldId }, (state) => {
+        console.log('Game state:', state);
+      });
+    }
+  });
+});
 ```
 
 ### Health Check Testing
 
 ```powershell
 # Test health endpoint
-Invoke-WebRequest -Uri http://localhost:8080/health
+Invoke-WebRequest -Uri http://localhost:3001/health
 
 # Expected response
-{"status":"healthy","uptime":123.456,"connections":0}
+{"status":"ok","uptime":123.456,"timestamp":1234567890}
 ```
 
 ---
@@ -579,58 +689,80 @@ Invoke-WebRequest -Uri http://localhost:8080/health
 
 - Use ES modules (import/export)
 - Type all function parameters and return values
-- Handle WebSocket errors gracefully
-- Clean up clients on disconnect
-- Use JSON for all messages
-- Log important events
+- Use Socket.IO event acknowledgments for responses
+- Clean up connections and rooms on disconnect
+- Use Drizzle ORM for all database queries
+- Log important events with Winston logger
 - Implement health checks
-- Support graceful shutdown
-- Validate incoming messages
-- Use environment variables for config
+- Support graceful shutdown (already implemented)
+- Validate incoming event data
+- Use environment variables for configuration
+- Join/leave rooms properly for world-based broadcasting
+- Use typed Socket.IO events (ClientToServerEvents, ServerToClientEvents)
 
 ### ❌ DON'T
 
 - Don't use CommonJS (require/module.exports)
 - Don't use `any` type without good reason
-- Don't ignore WebSocket errors
-- Don't leave orphaned connections
-- Don't send unstructured data
-- Don't log sensitive information
-- Don't hardcode configuration
-- Don't block the event loop
+- Don't ignore Socket.IO errors
+- Don't leave orphaned room subscriptions
+- Don't send unstructured data (always use typed events)
+- Don't log sensitive information (passwords, tokens)
+- Don't hardcode configuration (use .env)
+- Don't block the event loop with synchronous operations
 - Don't trust client input without validation
 - Don't commit `.env` files
+- Don't use raw WebSocket (ws library) - we migrated to Socket.IO
+- Don't query database without error handling
 
 ---
 
 ## Deployment
 
-### Railway Deployment
-
-1. **Create New Project**: Link GitHub repo
-2. **Configure Environment**: Add environment variables
-3. **Set Start Command**: `npm start`
-4. **Configure Port**: Railway provides `PORT` env var
-5. **Deploy**: Automatic from `main` branch
-
-### Render Deployment
-
-1. **New Web Service**: Link GitHub repo
-2. **Build Command**: `npm install && npm run build`
-3. **Start Command**: `npm start`
-4. **Environment**: Add variables in dashboard
-5. **Health Check**: `/health` endpoint
-
 ### Environment Variables
 
-Required for production:
+Required environment variables in `.env`:
 
 ```env
-PORT=8080                    # Provided by platform
-HOST=0.0.0.0                 # Bind all interfaces
-DATABASE_URL=postgresql://... # If using database
-SENTRY_DSN=https://...       # Optional error tracking
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+
+# Server
+PORT=3001
+NODE_ENV=production
+
+# Logging
+LOG_LEVEL=info
 ```
+
+### Railway/Render Configuration
+
+**Build Command**:
+```bash
+npm install && npm run build
+```
+
+**Start Command**:
+```bash
+npm start
+```
+
+**Health Check Endpoint**:
+```
+http://server-url:3001/health
+```
+
+Returns: `{ status: 'ok', uptime: number, timestamp: number }`
+
+### Production Considerations
+
+1. **Connection Pooling**: Already configured with 10 max connections in `src/db/index.ts`
+2. **Graceful Shutdown**: Implemented in `src/index.ts` (closes database, Socket.IO server)
+3. **Error Logging**: Winston logger with structured logs
+4. **Database Connections**: Automatically closed on SIGTERM/SIGINT
+5. **Socket.IO Rooms**: Memory-based, no Redis needed yet (scale later with Redis adapter)
+6. **CORS**: Configure for production domains
+7. **Rate Limiting**: Consider implementing for authentication endpoints
 
 ---
 
@@ -642,37 +774,103 @@ npm run dev              # Start dev server with auto-reload (tsx watch)
 npm run build            # Build TypeScript to dist/
 npm start                # Run production build (node dist/index.js)
 
+# Database
+npm run db:generate      # Generate Drizzle migration from schema changes
+npm run db:push          # Push schema changes directly to database (dev only)
+npm run db:studio        # Open Drizzle Studio web UI
+
 # Code Quality
-npm run type-check       # TypeScript type checking
-npm run lint             # ESLint code checking
-npm run format           # Format code with Prettier
+npm run type-check       # TypeScript type checking (if configured)
+npm run lint             # ESLint code checking (if configured)
 
 # Package Management
 npm install              # Install dependencies
 npm update               # Update dependencies
 npm audit                # Check for vulnerabilities
 
-# Testing WebSocket
-npm install -g wscat    # Install WebSocket test tool
-wscat -c ws://localhost:8080  # Connect to server
-
-# Deployment
-git push origin main     # Trigger Railway/Render deployment
-railway up               # Manual Railway deploy
-render deploy            # Manual Render deploy
-
-# Git
-git status               # Check status
-git log --oneline -10    # Recent commits
+# Testing
+npm test                 # Run tests (if configured)
 ```
+
+---
+
+## Current Migration Status
+
+### ✅ Completed
+
+**Phase 1: Drizzle ORM Setup**
+- Installed Drizzle ORM, postgres driver, drizzle-kit
+- Converted Prisma schema to Drizzle (14 tables)
+- Generated and applied migrations
+- Fixed PostgreSQL float underflow (real → doublePrecision)
+- Created database connection with pooling
+- Built query helper library (15+ functions)
+
+**Phase 2: Socket.IO Implementation**
+- Migrated from native WebSocket (ws) to Socket.IO
+- Implemented typed event system (ClientToServerEvents, ServerToClientEvents)
+- Created middleware pipeline (authentication, logging, error handling)
+- Built authentication with real database token validation
+- Implemented settlement resource collection
+- Created resource calculator system
+- Added game state request handler
+
+**Phase 3: Server Architecture**
+- Server running on port 3001
+- HTTP health endpoint (/health)
+- Winston logging with structured logs
+- Graceful shutdown handling
+- Connection pooling (10 max connections)
+- Database cleanup on shutdown
+
+### 🔄 In Progress
+
+**Phase 4: Game Mechanics**
+- Build structure handler (TODO)
+- 60Hz game loop for automatic resource generation (TODO)
+- World generation server-side (TODO)
+- Population and consumption system (TODO)
+
+**Phase 5: Client Integration**
+- Client still using Prisma for direct database access
+- Need to migrate all client queries to use Socket.IO events
+- Remove Prisma from client after migration complete
+
+### 📋 Implementation Reference
+
+Key files to reference when continuing migration:
+
+1. **Database**:
+   - `src/db/schema.ts` - Complete Drizzle schema (14 tables)
+   - `src/db/queries.ts` - Pre-built query functions
+   - `src/db/README.md` - Database usage guide
+
+2. **Socket.IO**:
+   - `src/types/socket-events.ts` - Typed event definitions
+   - `src/middleware/socket-middleware.ts` - Authentication, logging, error handling
+   - `src/events/handlers.ts` - Event handler implementations
+
+3. **Game Logic**:
+   - `src/game/resource-calculator.ts` - Production/consumption calculations
+
+4. **Documentation**:
+   - `DRIZZLE_MIGRATION_PLAN.md` - Full migration strategy
+   - `MIGRATION_PROGRESS.md` - Detailed progress report
+   - `NEXT_STEPS.md` - Quick start for next phase
 
 ---
 
 ## Additional Resources
 
-### WebSocket
-- MDN WebSocket API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-- ws Library: https://github.com/websockets/ws
+### Socket.IO
+- Official Docs: https://socket.io/docs/v4/
+- TypeScript Support: https://socket.io/docs/v4/typescript/
+- Server API: https://socket.io/docs/v4/server-api/
+
+### Drizzle ORM
+- Documentation: https://orm.drizzle.team/docs/overview
+- PostgreSQL Guide: https://orm.drizzle.team/docs/get-started-postgresql
+- Drizzle Kit: https://orm.drizzle.team/kit-docs/overview
 
 ### Node.js
 - Node.js Docs: https://nodejs.org/docs/
@@ -680,7 +878,7 @@ git log --oneline -10    # Recent commits
 
 ### TypeScript
 - TypeScript Handbook: https://www.typescriptlang.org/docs/
-- TS Node: https://github.com/TypeStrong/ts-node
+- Advanced Types: https://www.typescriptlang.org/docs/handbook/2/types-from-types.html
 
 ### Deployment
 - Railway Docs: https://docs.railway.app/
@@ -690,16 +888,17 @@ git log --oneline -10    # Recent commits
 
 ## Questions or Unsure?
 
-1. **Check ws library docs**: https://github.com/websockets/ws/blob/master/doc/ws.md
-2. **Review Node.js HTTP docs**: https://nodejs.org/api/http.html
-3. **Check TypeScript handbook**: https://www.typescriptlang.org/docs/
-4. **Ask the team** - Don't make assumptions!
+1. **Check Socket.IO docs**: https://socket.io/docs/v4/
+2. **Review Drizzle docs**: https://orm.drizzle.team/docs/
+3. **Check existing implementations**: See `src/events/handlers.ts` for patterns
+4. **Review migration docs**: See `DRIZZLE_MIGRATION_PLAN.md` and `MIGRATION_PROGRESS.md`
+5. **Ask the team** - Don't make assumptions!
 
 ---
 
-**Last Updated**: November 2025  
-**Status**: Initial setup complete  
-**Tech Stack**: TypeScript + ws + Node.js 22.x  
-**Deployment**: Railway or Render (persistent WebSocket connections)
+**Last Updated**: January 2025  
+**Status**: Drizzle migration complete, Socket.IO implemented, game mechanics in progress  
+**Tech Stack**: TypeScript + Socket.IO + Drizzle ORM + PostgreSQL + Node.js 22.x  
+**Deployment**: Railway/Render with persistent connections
 
 ````
