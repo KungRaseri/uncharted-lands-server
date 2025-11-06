@@ -8,7 +8,7 @@ Real-time WebSocket server for the Uncharted Lands game, handling multiplayer st
 - **TypeScript** 5.7.3
 - **WebSocket Library**: ws 8.18.0
 - **Build Tool**: tsx (dev) / tsc (production)
-- **Deployment**: Fly.io (primary), Railway or Render (alternatives)
+- **Deployment**: Custom deployment (any Node.js hosting)
 
 ## Getting Started
 
@@ -106,56 +106,38 @@ SENTRY_DSN=https://...       # Sentry error tracking (optional)
 
 ## Deployment
 
-### Fly.io (Recommended)
+### Custom Deployment
 
-Fly.io provides excellent WebSocket support with persistent connections and automatic scaling.
+This server can be deployed to any platform that supports long-running Node.js processes and WebSocket connections.
 
-1. **Install Fly CLI:**
+**Requirements:**
+- Node.js 22.x or later
+- Support for persistent connections
+- WebSocket protocol support
+
+**Environment Variables:**
 ```bash
-# Windows (PowerShell)
-iwr https://fly.io/install.ps1 -useb | iex
-
-# macOS/Linux
-curl -L https://fly.io/install.sh | sh
+PORT=8080              # Server port (default: 8080)
+HOST=0.0.0.0          # Host to bind to (default: 0.0.0.0)
+NODE_ENV=production   # Environment mode
 ```
 
-2. **Login to Fly:**
+**Build and Start:**
 ```bash
-fly auth login
+npm install
+npm run build
+npm start
 ```
 
-3. **Launch your app (first time only):**
-```bash
-fly launch
-# The fly.toml is already configured, just follow the prompts
+**Health Check:**
+The server provides a health check endpoint at `/health` that returns:
+```json
+{
+  "status": "healthy",
+  "uptime": 12345.678,
+  "timestamp": "2025-11-06T10:30:00.000Z"
+}
 ```
-
-4. **Set environment variables (if needed):**
-```bash
-fly secrets set DATABASE_URL=your_database_url
-fly secrets set SENTRY_DSN=your_sentry_dsn
-```
-
-5. **Deploy:**
-```bash
-fly deploy
-```
-
-6. **Monitor your app:**
-```bash
-fly status
-fly logs
-```
-
-Your WebSocket server will be available at `wss://uncharted-lands-server.fly.dev` (or your custom domain).
-
-#### Fly.io Features
-- ✅ Auto-scaling with minimum 1 machine running
-- ✅ Health checks on `/health` endpoint every 10s
-- ✅ Automatic HTTPS/WSS with TLS
-- ✅ Full WebSocket support with persistent connections
-- ✅ 256MB RAM, 1 shared CPU (upgradeable as needed)
-- ✅ Free tier available (3 shared VMs)
 
 ### Alternative: Railway
 
@@ -175,7 +157,7 @@ Your WebSocket server will be available at `wss://uncharted-lands-server.fly.dev
 This WebSocket server is deployed separately from the SvelteKit client because:
 
 - **Vercel limitations**: Vercel's serverless functions cannot maintain persistent WebSocket connections
-- **Deployment target**: Fly.io, Railway, and Render support long-running WebSocket processes
+- **Deployment target**: Custom deployment on any platform that supports long-running Node.js processes
 - **Independent scaling**: Server can scale independently from the client
 
 ## Contributing
