@@ -1,21 +1,68 @@
 ````instructions
 # GitHub Copilot Instructions for Uncharted Lands Server
 
-This file provides context and guidelines for GitHub Copilot when working on the Uncharted Lands WebSocket server.
+This file provides context and guidelines for GitHub Copilot when working on the Uncharted Lands game server.
 
 ---
 
 ## Project Overview
 
-**Uncharted Lands Server** is a real-time WebSocket server for the Uncharted Lands game, handling multiplayer game state synchronization, player actions, and real-time events.
+**Uncharted Lands Server** is a real-time game server for the Uncharted Lands game, handling multiplayer game state, player actions, resource production, and real-time events.
 
 **Tech Stack**:
 - **Runtime**: Node.js 22.x
 - **Language**: TypeScript 5.7.3
-- **WebSocket Library**: ws 8.18.0
-- **Build Tool**: tsx (dev) / tsc (production)
-- **Deployment**: Railway or Render (persistent WebSocket connections)
+- **Real-Time**: Socket.IO 4.8.1
+- **Database**: Drizzle ORM + PostgreSQL
+- **Build**: tsx (dev) / tsc (production)
+- **Deployment**: Railway or Render (persistent connections)
 - **Environment**: dotenv for configuration
+
+---
+
+## Documentation Policy
+
+**⚠️ CRITICAL: ALL project documentation MUST be placed in the `docs/` directory.**
+
+### Documentation Rules
+
+1. **Location**: ALL `.md` documentation files go in `docs/` directory
+   - ✅ CORRECT: `docs/Server-Architecture.md`
+   - ❌ WRONG: `SERVER_ARCHITECTURE.md` (root level)
+   - ❌ WRONG: `src/docs/guide.md` (inside src)
+   
+2. **Root-Level Exceptions**: Only these files are allowed in the project root:
+   - `README.md` - Project overview and getting started
+   - `LICENSE` - License file
+   - `CHANGELOG.md` - Version history (if needed)
+   
+3. **Summary Documents**: 
+   - ⚠️ **DO NOT** create summary documents (e.g., `CHANGES_SUMMARY.md`, `MIGRATION_SUMMARY.md`) unless explicitly requested
+   - Most changes should be documented in existing files or commit messages
+   - Only create summaries when the user specifically asks for one
+   - If created, they MUST go in `docs/` directory with appropriate subdirectory
+
+4. **When Creating Documentation**:
+   - **Always** check if `docs/` directory exists
+   - **Always** create new docs in `docs/`
+   - Use subdirectories for organization: `docs/guides/`, `docs/api/`, `docs/migration/`, etc.
+   - **Never** create documentation in the project root (except README.md)
+   - **Ask first** before creating new documentation files
+
+5. **Existing Root-Level Docs**: If you find documentation in the root:
+   - Move it to `docs/` with appropriate subdirectory
+   - Update any references to the old location
+   - Notify the user of the move
+
+### Documentation Organization
+
+```
+docs/
+├── Home.md                    # Wiki home page
+├── Server-Architecture.md     # Server architecture overview
+├── WebSocket-API.md          # Socket.IO API reference
+└── migration/                # Migration documentation (if needed)
+```
 
 ---
 
@@ -37,20 +84,29 @@ This WebSocket server handles:
 
 ### Client-Server Communication
 
-- **Client**: SvelteKit app on Vercel (`uncharted-lands` repo)
-- **Server**: WebSocket server on Railway/Render (`uncharted-lands-server` repo)
-- **Protocol**: JSON messages over WebSocket
+- **Client**: SvelteKit app on Vercel (`uncharted-lands/client`)
+- **Server**: Game server on Railway/Render (`uncharted-lands/server`)
+- **Protocol**: Socket.IO with typed events
+- **Database**: Shared PostgreSQL database
 - **Health endpoint**: HTTP GET `/health` for monitoring
 
 ---
 
 ## Official Documentation References
 
-### WebSocket (ws) Library
+### Socket.IO
 
-- **GitHub**: https://github.com/websockets/ws
-- **API Docs**: https://github.com/websockets/ws/blob/master/doc/ws.md
-- **Examples**: https://github.com/websockets/ws/tree/master/examples
+- **Docs**: https://socket.io/docs/v4/
+- **Server API**: https://socket.io/docs/v4/server-api/
+- **TypeScript**: https://socket.io/docs/v4/typescript/
+- **Emit cheatsheet**: https://socket.io/docs/v4/emit-cheatsheet/
+
+### Drizzle ORM
+
+- **Docs**: https://orm.drizzle.team/docs/overview
+- **PostgreSQL**: https://orm.drizzle.team/docs/get-started-postgresql
+- **Queries**: https://orm.drizzle.team/docs/rqb
+- **Migrations**: https://orm.drizzle.team/docs/migrations
 
 ### Node.js
 
@@ -72,8 +128,31 @@ uncharted-lands-server/
 ├── .github/
 │   ├── copilot-instructions.md          # This file
 │   └── workflows/                       # CI/CD workflows
+├── docs/
+│   ├── Home.md                          # Wiki home page
+│   ├── Server-Architecture.md           # Architecture documentation
+│   └── WebSocket-API.md                 # Socket.IO API reference
 ├── src/
-│   └── index.ts                         # Main WebSocket server
+│   ├── db/
+│   │   ├── index.ts                     # Database connection
+│   │   ├── schema.ts                    # Drizzle schema definitions
+│   │   ├── queries.ts                   # Query helper functions
+│   │   └── README.md                    # Database usage guide
+│   ├── events/
+│   │   └── handlers.ts                  # Socket.IO event handlers
+│   ├── game/
+│   │   └── resource-calculator.ts       # Resource production logic
+│   ├── middleware/
+│   │   └── socket-middleware.ts         # Socket.IO middleware
+│   ├── types/
+│   │   └── socket-events.ts             # TypeScript event definitions
+│   ├── utils/
+│   │   └── logger.ts                    # Structured logging
+│   └── index.ts                         # Main server entry point
+├── drizzle/
+│   ├── 0000_*.sql                       # Database migrations
+│   └── meta/                            # Migration metadata
+├── drizzle.config.ts                    # Drizzle configuration
 ├── .env.example                         # Environment variables template
 ├── .gitignore                           # Git ignore rules
 ├── eslint.config.js                     # ESLint configuration
@@ -85,16 +164,44 @@ uncharted-lands-server/
 
 ### Key Files
 
-- **src/index.ts**: Main WebSocket server with:
+- **src/index.ts**: Main server with:
+  - Socket.IO server with typed events
   - HTTP server for health checks (`/health`)
-  - WebSocket server for game connections
-  - Message handling and broadcasting
+  - Middleware pipeline (logging, auth, error handling)
+  - Event handler registration
   - Graceful shutdown handling
+  - Database connection management
+
+- **src/db/schema.ts**: Complete database schema:
+  - 14 tables (Account, Profile, Settlement, World, etc.)
+  - Relations and foreign keys
+  - TypeScript type exports
+  - All game data structures
+
+- **src/db/queries.ts**: Pre-built query helpers:
+  - Authentication queries
+  - Settlement operations
+  - World/region queries
+  - Resource management
+
+- **src/events/handlers.ts**: Socket.IO event handlers:
+  - Player authentication
+  - World joining/leaving
+  - Resource collection
+  - Structure building
+  - Game state synchronization
+
+- **src/game/resource-calculator.ts**: Game logic:
+  - Time-based resource production
+  - Production rate calculations
+  - Resource consumption
+  - Net production calculations
 
 - **.env**: Configuration (never commit!)
-  - `PORT`: Server port (default: 8080)
+  - `PORT`: Server port (default: 3001)
   - `HOST`: Bind address (default: 0.0.0.0)
-  - `DATABASE_URL`: PostgreSQL connection (if needed)
+  - `DATABASE_URL`: PostgreSQL connection
+  - `CORS_ORIGINS`: Allowed client origins
   - `SENTRY_DSN`: Error tracking (optional)
 
 ---
@@ -107,11 +214,13 @@ uncharted-lands-server/
 
 ```typescript
 // ✅ CORRECT
-import { WebSocketServer } from 'ws';
+import { Server } from 'socket.io';
+import { db } from './db/index.js';
 export function broadcast(message: object) { }
 
 // ❌ WRONG
-const { WebSocketServer } = require('ws');
+const { Server } = require('socket.io');
+const db = require('./db');
 module.exports = { broadcast };
 ```
 
@@ -119,126 +228,224 @@ module.exports = { broadcast };
 
 ```typescript
 // ✅ Explicit types
-function handleMessage(data: Buffer): void {
-  const message: GameMessage = JSON.parse(data.toString());
+async function handleMessage(
+  socket: Socket,
+  data: CollectResourcesData
+): Promise<void> {
+  const settlement = await getSettlementWithDetails(data.settlementId);
 }
 
 // ❌ Implicit any
-function handleMessage(data) {
-  const message = JSON.parse(data.toString());
+async function handleMessage(socket, data) {
+  const settlement = await getSettlementWithDetails(data.settlementId);
 }
 ```
 
-**Async/Await for Promises**:
+**Use TypeScript Interfaces for Socket Events**:
 
 ```typescript
-// ✅ Modern async/await
-async function fetchData(): Promise<GameState> {
-  const response = await fetch(url);
-  return await response.json();
-}
+// ✅ Typed Socket.IO events
+import type { 
+  ClientToServerEvents,
+  ServerToClientEvents
+} from './types/socket-events';
 
-// ❌ Promise chains
-function fetchData() {
-  return fetch(url).then(res => res.json());
-}
+const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
 ```
 
-### WebSocket Patterns
+### Socket.IO Patterns
 
 **Connection Handling**:
 
 ```typescript
-wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-  // Track client
-  clients.add(ws);
+io.on('connection', (socket) => {
+  logger.info('[CONNECTION] Client connected', { socketId: socket.id });
   
-  // Send welcome message
-  ws.send(JSON.stringify({ type: 'connected' }));
+  // Authentication check
+  if (!socket.data.authenticated) {
+    socket.disconnect();
+    return;
+  }
   
-  // Handle messages
-  ws.on('message', handleMessage);
+  // Register event handlers
+  registerEventHandlers(socket);
   
-  // Clean up on disconnect
-  ws.on('close', () => clients.delete(ws));
+  // Track connection
+  socket.on('disconnect', (reason) => {
+    logger.info('[DISCONNECT]', { socketId: socket.id, reason });
+  });
 });
 ```
 
-**Message Broadcasting**:
+**Event Handlers with Acknowledgments**:
 
 ```typescript
-function broadcast(message: object): void {
-  const payload = JSON.stringify(message);
-  clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(payload);
-    }
-  });
-}
+socket.on('collect-resources', async (data, callback) => {
+  try {
+    const result = await handleCollectResources(socket, data);
+    callback({ success: true, data: result });
+  } catch (error) {
+    logger.error('[ERROR] Resource collection failed:', error);
+    callback({ success: false, error: error.message });
+  }
+});
+```
+
+**Room-Based Broadcasting**:
+
+```typescript
+// Join world room
+socket.join(`world:${worldId}`);
+
+// Broadcast to specific world
+io.to(`world:${worldId}`).emit('state-update', {
+  type: 'resource-update',
+  data: newResources
+});
+
+// Broadcast to all except sender
+socket.to(`world:${worldId}`).emit('player-action', action);
 ```
 
 **Error Handling**:
 
 ```typescript
-ws.on('error', (error: Error) => {
-  console.error('WebSocket error:', error);
-  clients.delete(ws);
+socket.on('error', (error: Error) => {
+  logger.error('[SOCKET ERROR]', { socketId: socket.id, error });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  wss.clients.forEach((client) => {
-    client.close(1000, 'Server shutting down');
-  });
-  server.close();
+// Middleware error handling
+io.use((socket, next) => {
+  try {
+    // Validation logic
+    next();
+  } catch (error) {
+    next(new Error('Middleware error'));
+  }
 });
+```
+
+### Database Patterns (Drizzle ORM)
+
+**Query with Relations**:
+
+```typescript
+import { db, settlements, settlementStorage, plots } from './db';
+import { eq } from 'drizzle-orm';
+
+const settlement = await db
+  .select({
+    settlement: settlements,
+    storage: settlementStorage,
+    plot: plots,
+  })
+  .from(settlements)
+  .leftJoin(settlementStorage, eq(settlements.settlementStorageId, settlementStorage.id))
+  .leftJoin(plots, eq(settlements.plotId, plots.id))
+  .where(eq(settlements.id, settlementId))
+  .limit(1);
+```
+
+**Insert with Returning**:
+
+```typescript
+const [newSettlement] = await db
+  .insert(settlements)
+  .values({
+    id: generateId(),
+    playerProfileId: profileId,
+    plotId: plotId,
+    settlementStorageId: storageId,
+    name: 'New Settlement',
+  })
+  .returning();
+```
+
+**Update Resources**:
+
+```typescript
+const [updated] = await db
+  .update(settlementStorage)
+  .set({
+    food: newAmount.food,
+    water: newAmount.water,
+  })
+  .where(eq(settlementStorage.id, storageId))
+  .returning();
 ```
 
 ---
 
-## Message Protocol
+## Event Protocol
 
-### Client → Server
+### Client → Server Events
 
 ```typescript
-// Player action
+// Authenticate
 {
-  type: 'player_action',
-  action: 'move' | 'gather' | 'build',
-  payload: { ... },
-  timestamp: number
+  type: 'authenticate',
+  playerId: string,
+  token: string
 }
 
-// Join game
+// Join world
 {
-  type: 'join_game',
-  playerId: string,
-  gameId: string,
-  timestamp: number
+  type: 'join-world',
+  worldId: string,
+  playerId: string
+}
+
+// Collect resources
+{
+  type: 'collect-resources',
+  settlementId: string
+}
+
+// Build structure
+{
+  type: 'build-structure',
+  settlementId: string,
+  structureType: string,
+  position: { x: number, y: number }
 }
 ```
 
-### Server → Client
+### Server → Client Events
 
 ```typescript
-// Game state update
+// Connected
 {
-  type: 'state_update',
-  state: GameState,
+  type: 'connected',
+  message: string,
+  socketId: string,
   timestamp: number
 }
 
-// Error response
+// Game state
+{
+  type: 'game-state',
+  worldId: string,
+  state: {
+    settlements: Settlement[],
+    playerId: string
+  },
+  timestamp: number
+}
+
+// Resource update
+{
+  type: 'resource-update',
+  settlementId: string,
+  resources: ResourceAmounts,
+  production: ResourceAmounts,
+  timestamp: number
+}
+
+// Error
 {
   type: 'error',
+  code: string,
   message: string,
-  timestamp: number
-}
-
-// Player joined
-{
-  type: 'player_joined',
-  playerId: string,
   timestamp: number
 }
 ```
