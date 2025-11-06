@@ -1,24 +1,81 @@
-name: Uncharted Lands - Server - CI
+name: Uncharted Lands Server - CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "development"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "development"]
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node-version: [22.x]
+
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v2
+      - uses: actions/checkout@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: 7.0.x
-      - name: Restore dependencies
-        run: dotnet restore Main.sln
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check
+        run: npm run type-check
       - name: Build
-        run: dotnet build Main.sln --no-restore
-      - name: Test
-        run: dotnet test api.tests/api.tests.csproj --no-build --verbosity normal
+        run: npm run build
+      - name: Verify build output
+        run: |
+          if [ -d "dist" ]; then
+            echo "✅ Server build successful"
+            ls -la dist/
+          else
+            echo "❌ Build failed - dist/ directory not found"
+            exit 1
+          fi
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run ESLint
+        run: npm run lint --if-present
+      - name: Check formatting
+        run: npm run format -- --check --if-present
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test --if-present
