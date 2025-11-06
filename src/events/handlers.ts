@@ -11,7 +11,9 @@ import type {
 	LeaveWorldData,
 	GameStateRequest,
 	BuildStructureData,
-	CollectResourcesData
+	CollectResourcesData,
+	CreateWorldData,
+	CreateWorldResponse
 } from '../types/socket-events';
 import { logger } from '../utils/logger';
 import {
@@ -22,6 +24,7 @@ import {
 } from '../db/queries';
 import { calculateTimedProduction, addResources, subtractResources, hasEnoughResources } from '../game/resource-calculator';
 import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop';
+import { createWorld } from '../game/world-creator';
 
 /**
  * Register all event handlers for a socket connection
@@ -33,6 +36,7 @@ export function registerEventHandlers(socket: Socket): void {
 	// World Management
 	socket.on('join-world', (data) => handleJoinWorld(socket, data));
 	socket.on('leave-world', (data) => handleLeaveWorld(socket, data));
+	socket.on('create-world', (data, callback) => handleCreateWorld(socket, data, callback));
 
 	// Game State
 	socket.on('request-game-state', (data) => handleGameStateRequest(socket, data));
@@ -620,4 +624,101 @@ function handleError(socket: Socket, error: Error): void {
 		playerId: socket.data.playerId,
 		worldId: socket.data.worldId
 	});
+}
+
+/**
+ * Handle world creation request
+ */
+async function handleCreateWorld(
+	socket: Socket,
+	data: CreateWorldData,
+	callback?: (response: CreateWorldResponse) => void
+): Promise<void> {
+	const startTime = Date.now();
+	
+	logger.info(`[CREATE WORLD] Request from ${socket.id}:`, {
+		worldName: data.worldName,
+		serverId: data.serverId,
+		seed: data.seed,
+		width: data.width,
+		height: data.height
+	});
+
+	try {
+		// Validate input
+		if (!data.worldName?.trim()) {
+			const response: CreateWorldResponse = {
+				success: false,
+				error: 'World name is required',
+				timestamp: Date.now()
+			};
+			callback?.(response);
+			return;
+		}
+
+		// Create world with provided or default settings
+		const result = await createWorld({
+			worldName: data.worldName.trim(),
+			serverId: data.serverId ?? null,
+			seed: data.seed ?? Math.floor(Math.random() * 1000000),
+			width: data.width ?? 100,
+			height: data.height ?? 100,
+			// Default noise options for natural-looking terrain
+			elevationOptions: {
+				amplitude: 1,
+				persistence: 0.5,
+				frequency: 1,
+				octaves: 4,
+				scale: (x: number) => x / 50
+			},
+			precipitationOptions: {
+				amplitude: 1,
+				persistence: 0.5,
+				frequency: 1,
+				octaves: 3,
+				scale: (x: number) => x / 60
+			},
+			temperatureOptions: {
+				amplitude: 1,
+				persistence: 0.4,
+				frequency: 1,
+				octaves: 3,
+				scale: (x: number) => x / 80
+			}
+		});
+
+		const response: CreateWorldResponse = {
+			success: true,
+			worldId: result.worldId,
+			worldName: data.worldName,
+			stats: {
+				regionCount: result.regionCount,
+				tileCount: result.tileCount,
+				plotCount: result.plotCount,
+				duration: Date.now() - startTime
+			},
+			timestamp: Date.now()
+		};
+
+		logger.info(`[CREATE WORLD] World created successfully:`, {
+			worldId: result.worldId,
+			worldName: data.worldName,
+			stats: response.stats
+		});
+
+		callback?.(response);
+	} catch (error) {
+		logger.error('[CREATE WORLD] Failed to create world:', error, {
+			worldName: data.worldName,
+			error: error instanceof Error ? error.message : String(error)
+		});
+
+		const response: CreateWorldResponse = {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to create world',
+			timestamp: Date.now()
+		};
+
+		callback?.(response);
+	}
 }

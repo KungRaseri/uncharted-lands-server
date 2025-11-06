@@ -31,6 +31,8 @@
     "@paralleldrive/cuid2": "^3.0.4",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.44.7",
+    "fractal-noise": "^2.1.0",
+    "open-simplex-noise": "^2.5.0",
     "postgres": "^3.4.7",
     "socket.io": "^4.8.1",
     "ws": "^8.18.0"

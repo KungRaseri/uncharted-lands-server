@@ -10,6 +10,7 @@ export interface ClientToServerEvents {
 	'request-game-state': (data: GameStateRequest) => void;
 	'build-structure': (data: BuildStructureData, callback?: (response: ActionResponse) => void) => void;
 	'collect-resources': (data: CollectResourcesData, callback?: (response: ResourceResponse) => void) => void;
+	'create-world': (data: CreateWorldData, callback?: (response: CreateWorldResponse) => void) => void;
 }
 
 // Server -> Client Events
@@ -69,6 +70,29 @@ export interface LeaveWorldData {
 
 export interface WorldJoinedData {
 	worldId: string;
+	timestamp: number;
+}
+
+// World Creation
+export interface CreateWorldData {
+	worldName: string;
+	serverId?: string | null;
+	seed?: number;
+	width?: number;
+	height?: number;
+}
+
+export interface CreateWorldResponse {
+	success: boolean;
+	worldId?: string;
+	worldName?: string;
+	stats?: {
+		regionCount: number;
+		tileCount: number;
+		plotCount: number;
+		duration: number;
+	};
+	error?: string;
 	timestamp: number;
 }
 

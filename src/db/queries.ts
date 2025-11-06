@@ -18,6 +18,7 @@ import {
   servers, 
   worlds, 
   regions, 
+  biomes,
   tiles, 
   plots 
 } from './index';
@@ -226,6 +227,50 @@ export async function getOnlineServers() {
     .select()
     .from(servers)
     .where(eq(servers.status, 'ONLINE'));
+}
+
+// ===========================
+// BIOMES
+// ===========================
+
+/**
+ * Get all biomes
+ */
+export async function getAllBiomes() {
+  return await db
+    .select()
+    .from(biomes);
+}
+
+/**
+ * Find biome by precipitation and temperature ranges
+ */
+export async function findBiome(precipitation: number, temperature: number) {
+  const allBiomes = await getAllBiomes();
+  
+  // Filter biomes that match both precipitation and temperature
+  let filteredBiomes = allBiomes.filter(biome =>
+    Math.round(precipitation) >= biome.precipitationMin && 
+    Math.round(precipitation) <= biome.precipitationMax &&
+    Math.round(temperature) >= biome.temperatureMin && 
+    Math.round(temperature) <= biome.temperatureMax
+  );
+
+  // If no exact match, try matching precipitation only
+  if (!filteredBiomes.length) {
+    filteredBiomes = allBiomes.filter(biome =>
+      Math.round(precipitation) >= biome.precipitationMin && 
+      Math.round(precipitation) <= biome.precipitationMax
+    );
+  }
+
+  // Fallback to first biome if still no match
+  if (!filteredBiomes.length) {
+    return allBiomes[0];
+  }
+
+  // Return random matching biome for variety
+  return filteredBiomes[Math.floor(Math.random() * filteredBiomes.length)];
 }
 
 // ===========================
