@@ -17,9 +17,10 @@ import { logger } from '../utils/logger';
 import {
 	getSettlementWithDetails,
 	updateSettlementStorage,
-	getPlayerSettlements
+	getPlayerSettlements,
+	createStructure
 } from '../db/queries';
-import { calculateTimedProduction, addResources } from '../game/resource-calculator';
+import { calculateTimedProduction, addResources, subtractResources, hasEnoughResources } from '../game/resource-calculator';
 
 /**
  * Register all event handlers for a socket connection
@@ -231,20 +232,173 @@ async function handleBuildStructure(
 ): Promise<void> {
 	try {
 		logger.info(`[ACTION] Building structure: ${data.structureType} in settlement ${data.settlementId}`, {
-			socketId: socket.id
+			socketId: socket.id,
+			playerId: socket.data.playerId
 		});
 
-		// TODO: Validate and process structure building
-		// - Check if player owns settlement
-		// - Check if resources are sufficient
-		// - Check if location is valid
-		// - Update database
-		// - Broadcast to world
+		// Verify player is authenticated
+		if (!socket.data.playerId) {
+			const errorResponse = {
+				success: false,
+				error: 'Authentication required',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Get settlement with storage
+		const settlementData = await getSettlementWithDetails(data.settlementId);
+		
+		if (!settlementData?.settlement) {
+			const errorResponse = {
+				success: false,
+				error: 'Settlement not found',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Verify ownership
+		if (settlementData.settlement.playerProfileId !== socket.data.playerId) {
+			const errorResponse = {
+				success: false,
+				error: 'You do not own this settlement',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		const storage = settlementData.storage;
+		if (!storage) {
+			const errorResponse = {
+				success: false,
+				error: 'Settlement storage not found',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Define structure types and their costs
+		// In a real implementation, this would come from a configuration file or database
+		const structureTypes: Record<string, {
+			name: string;
+			description: string;
+			cost: { food: number; water: number; wood: number; stone: number; ore: number; };
+			requirements: { area: number; solar: number; wind: number; };
+			modifiers?: Array<{ name: string; description: string; value: number; }>;
+		}> = {
+			'house': {
+				name: 'House',
+				description: 'A basic dwelling for settlers',
+				cost: { food: 0, water: 0, wood: 50, stone: 20, ore: 0 },
+				requirements: { area: 1, solar: 0, wind: 0 },
+				modifiers: [
+					{ name: 'population_capacity', description: 'Increases population capacity', value: 5 }
+				]
+			},
+			'farm': {
+				name: 'Farm',
+				description: 'Produces food over time',
+				cost: { food: 0, water: 10, wood: 30, stone: 10, ore: 0 },
+				requirements: { area: 2, solar: 1, wind: 0 },
+				modifiers: [
+					{ name: 'food_production', description: 'Increases food production', value: 10 }
+				]
+			},
+			'well': {
+				name: 'Well',
+				description: 'Provides access to water',
+				cost: { food: 0, water: 0, wood: 20, stone: 40, ore: 5 },
+				requirements: { area: 1, solar: 0, wind: 0 },
+				modifiers: [
+					{ name: 'water_production', description: 'Increases water production', value: 15 }
+				]
+			},
+			'lumbermill': {
+				name: 'Lumber Mill',
+				description: 'Processes wood more efficiently',
+				cost: { food: 0, water: 5, wood: 40, stone: 30, ore: 10 },
+				requirements: { area: 2, solar: 0, wind: 1 },
+				modifiers: [
+					{ name: 'wood_production', description: 'Increases wood production', value: 12 }
+				]
+			},
+			'quarry': {
+				name: 'Quarry',
+				description: 'Extracts stone from the ground',
+				cost: { food: 0, water: 10, wood: 30, stone: 20, ore: 15 },
+				requirements: { area: 3, solar: 0, wind: 0 },
+				modifiers: [
+					{ name: 'stone_production', description: 'Increases stone production', value: 8 }
+				]
+			},
+			'mine': {
+				name: 'Mine',
+				description: 'Extracts ore from deep underground',
+				cost: { food: 0, water: 15, wood: 50, stone: 60, ore: 20 },
+				requirements: { area: 3, solar: 0, wind: 0 },
+				modifiers: [
+					{ name: 'ore_production', description: 'Increases ore production', value: 5 }
+				]
+			}
+		};
+
+		const structureConfig = structureTypes[data.structureType.toLowerCase()];
+		if (!structureConfig) {
+			const errorResponse = {
+				success: false,
+				error: `Unknown structure type: ${data.structureType}`,
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Check if player has enough resources
+		const currentResources = {
+			food: storage.food,
+			water: storage.water,
+			wood: storage.wood,
+			stone: storage.stone,
+			ore: storage.ore
+		};
+
+		const hasResources = hasEnoughResources(currentResources, structureConfig.cost);
+		if (!hasResources) {
+			const errorResponse = {
+				success: false,
+				error: 'Insufficient resources to build structure',
+				required: structureConfig.cost,
+				current: currentResources,
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Deduct resources
+		const newResources = subtractResources(currentResources, structureConfig.cost);
+		await updateSettlementStorage(storage.id, newResources);
+
+		// Create the structure
+		const structureResult = await createStructure(
+			data.settlementId,
+			structureConfig.name,
+			structureConfig.description,
+			{
+				...structureConfig.requirements,
+				food: structureConfig.cost.food,
+				water: structureConfig.cost.water,
+				wood: structureConfig.cost.wood,
+				stone: structureConfig.cost.stone,
+				ore: structureConfig.cost.ore
+			},
+			structureConfig.modifiers
+		);
 
 		const response = {
 			success: true,
 			settlementId: data.settlementId,
-			structureType: data.structureType,
+			structure: structureResult.structure,
+			remainingResources: newResources,
 			timestamp: Date.now()
 		};
 
@@ -255,10 +409,24 @@ async function handleBuildStructure(
 			socket.emit('structure-built', response);
 		}
 
-		// TODO: Broadcast to world when implemented
-		// if (socket.data.worldId) {
-		//   socket.to(`world:${socket.data.worldId}`).emit('state-update', {...});
-		// }
+		// Broadcast to world
+		if (socket.data.worldId) {
+			socket.to(`world:${socket.data.worldId}`).emit('state-update', {
+				type: 'structure-built',
+				settlementId: data.settlementId,
+				structureId: structureResult.structure.id,
+				structureName: structureConfig.name,
+				playerId: socket.data.playerId,
+				timestamp: Date.now()
+			});
+		}
+
+		logger.info('[ACTION] Structure built successfully', {
+			settlementId: data.settlementId,
+			structureId: structureResult.structure.id,
+			structureType: data.structureType,
+			playerId: socket.data.playerId
+		});
 	} catch (error) {
 		logger.error('[ACTION] Error building structure:', error);
 		const errorResponse = {
@@ -306,7 +474,7 @@ async function handleCollectResources(
 		// Fetch settlement with details from database
 		const settlementData = await getSettlementWithDetails(data.settlementId);
 		
-		if (!settlementData || !settlementData.settlement) {
+		if (!settlementData?.settlement) {
 			const errorResponse = {
 				success: false,
 				error: 'Settlement not found',

@@ -6,7 +6,21 @@
 
 import { eq, and, desc } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { db, accounts, profiles, settlements, settlementStorage, servers, worlds, regions, tiles, plots } from './index';
+import { 
+  db, 
+  accounts, 
+  profiles, 
+  settlements, 
+  settlementStorage, 
+  settlementStructures,
+  structureRequirements,
+  structureModifiers,
+  servers, 
+  worlds, 
+  regions, 
+  tiles, 
+  plots 
+} from './index';
 
 // ===========================
 // UTILITY FUNCTIONS
@@ -212,4 +226,89 @@ export async function getOnlineServers() {
     .select()
     .from(servers)
     .where(eq(servers.status, 'ONLINE'));
+}
+
+// ===========================
+// STRUCTURES
+// ===========================
+
+/**
+ * Get settlement structures with their requirements and modifiers
+ */
+export async function getSettlementStructures(settlementId: string) {
+  return await db
+    .select({
+      structure: settlementStructures,
+      requirements: structureRequirements,
+      modifiers: structureModifiers,
+    })
+    .from(settlementStructures)
+    .leftJoin(structureRequirements, eq(settlementStructures.structureRequirementsId, structureRequirements.id))
+    .leftJoin(structureModifiers, eq(settlementStructures.id, structureModifiers.settlementStructureId))
+    .where(eq(settlementStructures.settlementId, settlementId));
+}
+
+/**
+ * Create a new structure with requirements and modifiers
+ */
+export async function createStructure(
+  settlementId: string,
+  name: string,
+  description: string,
+  requirements: {
+    area: number;
+    solar: number;
+    wind: number;
+    food: number;
+    water: number;
+    wood: number;
+    stone: number;
+    ore: number;
+  },
+  modifiers?: Array<{
+    name: string;
+    description: string;
+    value: number;
+  }>
+) {
+  // Create requirements first
+  const [reqRecord] = await db
+    .insert(structureRequirements)
+    .values({
+      id: generateId(),
+      ...requirements,
+    })
+    .returning();
+
+  // Create structure
+  const [structure] = await db
+    .insert(settlementStructures)
+    .values({
+      id: generateId(),
+      structureRequirementsId: reqRecord.id,
+      settlementId,
+      name,
+      description,
+    })
+    .returning();
+
+  // Create modifiers if provided
+  if (modifiers && modifiers.length > 0) {
+    const modifierRecords = await db
+      .insert(structureModifiers)
+      .values(
+        modifiers.map(mod => ({
+          id: generateId(),
+          settlementStructureId: structure.id,
+          name: mod.name,
+          description: mod.description,
+          value: mod.value,
+        }))
+      )
+      .returning();
+    
+    return { structure, requirements: reqRecord, modifiers: modifierRecords };
+  }
+
+  return { structure, requirements: reqRecord, modifiers: [] };
 }
