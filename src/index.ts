@@ -20,7 +20,8 @@ import {
 	errorHandlingMiddleware
 } from './middleware/socket-middleware';
 import { logger } from './utils/logger';
-import { db, closeDatabase } from './db/index';
+import { closeDatabase } from './db/index';
+import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop';
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Create HTTP server for health checks and WebSocket upgrade
 const httpServer = http.createServer((req, res) => {
 	if (req.url === '/health') {
+		const gameLoopStatus = getGameLoopStatus();
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(
 			JSON.stringify({
@@ -41,6 +43,7 @@ const httpServer = http.createServer((req, res) => {
 				uptime: process.uptime(),
 				connections: io.engine.clientsCount,
 				environment: NODE_ENV,
+				gameLoop: gameLoopStatus,
 				timestamp: new Date().toISOString()
 			})
 		);
@@ -138,11 +141,19 @@ httpServer.listen(PORT, HOST, () => {
 	logger.info(`  Environment: ${NODE_ENV}`);
 	logger.info(`  CORS:        ${CORS_ORIGINS.join(', ')}`);
 	logger.info('═'.repeat(50));
+
+	// Start the game loop
+	startGameLoop(io);
 });
 
 // Graceful shutdown
 const shutdown = async (signal: string) => {
 	logger.info(`[SHUTDOWN] ${signal} signal received`);
+	
+	// Stop game loop first
+	logger.info('[SHUTDOWN] Stopping game loop...');
+	stopGameLoop();
+	
 	logger.info('[SHUTDOWN] Closing Socket.IO server...');
 
 	io.close(async () => {

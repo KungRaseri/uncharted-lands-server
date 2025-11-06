@@ -21,6 +21,7 @@ import {
 	createStructure
 } from '../db/queries';
 import { calculateTimedProduction, addResources, subtractResources, hasEnoughResources } from '../game/resource-calculator';
+import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop';
 
 /**
  * Register all event handlers for a socket connection
@@ -121,6 +122,11 @@ async function handleJoinWorld(socket: Socket, data: JoinWorldData): Promise<voi
 		// Join Socket.IO room for world-specific broadcasts
 		await socket.join(`world:${data.worldId}`);
 
+		// Register player's settlements for auto-updates in the game loop
+		if (socket.data.playerId) {
+			await registerPlayerSettlements(socket.data.playerId, data.worldId);
+		}
+
 		// Notify player they joined
 		socket.emit('world-joined', {
 			worldId: data.worldId,
@@ -154,6 +160,11 @@ async function handleLeaveWorld(socket: Socket, data: LeaveWorldData): Promise<v
 		logger.info(`[WORLD] Player ${data.playerId} leaving world ${data.worldId}`, {
 			socketId: socket.id
 		});
+
+		// Unregister player's settlements from game loop
+		if (socket.data.playerId) {
+			await unregisterPlayerSettlements(socket.data.playerId);
+		}
 
 		// Leave Socket.IO room
 		await socket.leave(`world:${data.worldId}`);
@@ -581,11 +592,16 @@ async function handleCollectResources(
 /**
  * Handle socket disconnect
  */
-function handleDisconnect(socket: Socket, reason: string): void {
+async function handleDisconnect(socket: Socket, reason: string): Promise<void> {
 	logger.info(`[DISCONNECT] Client disconnected: ${socket.id} (${reason})`, {
 		playerId: socket.data.playerId,
 		worldId: socket.data.worldId
 	});
+
+	// Unregister player's settlements from game loop
+	if (socket.data.playerId) {
+		await unregisterPlayerSettlements(socket.data.playerId);
+	}
 
 	// Notify others in the world if player was in one
 	if (socket.data.worldId && socket.data.playerId) {
