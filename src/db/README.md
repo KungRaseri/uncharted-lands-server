@@ -148,7 +148,8 @@ const result = await db
 ### Inserting Data
 
 ```typescript
-import { db, settlements, generateId } from './db';
+import { db, settlements } from './db';
+import { generateId } from './queries';
 
 const [newSettlement] = await db
   .insert(settlements)
@@ -161,6 +162,8 @@ const [newSettlement] = await db
   })
   .returning();
 ```
+
+**Note**: `generateId()` uses the `@paralleldrive/cuid2` library to generate cryptographically secure, collision-resistant IDs.
 
 ### Updating Data
 

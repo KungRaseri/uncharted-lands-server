@@ -5,7 +5,19 @@
  */
 
 import { eq, and, desc } from 'drizzle-orm';
+import { createId } from '@paralleldrive/cuid2';
 import { db, accounts, profiles, settlements, settlementStorage, servers, worlds, regions, tiles, plots } from './index';
+
+// ===========================
+// UTILITY FUNCTIONS
+// ===========================
+
+/**
+ * Generate CUID ID using the @paralleldrive/cuid2 library
+ * This is a cryptographically secure ID generator
+ * Re-exported for backward compatibility with existing code
+ */
+export const generateId = createId;
 
 // ===========================
 // AUTHENTICATION & PROFILES
@@ -200,16 +212,4 @@ export async function getOnlineServers() {
     .select()
     .from(servers)
     .where(eq(servers.status, 'ONLINE'));
-}
-
-// ===========================
-// UTILITY FUNCTIONS
-// ===========================
-
-/**
- * Generate CUID-like ID (simple version)
- * In production, use a proper CUID library
- */
-export function generateId(): string {
-  return `c${Date.now().toString(36)}${Math.random().toString(36).substring(2, 9)}`;
 }

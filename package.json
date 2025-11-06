@@ -28,6 +28,7 @@
   "author": "KungRaseri",
   "license": "MIT",
   "dependencies": {
+    "@paralleldrive/cuid2": "^3.0.4",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.44.7",
     "postgres": "^3.4.7",
