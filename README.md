@@ -8,7 +8,7 @@ Real-time WebSocket server for the Uncharted Lands game, handling multiplayer st
 - **TypeScript** 5.7.3
 - **WebSocket Library**: ws 8.18.0
 - **Build Tool**: tsx (dev) / tsc (production)
-- **Deployment**: Railway or Render
+- **Deployment**: Custom deployment (any Node.js hosting)
 
 ## Getting Started
 
@@ -106,13 +106,46 @@ SENTRY_DSN=https://...       # Sentry error tracking (optional)
 
 ## Deployment
 
-### Railway
+### Custom Deployment
+
+This server can be deployed to any platform that supports long-running Node.js processes and WebSocket connections.
+
+**Requirements:**
+- Node.js 22.x or later
+- Support for persistent connections
+- WebSocket protocol support
+
+**Environment Variables:**
+```bash
+PORT=8080              # Server port (default: 8080)
+HOST=0.0.0.0          # Host to bind to (default: 0.0.0.0)
+NODE_ENV=production   # Environment mode
+```
+
+**Build and Start:**
+```bash
+npm install
+npm run build
+npm start
+```
+
+**Health Check:**
+The server provides a health check endpoint at `/health` that returns:
+```json
+{
+  "status": "healthy",
+  "uptime": 12345.678,
+  "timestamp": "2025-11-06T10:30:00.000Z"
+}
+```
+
+### Alternative: Railway
 
 1. Create new project and link GitHub repo
 2. Add environment variables in dashboard
 3. Deploy automatically from `main` branch
 
-### Render
+### Alternative: Render
 
 1. Create new Web Service
 2. Set build command: `npm install && npm run build`
@@ -124,7 +157,7 @@ SENTRY_DSN=https://...       # Sentry error tracking (optional)
 This WebSocket server is deployed separately from the SvelteKit client because:
 
 - **Vercel limitations**: Vercel's serverless functions cannot maintain persistent WebSocket connections
-- **Deployment target**: Railway and Render support long-running WebSocket processes
+- **Deployment target**: Custom deployment on any platform that supports long-running Node.js processes
 - **Independent scaling**: Server can scale independently from the client
 
 ## Contributing
