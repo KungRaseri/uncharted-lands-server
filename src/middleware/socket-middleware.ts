@@ -7,47 +7,71 @@
 import type { Socket } from 'socket.io';
 import type { ExtendedError } from 'socket.io/dist/namespace';
 import { logger } from '../utils/logger';
+import { findAccountByToken, findProfileByAccountId } from '../db/queries';
 
 /**
  * Authentication middleware
  * Validates connection before allowing socket to connect
  */
-export function authenticationMiddleware(
+export async function authenticationMiddleware(
 	socket: Socket,
 	next: (err?: ExtendedError) => void
-): void {
+): Promise<void> {
 	try {
 		// Extract auth data from handshake
 		const { auth } = socket.handshake;
+		const token = auth?.token as string;
 
-		// For now, allow all connections
-		// TODO: Implement JWT validation when auth is ready
-		if (process.env.NODE_ENV === 'production') {
-			// In production, validate token
-			const token = auth?.token as string;
-			if (!token) {
-				logger.warn('[AUTH] Connection rejected: No token provided', {
-					socketId: socket.id
-				});
-				return next(new Error('Authentication required'));
-			}
-
-			// TODO: Validate JWT token
-			// const isValid = validateJWT(token);
-			// if (!isValid) {
-			//   return next(new Error('Invalid token'));
-			// }
+		// Check if token is provided
+		if (!token || token.length === 0) {
+			logger.warn('[AUTH] Connection rejected: No token provided', {
+				socketId: socket.id,
+				address: socket.handshake.address
+			});
+			return next(new Error('Authentication required'));
 		}
 
-		// Set initial socket data
-		socket.data.authenticated = false;
+		// Look up account by token
+		const account = await findAccountByToken(token);
+		
+		if (!account) {
+			logger.warn('[AUTH] Connection rejected: Invalid token', {
+				socketId: socket.id,
+				address: socket.handshake.address
+			});
+			return next(new Error('Invalid authentication token'));
+		}
+
+		// Get profile for this account
+		const profile = await findProfileByAccountId(account.id);
+		
+		if (!profile) {
+			logger.error('[AUTH] Connection rejected: Profile not found for account', {
+				socketId: socket.id,
+				accountId: account.id
+			});
+			return next(new Error('Profile not found for account'));
+		}
+
+		// Attach user data to socket
+		socket.data.authenticated = true;
+		socket.data.playerId = profile.id;
+		socket.data.username = profile.username;
+		socket.data.accountId = account.id;
+		socket.data.role = account.role;
 		socket.data.connectedAt = Date.now();
 
-		logger.debug('[AUTH] Connection allowed', { socketId: socket.id });
+		logger.info('[AUTH] User authenticated successfully', {
+			socketId: socket.id,
+			username: profile.username,
+			playerId: profile.id,
+			role: account.role
+		});
+
 		next();
 	} catch (error) {
-		logger.error('[AUTH] Middleware error:', error);
-		next(new Error('Authentication error'));
+		logger.error('[AUTH] Authentication error:', error);
+		next(new Error('Authentication failed'));
 	}
 }
 

@@ -14,6 +14,12 @@ import type {
 	CollectResourcesData
 } from '../types/socket-events';
 import { logger } from '../utils/logger';
+import {
+	getSettlementWithDetails,
+	updateSettlementStorage,
+	getPlayerSettlements
+} from '../db/queries';
+import { calculateTimedProduction, addResources } from '../game/resource-calculator';
 
 /**
  * Register all event handlers for a socket connection
@@ -173,17 +179,37 @@ async function handleLeaveWorld(socket: Socket, data: LeaveWorldData): Promise<v
  */
 async function handleGameStateRequest(socket: Socket, data: GameStateRequest): Promise<void> {
 	try {
-		logger.info(`[STATE] State requested for world ${data.worldId}`, { socketId: socket.id });
+		logger.info(`[STATE] State requested for world ${data.worldId}`, {
+			socketId: socket.id,
+			playerId: socket.data.playerId
+		});
 
-		// TODO: Fetch actual game state from database/cache
-		// For now, send placeholder
+		// Verify player is authenticated
+		if (!socket.data.playerId) {
+			socket.emit('error', {
+				code: 'AUTH_REQUIRED',
+				message: 'Authentication required',
+				timestamp: Date.now()
+			});
+			return;
+		}
+
+		// Fetch player's settlements
+		const settlements = await getPlayerSettlements(socket.data.playerId);
+
+		// Send game state to client
 		socket.emit('game-state', {
 			worldId: data.worldId,
 			state: {
-				// Will be populated with real game state
-				message: 'Game state will be implemented'
+				settlements: settlements,
+				playerId: socket.data.playerId
 			},
 			timestamp: Date.now()
+		});
+
+		logger.info('[STATE] Game state sent successfully', {
+			playerId: socket.data.playerId,
+			settlementCount: settlements.length
 		});
 	} catch (error) {
 		logger.error('[STATE] Error fetching game state:', error);
@@ -263,25 +289,94 @@ async function handleCollectResources(
 ): Promise<void> {
 	try {
 		logger.info(`[ACTION] Collecting resources for settlement ${data.settlementId}`, {
-			socketId: socket.id
+			socketId: socket.id,
+			playerId: socket.data.playerId
 		});
 
-		// TODO: Calculate and update resources
-		// - Fetch settlement from database
-		// - Calculate production since last collection
-		// - Update storage
-		// - Return new amounts
+		// Verify player is authenticated
+		if (!socket.data.playerId) {
+			const errorResponse = {
+				success: false,
+				error: 'Authentication required',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
 
+		// Fetch settlement with details from database
+		const settlementData = await getSettlementWithDetails(data.settlementId);
+		
+		if (!settlementData || !settlementData.settlement) {
+			const errorResponse = {
+				success: false,
+				error: 'Settlement not found',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Verify player owns this settlement
+		if (settlementData.settlement.playerProfileId !== socket.data.playerId) {
+			const errorResponse = {
+				success: false,
+				error: 'You do not own this settlement',
+				timestamp: Date.now()
+			};
+			logger.warn('[ACTION] Player attempted to collect resources from settlement they do not own', {
+				playerId: socket.data.playerId,
+				settlementId: data.settlementId,
+				ownerId: settlementData.settlement.playerProfileId
+			});
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Get current storage
+		const storage = settlementData.storage;
+		const plot = settlementData.plot;
+		
+		if (!storage) {
+			const errorResponse = {
+				success: false,
+				error: 'Settlement storage not found',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		if (!plot) {
+			const errorResponse = {
+				success: false,
+				error: 'Settlement plot not found',
+				timestamp: Date.now()
+			};
+			return callback ? callback(errorResponse) : undefined;
+		}
+
+		// Calculate production since last update
+		// Using updatedAt as last collection time
+		const lastCollectionTime = settlementData.settlement.updatedAt?.getTime() || Date.now();
+		const production = calculateTimedProduction(plot, lastCollectionTime);
+
+		// Add production to current storage
+		const newResources = addResources(
+			{
+				food: storage.food,
+				water: storage.water,
+				wood: storage.wood,
+				stone: storage.stone,
+				ore: storage.ore
+			},
+			production
+		);
+
+		// Update storage in database
+		await updateSettlementStorage(storage.id, newResources);
+		
 		const response = {
 			success: true,
 			settlementId: data.settlementId,
-			resources: {
-				food: 0,
-				water: 0,
-				wood: 0,
-				stone: 0,
-				ore: 0
-			},
+			resources: newResources,
+			production: production,
 			timestamp: Date.now()
 		};
 
@@ -290,6 +385,11 @@ async function handleCollectResources(
 		} else {
 			socket.emit('resources-collected', response);
 		}
+
+		logger.info('[ACTION] Resources collected successfully', {
+			settlementId: data.settlementId,
+			playerId: socket.data.playerId
+		});
 	} catch (error) {
 		logger.error('[ACTION] Error collecting resources:', error);
 		const errorResponse = {

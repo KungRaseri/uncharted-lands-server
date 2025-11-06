@@ -20,6 +20,7 @@ import {
 	errorHandlingMiddleware
 } from './middleware/socket-middleware';
 import { logger } from './utils/logger';
+import { db, closeDatabase } from './db/index';
 
 // Load environment variables
 dotenv.config();
@@ -140,12 +141,20 @@ httpServer.listen(PORT, HOST, () => {
 });
 
 // Graceful shutdown
-const shutdown = (signal: string) => {
+const shutdown = async (signal: string) => {
 	logger.info(`[SHUTDOWN] ${signal} signal received`);
 	logger.info('[SHUTDOWN] Closing Socket.IO server...');
 
-	io.close(() => {
+	io.close(async () => {
 		logger.info('[SHUTDOWN] Socket.IO server closed');
+
+		// Close database connections
+		try {
+			await closeDatabase();
+			logger.info('[SHUTDOWN] Database connections closed');
+		} catch (error) {
+			logger.error('[SHUTDOWN] Error closing database:', error);
+		}
 
 		httpServer.close(() => {
 			logger.info('[SHUTDOWN] HTTP server closed');
