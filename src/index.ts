@@ -1,11 +1,11 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import http from 'http';
+import http from 'node:http';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
 
-const PORT = parseInt(process.env.PORT || '8080', 10);
+const PORT = Number.parseInt(process.env.PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Create HTTP server for health checks
@@ -30,11 +30,13 @@ wss.on('connection', (ws: WebSocket, req) => {
   clients.add(ws);
 
   // Send welcome message
-  ws.send(JSON.stringify({
-    type: 'connected',
-    message: 'Welcome to Uncharted Lands Server',
-    timestamp: Date.now()
-  }));
+  ws.send(
+    JSON.stringify({
+      type: 'connected',
+      message: 'Welcome to Uncharted Lands Server',
+      timestamp: Date.now(),
+    })
+  );
 
   // Handle incoming messages
   ws.on('message', (data: Buffer) => {
@@ -43,18 +45,22 @@ wss.on('connection', (ws: WebSocket, req) => {
       console.log('Received message:', message);
 
       // Echo back for now (implement game logic here)
-      ws.send(JSON.stringify({
-        type: 'echo',
-        data: message,
-        timestamp: Date.now()
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'echo',
+          data: message,
+          timestamp: Date.now(),
+        })
+      );
     } catch (error) {
       console.error('Error parsing message:', error);
-      ws.send(JSON.stringify({
-        type: 'error',
-        message: 'Invalid message format',
-        timestamp: Date.now()
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format',
+          timestamp: Date.now(),
+        })
+      );
     }
   });
 
@@ -74,11 +80,11 @@ wss.on('connection', (ws: WebSocket, req) => {
 // Broadcast message to all connected clients
 export function broadcast(message: object): void {
   const payload = JSON.stringify(message);
-  clients.forEach((client) => {
+  for (const client of clients) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(payload);
     }
-  });
+  }
 }
 
 // Start server
@@ -91,9 +97,9 @@ server.listen(PORT, HOST, () => {
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
-  wss.clients.forEach((client) => {
+  for (const client of wss.clients) {
     client.close(1000, 'Server shutting down');
-  });
+  }
   server.close(() => {
     console.log('HTTP server closed');
     process.exit(0);

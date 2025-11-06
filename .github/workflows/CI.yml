@@ -58,7 +58,7 @@ jobs:
       - name: Run ESLint
         run: npm run lint --if-present
       - name: Check formatting
-        run: npm run format -- --check --if-present
+        run: npm run format:check --if-present
 
   test:
     name: Test
