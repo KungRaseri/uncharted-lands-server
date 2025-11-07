@@ -6,6 +6,8 @@
 
 import { Server } from 'socket.io';
 import http from 'node:http';
+import express from 'express';
+import cors from 'cors';
 import * as dotenv from 'dotenv';
 import type {
 	ClientToServerEvents,
@@ -22,6 +24,7 @@ import {
 import { logger } from './utils/logger';
 import { closeDatabase } from './db/index';
 import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop';
+import apiRouter from './api/index';
 
 // Load environment variables
 dotenv.config();
@@ -32,26 +35,45 @@ const HOST = process.env.HOST || '0.0.0.0';
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:5173'];
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Create HTTP server for health checks and WebSocket upgrade
-const httpServer = http.createServer((req, res) => {
-	if (req.url === '/health') {
-		const gameLoopStatus = getGameLoopStatus();
-		res.writeHead(200, { 'Content-Type': 'application/json' });
-		res.end(
-			JSON.stringify({
-				status: 'healthy',
-				uptime: process.uptime(),
-				connections: io.engine.clientsCount,
-				environment: NODE_ENV,
-				gameLoop: gameLoopStatus,
-				timestamp: new Date().toISOString()
-			})
-		);
-	} else {
-		res.writeHead(404, { 'Content-Type': 'application/json' });
-		res.end(JSON.stringify({ error: 'Not found' }));
-	}
+// Create Express app
+const app = express();
+
+// Express middleware
+app.use(cors({
+	origin: CORS_ORIGINS,
+	credentials: true,
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// REST API routes
+app.use('/api', apiRouter);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+	const gameLoopStatus = getGameLoopStatus();
+	res.json({
+		status: 'healthy',
+		uptime: process.uptime(),
+		connections: io?.engine?.clientsCount || 0,
+		environment: NODE_ENV,
+		gameLoop: gameLoopStatus,
+		timestamp: new Date().toISOString()
+	});
 });
+
+// 404 handler for unknown routes
+app.use((req, res) => {
+	res.status(404).json({ 
+		error: 'Not found',
+		path: req.path,
+		method: req.method
+	});
+});
+
+// Create HTTP server from Express app
+const httpServer = http.createServer(app);
 
 // Create Socket.IO server with TypeScript types
 const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
@@ -137,6 +159,7 @@ httpServer.listen(PORT, HOST, () => {
 	logger.info('  Uncharted Lands - Game Server');
 	logger.info('═'.repeat(50));
 	logger.info(`  WebSocket:   ws://${HOST}:${PORT}`);
+	logger.info(`  REST API:    http://${HOST}:${PORT}/api`);
 	logger.info(`  Health:      http://${HOST}:${PORT}/health`);
 	logger.info(`  Environment: ${NODE_ENV}`);
 	logger.info(`  CORS:        ${CORS_ORIGINS.join(', ')}`);
