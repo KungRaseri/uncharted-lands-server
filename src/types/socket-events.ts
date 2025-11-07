@@ -11,6 +11,8 @@ export interface ClientToServerEvents {
 	'build-structure': (data: BuildStructureData, callback?: (response: ActionResponse) => void) => void;
 	'collect-resources': (data: CollectResourcesData, callback?: (response: ResourceResponse) => void) => void;
 	'create-world': (data: CreateWorldData, callback?: (response: CreateWorldResponse) => void) => void;
+	'request-world-data': (data: RequestWorldDataData, callback?: (response: WorldDataResponse) => void) => void;
+	'request-region': (data: RequestRegionData, callback?: (response: RegionDataResponse) => void) => void;
 }
 
 // Server -> Client Events
@@ -180,6 +182,80 @@ export interface ErrorData {
 // Generic Action Response
 export interface ActionResponse {
 	success: boolean;
+	error?: string;
+	timestamp: number;
+}
+
+// World Data Loading
+export interface RequestWorldDataData {
+	worldId: string;
+	includeRegions?: boolean;
+}
+
+export interface WorldDataResponse {
+	success: boolean;
+	world?: {
+		id: string;
+		name: string;
+		serverId: string;
+		elevationSettings: unknown;
+		precipitationSettings: unknown;
+		temperatureSettings: unknown;
+		createdAt: Date;
+		updatedAt: Date;
+	};
+	regions?: Array<{
+		id: string;
+		worldId: string;
+		name: string;
+		xCoord: number;
+		yCoord: number;
+		elevationMap: unknown;
+		precipitationMap: unknown;
+		temperatureMap: unknown;
+	}>;
+	error?: string;
+	timestamp: number;
+}
+
+export interface RequestRegionData {
+	regionId: string;
+	includeTiles?: boolean;
+}
+
+export interface RegionDataResponse {
+	success: boolean;
+	region?: {
+		id: string;
+		worldId: string;
+		name: string;
+		xCoord: number;
+		yCoord: number;
+		elevationMap: unknown;
+		precipitationMap: unknown;
+		temperatureMap: unknown;
+		tiles?: Array<{
+			id: string;
+			biomeId: string;
+			regionId: string;
+			elevation: number;
+			temperature: number;
+			precipitation: number;
+			type: 'OCEAN' | 'LAND';
+			plots?: Array<{
+				id: string;
+				tileId: string;
+				area: number;
+				solar: number;
+				wind: number;
+				food: number;
+				water: number;
+				wood: number;
+				stone: number;
+				ore: number;
+			}>;
+		}>;
+	};
 	error?: string;
 	timestamp: number;
 }

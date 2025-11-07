@@ -13,7 +13,11 @@ import type {
 	BuildStructureData,
 	CollectResourcesData,
 	CreateWorldData,
-	CreateWorldResponse
+	CreateWorldResponse,
+	RequestWorldDataData,
+	WorldDataResponse,
+	RequestRegionData,
+	RegionDataResponse
 } from '../types/socket-events';
 import { logger } from '../utils/logger';
 import {
@@ -37,6 +41,8 @@ export function registerEventHandlers(socket: Socket): void {
 	socket.on('join-world', (data) => handleJoinWorld(socket, data));
 	socket.on('leave-world', (data) => handleLeaveWorld(socket, data));
 	socket.on('create-world', (data, callback) => handleCreateWorld(socket, data, callback));
+	socket.on('request-world-data', (data, callback) => handleRequestWorldData(socket, data, callback));
+	socket.on('request-region', (data, callback) => handleRequestRegion(socket, data, callback));
 
 	// Game State
 	socket.on('request-game-state', (data) => handleGameStateRequest(socket, data));
@@ -716,6 +722,216 @@ async function handleCreateWorld(
 		const response: CreateWorldResponse = {
 			success: false,
 			error: error instanceof Error ? error.message : 'Failed to create world',
+			timestamp: Date.now()
+		};
+
+		callback?.(response);
+	}
+}
+
+/**
+ * Handle world data request
+ */
+async function handleRequestWorldData(
+	socket: Socket,
+	data: RequestWorldDataData,
+	callback?: (response: WorldDataResponse) => void
+): Promise<void> {
+	logger.info(`[REQUEST WORLD DATA] Request from ${socket.id}:`, {
+		worldId: data.worldId,
+		includeRegions: data.includeRegions
+	});
+
+	try {
+		// Validate input
+		if (!data.worldId?.trim()) {
+			const response: WorldDataResponse = {
+				success: false,
+				error: 'World ID is required',
+				timestamp: Date.now()
+			};
+			callback?.(response);
+			return;
+		}
+
+		// Import db and worlds here to avoid circular dependencies
+		const { db, worlds, regions } = await import('../db/index.js');
+		const { eq } = await import('drizzle-orm');
+
+		// Get world info
+		const world = await db.query.worlds.findFirst({
+			where: eq(worlds.id, data.worldId)
+		});
+
+		if (!world) {
+			logger.warn(`[REQUEST WORLD DATA] World not found: ${data.worldId}`);
+			const response: WorldDataResponse = {
+				success: false,
+				error: 'World not found',
+				timestamp: Date.now()
+			};
+			callback?.(response);
+			return;
+		}
+
+		// Optionally include region data
+		let regionData: WorldDataResponse['regions'] = undefined;
+		if (data.includeRegions) {
+			const dbRegions = await db.query.regions.findMany({
+				where: eq(regions.worldId, data.worldId)
+			});
+
+			regionData = dbRegions.map(r => ({
+				id: r.id,
+				worldId: r.worldId,
+				name: r.name,
+				xCoord: r.xCoord,
+				yCoord: r.yCoord,
+				elevationMap: r.elevationMap,
+				precipitationMap: r.precipitationMap,
+				temperatureMap: r.temperatureMap
+			}));
+
+			logger.info(`[REQUEST WORLD DATA] Loaded ${regionData.length} regions`);
+		}
+
+		const response: WorldDataResponse = {
+			success: true,
+			world: {
+				id: world.id,
+				name: world.name,
+				serverId: world.serverId,
+				elevationSettings: world.elevationSettings,
+				precipitationSettings: world.precipitationSettings,
+				temperatureSettings: world.temperatureSettings,
+				createdAt: world.createdAt,
+				updatedAt: world.updatedAt
+			},
+			regions: regionData,
+			timestamp: Date.now()
+		};
+
+		logger.info(`[REQUEST WORLD DATA] Successfully loaded world: ${world.name}`);
+		callback?.(response);
+
+	} catch (error) {
+		logger.error('[REQUEST WORLD DATA] Error:', error);
+
+		const response: WorldDataResponse = {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to load world data',
+			timestamp: Date.now()
+		};
+
+		callback?.(response);
+	}
+}
+
+/**
+ * Handle region data request with optional tiles and plots
+ */
+async function handleRequestRegion(
+	socket: Socket,
+	data: RequestRegionData,
+	callback?: (response: RegionDataResponse) => void
+): Promise<void> {
+	logger.info(`[REQUEST REGION] Request from ${socket.id}:`, {
+		regionId: data.regionId,
+		includeTiles: data.includeTiles
+	});
+
+	try {
+		// Validate input
+		if (!data.regionId?.trim()) {
+			const response: RegionDataResponse = {
+				success: false,
+				error: 'Region ID is required',
+				timestamp: Date.now()
+			};
+			callback?.(response);
+			return;
+		}
+
+		// Import db and regions here to avoid circular dependencies
+		const { db, regions } = await import('../db/index.js');
+		const { eq } = await import('drizzle-orm');
+
+		// Get region with optional tiles
+		const region = await db.query.regions.findFirst({
+			where: eq(regions.id, data.regionId),
+			with: data.includeTiles ? {
+				tiles: {
+					with: {
+						plots: true
+					}
+				}
+			} : undefined
+		});
+
+		if (!region) {
+			logger.warn(`[REQUEST REGION] Region not found: ${data.regionId}`);
+			const response: RegionDataResponse = {
+				success: false,
+				error: 'Region not found',
+				timestamp: Date.now()
+			};
+			callback?.(response);
+			return;
+		}
+
+		// Build response with proper types
+		const responseData: RegionDataResponse = {
+			success: true,
+			region: {
+				id: region.id,
+				worldId: region.worldId,
+				name: region.name,
+				xCoord: region.xCoord,
+				yCoord: region.yCoord,
+				elevationMap: region.elevationMap,
+				precipitationMap: region.precipitationMap,
+				temperatureMap: region.temperatureMap,
+				tiles: data.includeTiles && 'tiles' in region && Array.isArray(region.tiles) 
+					? region.tiles.map((t: any) => ({
+						id: t.id,
+						biomeId: t.biomeId,
+						regionId: t.regionId,
+						elevation: t.elevation,
+						temperature: t.temperature,
+						precipitation: t.precipitation,
+						type: t.type,
+						plots: 'plots' in t && Array.isArray(t.plots) 
+							? t.plots.map((p: any) => ({
+								id: p.id,
+								tileId: p.tileId,
+								area: p.area,
+								solar: p.solar,
+								wind: p.wind,
+								food: p.food,
+								water: p.water,
+								wood: p.wood,
+								stone: p.stone,
+								ore: p.ore
+							})) 
+							: undefined
+					})) 
+					: undefined
+			},
+			timestamp: Date.now()
+		};
+
+		logger.info(`[REQUEST REGION] Successfully loaded region: ${region.name}`, {
+			tileCount: responseData.region?.tiles?.length || 0
+		});
+
+		callback?.(responseData);
+
+	} catch (error) {
+		logger.error('[REQUEST REGION] Error:', error);
+
+		const response: RegionDataResponse = {
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to load region data',
 			timestamp: Date.now()
 		};
 
