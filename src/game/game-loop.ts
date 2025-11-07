@@ -28,8 +28,8 @@ import {
 } from './storage-calculator';
 
 // Game loop configuration
-const TICK_RATE = 60; // 60 ticks per second
-const TICK_INTERVAL_MS = 1000 / TICK_RATE; // ~16.67ms per tick
+const TICK_RATE = Number.parseInt(process.env.TICK_RATE || '60', 10); // Default: 60 ticks per second
+const TICK_INTERVAL_MS = 1000 / TICK_RATE; // ~16.67ms per tick (at 60 ticks/sec)
 
 // Track active game loop
 let gameLoopInterval: NodeJS.Timeout | null = null;
