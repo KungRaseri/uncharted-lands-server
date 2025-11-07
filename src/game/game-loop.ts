@@ -10,9 +10,22 @@ import { logger } from '../utils/logger';
 import { 
 	getPlayerSettlements, 
 	updateSettlementStorage,
-	getSettlementWithDetails
+	getSettlementWithDetails,
+	getSettlementStructures
 } from '../db/queries';
-import { calculateProduction, addResources } from './resource-calculator';
+import { calculateProduction, addResources, subtractResources } from './resource-calculator';
+import { 
+	calculatePopulation, 
+	calculateConsumption,
+	hasResourcesForPopulation,
+	type Structure 
+} from './consumption-calculator';
+import { 
+	calculateStorageCapacity,
+	clampToCapacity,
+	calculateWaste,
+	isNearCapacity
+} from './storage-calculator';
 
 // Game loop configuration
 const TICK_RATE = 60; // 60 ticks per second
@@ -139,43 +152,129 @@ async function processSettlement(
 
 		const { storage, plot } = settlementData;
 
+		// Fetch settlement structures for consumption/storage calculations
+		const structureData = await getSettlementStructures(settlement.settlementId);
+		
+		// Transform structure data into format expected by calculators
+		const structures: Structure[] = structureData.map(row => ({
+			name: row.structure.name,
+			modifiers: structureData
+				.filter(r => r.structure.id === row.structure.id && r.modifiers)
+				.map(r => ({
+					name: r.modifiers!.name,
+					value: r.modifiers!.value
+				}))
+		})).filter((struct, index, self) => 
+			// Remove duplicates (each structure appears once per modifier)
+			index === self.findIndex(s => s.name === struct.name)
+		);
+
 		// Calculate ticks since last update
 		const ticksSinceUpdate = currentTick - settlement.lastUpdateTick;
 		
 		// Calculate production for those ticks
 		const production = calculateProduction(plot, ticksSinceUpdate);
 
-		// Add production to storage
-		const newResources = addResources(
-			{
-				food: storage.food,
-				water: storage.water,
-				wood: storage.wood,
-				stone: storage.stone,
-				ore: storage.ore
-			},
-			production
-		);
+		// Calculate consumption for those ticks
+		const population = calculatePopulation(structures);
+		const consumption = calculateConsumption(population, ticksSinceUpdate);
+
+		// Calculate net resource changes (production - consumption)
+		const netProduction = subtractResources(production, consumption);
+
+		// Get current resources
+		const currentResources = {
+			food: storage.food,
+			water: storage.water,
+			wood: storage.wood,
+			stone: storage.stone,
+			ore: storage.ore
+		};
+
+		// Add net production to current resources
+		const proposedResources = addResources(currentResources, netProduction);
+
+		// Calculate storage capacity
+		const capacity = calculateStorageCapacity(structures);
+
+		// Calculate waste (resources exceeding capacity)
+		const waste = calculateWaste(currentResources, netProduction, capacity);
+
+		// Clamp resources to capacity
+		const finalResources = clampToCapacity(proposedResources, capacity);
 
 		// Update storage in database
-		await updateSettlementStorage(storage.id, newResources);
+		await updateSettlementStorage(storage.id, finalResources);
 
 		// Update last update tick
 		settlement.lastUpdateTick = currentTick;
 
-		// Broadcast update to world
+		// Broadcast resource update to world
 		io.to(`world:${settlement.worldId}`).emit('resource-update', {
 			type: 'auto-production',
 			settlementId: settlement.settlementId,
-			resources: newResources,
+			resources: finalResources,
 			production: production,
+			consumption: consumption,
+			netProduction: netProduction,
+			population: population,
 			timestamp: Date.now()
 		});
+
+		// Broadcast waste event if any resources were wasted
+		if (waste.food > 0 || waste.water > 0 || waste.wood > 0 || waste.stone > 0 || waste.ore > 0) {
+			io.to(`world:${settlement.worldId}`).emit('resource-waste', {
+				settlementId: settlement.settlementId,
+				waste: waste,
+				capacity: capacity,
+				timestamp: Date.now()
+			});
+
+			logger.info('[GAME LOOP] Resources wasted due to capacity', {
+				settlementId: settlement.settlementId,
+				waste
+			});
+		}
+
+		// Check storage capacity warnings (>90% full)
+		const nearCapacity = isNearCapacity(finalResources, capacity);
+		const hasWarnings = Object.values(nearCapacity).some(Boolean);
+		
+		if (hasWarnings) {
+			io.to(`world:${settlement.worldId}`).emit('storage-warning', {
+				settlementId: settlement.settlementId,
+				nearCapacity: nearCapacity,
+				resources: finalResources,
+				capacity: capacity,
+				timestamp: Date.now()
+			});
+		}
+
+		// Check if settlement has enough resources for population (1 hour buffer)
+		const hasResources = hasResourcesForPopulation(population, finalResources);
+		
+		if (!hasResources && population > 0) {
+			io.to(`world:${settlement.worldId}`).emit('resource-shortage', {
+				settlementId: settlement.settlementId,
+				population: population,
+				resources: finalResources,
+				timestamp: Date.now()
+			});
+
+			logger.warn('[GAME LOOP] Settlement has insufficient resources', {
+				settlementId: settlement.settlementId,
+				population,
+				resources: finalResources
+			});
+		}
 
 		logger.debug('[GAME LOOP] Settlement resources updated', {
 			settlementId: settlement.settlementId,
 			production,
-			newResources
+			consumption,
+			netProduction,
+			population,
+			finalResources
 		});
 	} catch (error) {
 		logger.error('[GAME LOOP] Error processing settlement:', error, {

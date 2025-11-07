@@ -25,6 +25,10 @@ export interface ServerToClientEvents {
 	'structure-built': (data: StructureBuiltData) => void;
 	'resources-collected': (data: ResourceResponse) => void;
 	'resource-tick': (data: ResourceTickData) => void;
+	'resource-update': (data: ResourceUpdateData) => void;
+	'resource-waste': (data: ResourceWasteData) => void;
+	'storage-warning': (data: StorageWarningData) => void;
+	'resource-shortage': (data: ResourceShortageData) => void;
 	'player-joined': (data: PlayerEventData) => void;
 	'player-left': (data: PlayerEventData) => void;
 	error: (data: ErrorData) => void;
@@ -157,6 +161,61 @@ export interface ResourceAmounts {
 	wood: number;
 	stone: number;
 	ore: number;
+}
+
+// Storage Capacity
+export interface StorageCapacity {
+	food: number;
+	water: number;
+	wood: number;
+	stone: number;
+	ore: number;
+}
+
+// Near Capacity Status
+export interface NearCapacityStatus {
+	food: boolean;
+	water: boolean;
+	wood: boolean;
+	stone: boolean;
+	ore: boolean;
+}
+
+// Resource Update (enhanced with consumption and population)
+export interface ResourceUpdateData {
+	type: 'auto-production' | 'manual-collect' | 'structure-built';
+	settlementId: string;
+	resources: ResourceAmounts;
+	production: ResourceAmounts;
+	consumption?: ResourceAmounts;
+	netProduction?: ResourceAmounts;
+	population?: number;
+	timestamp: number;
+}
+
+// Resource Waste (overflow beyond capacity)
+export interface ResourceWasteData {
+	settlementId: string;
+	waste: ResourceAmounts;
+	capacity: StorageCapacity;
+	timestamp: number;
+}
+
+// Storage Warning (near capacity)
+export interface StorageWarningData {
+	settlementId: string;
+	nearCapacity: NearCapacityStatus;
+	resources: ResourceAmounts;
+	capacity: StorageCapacity;
+	timestamp: number;
+}
+
+// Resource Shortage (insufficient for population)
+export interface ResourceShortageData {
+	settlementId: string;
+	population: number;
+	resources: ResourceAmounts;
+	timestamp: number;
 }
 
 // Player Events
