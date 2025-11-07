@@ -25,6 +25,7 @@ import { logger } from './utils/logger';
 import { closeDatabase } from './db/index';
 import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop';
 import apiRouter from './api/index';
+import { apiLimiter } from './api/middleware/rateLimit';
 
 // Load environment variables
 dotenv.config();
@@ -46,6 +47,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Apply rate limiting to all API routes
+app.use('/api', apiLimiter);
 
 // REST API routes
 app.use('/api', apiRouter);
