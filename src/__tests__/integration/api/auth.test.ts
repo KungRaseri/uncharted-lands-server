@@ -3,6 +3,7 @@ import request from 'supertest';
 import express from 'express';
 import authRouter from '../../../api/routes/auth';
 import * as db from '../../../db/index';
+import { generateTestId, generateTestPassword } from '../../helpers/test-utils';
 
 // Mock dependencies
 vi.mock('../../../db/index', () => ({
@@ -29,11 +30,12 @@ vi.mock('../../../db/schema', () => ({
 }));
 
 vi.mock('@paralleldrive/cuid2', () => ({
-  createId: vi.fn(() => 'test-id-' + Math.random().toString(36).substring(7)),
+  createId: vi.fn(() => generateTestId()),
 }));
 
 describe('Auth API Routes', () => {
   let app: express.Application;
+  const TEST_PASSWORD = generateTestPassword();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,7 +52,7 @@ describe('Auth API Routes', () => {
     it('should return 400 if email is missing', async () => {
       const response = await request(app)
         .post('/api/auth/register')
-        .send({ password: 'password123', username: 'testuser' })
+        .send({ password: TEST_PASSWORD, username: 'testuser' })
         .expect(400);
 
       expect(response.body.error).toBe('Email, password, and username are required');
@@ -68,7 +70,7 @@ describe('Auth API Routes', () => {
     it('should return 400 if username is missing', async () => {
       const response = await request(app)
         .post('/api/auth/register')
-        .send({ email: 'test@example.com', password: 'password123' })
+        .send({ email: 'test@example.com', password: TEST_PASSWORD })
         .expect(400);
 
       expect(response.body.error).toBe('Email, password, and username are required');
@@ -84,7 +86,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'password123',
+          password: TEST_PASSWORD,
           username: 'testuser',
         })
         .expect(400);
@@ -110,7 +112,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'newuser@example.com',
-          password: 'password123',
+          password: TEST_PASSWORD,
           username: 'newuser',
         })
         .expect(201);
@@ -129,7 +131,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'password123',
+          password: TEST_PASSWORD,
           username: 'testuser',
         })
         .expect(500);
@@ -142,7 +144,7 @@ describe('Auth API Routes', () => {
     it('should return 400 if email is missing', async () => {
       const response = await request(app)
         .post('/api/auth/login')
-        .send({ password: 'password123' })
+        .send({ password: TEST_PASSWORD })
         .expect(400);
 
       expect(response.body.error).toBe('Email and password are required');
@@ -164,7 +166,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'nonexistent@example.com',
-          password: 'password123',
+          password: TEST_PASSWORD,
         })
         .expect(401);
 
@@ -186,7 +188,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'wrong-password',
+          password: 'wrong-' + TEST_PASSWORD,
         })
         .expect(401);
 
@@ -194,10 +196,11 @@ describe('Auth API Routes', () => {
     });
 
     it('should successfully login with correct credentials', async () => {
+      const testPasswordHash = 'hash-' + TEST_PASSWORD;
       vi.mocked(db.db.query.accounts.findFirst).mockResolvedValue({
         id: 'user-123',
         email: 'test@example.com',
-        passwordHash: 'password123',
+        passwordHash: testPasswordHash,
         profile: {
           id: 'profile-123',
           username: 'testuser',
@@ -208,7 +211,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'password123',
+          password: testPasswordHash,
         })
         .expect(200);
 
@@ -226,7 +229,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'password123',
+          password: TEST_PASSWORD,
         })
         .expect(500);
 

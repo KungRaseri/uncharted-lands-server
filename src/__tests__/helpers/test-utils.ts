@@ -303,11 +303,35 @@ export async function wait(ms: number = 0): Promise<void> {
 /**
  * Generate random test data
  */
+
+/**
+ * Get a random integer between 0 and max (exclusive)
+ * Using Math.random() for test data generation is acceptable for non-cryptographic purposes
+ */
+function getRandomInt(max: number): number {
+  return Math.floor(Math.random() * max); // NOSONAR
+}
+
+/**
+ * Generate a random test ID suffix
+ * Using Math.random() for test data generation is acceptable for non-cryptographic purposes
+ */
+export function generateTestId(prefix: string = 'test-id'): string {
+  return `${prefix}-${Math.random().toString(36).substring(7)}`; // NOSONAR
+}
+
+/**
+ * Generate a random test password
+ */
+export function generateTestPassword(): string {
+  return `test-pass-${Math.random().toString(36).substring(7)}`; // NOSONAR
+}
+
 export function generateRandomString(length: number = 10): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(getRandomInt(chars.length));
   }
   return result;
 }
