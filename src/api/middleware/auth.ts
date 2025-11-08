@@ -10,6 +10,9 @@ import { accounts } from '../../db/schema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../../utils/logger';
 
+// Type alias for account roles
+type AccountRole = 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR';
+
 // Extend Express Request to include authenticated user
 declare global {
   namespace Express {
@@ -18,7 +21,7 @@ declare global {
         id: string;
         email: string;
         username: string;
-        role: 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR';
+        role: AccountRole;
       };
     }
   }
@@ -51,7 +54,8 @@ export const authenticateAdmin = async (
     }
 
     // Parse session cookie
-    const sessionMatch = cookies.match(/session=([^;]+)/);
+    const sessionRegex = /session=([^;]+)/;
+    const sessionMatch = sessionRegex.exec(cookies);
     const sessionToken = sessionMatch ? sessionMatch[1] : null;
 
     if (!sessionToken) {
@@ -98,7 +102,7 @@ export const authenticateAdmin = async (
       id: user.id,
       email: user.email,
       username: user.profile?.username || user.email,
-      role: user.role as 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR'
+      role: user.role
     };
 
     logger.info(`[API AUTH] ✓ Admin ${user.email} authenticated`);
@@ -136,7 +140,8 @@ export const authenticate = async (
       return;
     }
 
-    const sessionMatch = cookies.match(/session=([^;]+)/);
+    const sessionRegex = /session=([^;]+)/;
+    const sessionMatch = sessionRegex.exec(cookies);
     const sessionToken = sessionMatch ? sessionMatch[1] : null;
 
     if (!sessionToken) {
@@ -171,7 +176,7 @@ export const authenticate = async (
       id: user.id,
       email: user.email,
       username: user.profile?.username || user.email,
-      role: user.role as 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR'
+      role: user.role
     };
 
     logger.info(`[API AUTH] ✓ User ${user.email} authenticated`);
@@ -202,7 +207,8 @@ export const optionalAuth = async (
       return;
     }
 
-    const sessionMatch = cookies.match(/session=([^;]+)/);
+    const sessionRegex = /session=([^;]+)/;
+    const sessionMatch = sessionRegex.exec(cookies);
     const sessionToken = sessionMatch ? sessionMatch[1] : null;
 
     if (!sessionToken) {
@@ -222,7 +228,7 @@ export const optionalAuth = async (
         id: user.id,
         email: user.email,
         username: user.profile?.username || user.email,
-        role: user.role as 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR'
+        role: user.role
       };
       logger.info(`[API AUTH] Optional auth: ${user.email} (${user.role})`);
     }

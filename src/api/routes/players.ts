@@ -6,7 +6,7 @@
 
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
-import { db, accounts, profiles } from '../../db/index';
+import { db, accounts } from '../../db/index';
 import { authenticateAdmin } from '../middleware/auth';
 import { logger } from '../../utils/logger';
 

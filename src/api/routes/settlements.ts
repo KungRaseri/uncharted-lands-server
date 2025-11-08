@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../../db/index.js';
-import { settlements, settlementStorage, profiles, profileServerData, plots, tiles } from '../../db/schema.js';
+import { settlements, settlementStorage, profiles, profileServerData, tiles } from '../../db/schema.js';
 import { eq, and, gt, lt, gte, lte } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';

@@ -84,36 +84,12 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
     }
     
     // Calculate statistics
-    let settlementsCount = 0;
-    let regionsCount = world.regions?.length || 0;
-    let landTilesCount = 0;
-    let oceanTilesCount = 0;
-    
-    // Count settlements (unique by ID to avoid duplicates from plots)
-    const settlementIds = new Set();
-    for (const region of world.regions || []) {
-      for (const tile of region.tiles || []) {
-        if (tile.type === 'LAND') landTilesCount++;
-        if (tile.type === 'OCEAN') oceanTilesCount++;
-        
-        for (const plot of tile.plots || []) {
-          if (plot.settlement?.id) {
-            settlementIds.add(plot.settlement.id);
-          }
-        }
-      }
-    }
-    settlementsCount = settlementIds.size;
+    const stats = calculateWorldStatistics(world.regions || []);
     
     // Add stats to response
     const worldWithStats = {
       ...world,
-      _count: {
-        regions: regionsCount,
-        settlements: settlementsCount,
-        landTiles: landTilesCount,
-        oceanTiles: oceanTilesCount
-      }
+      _count: stats
     };
     
     res.json(worldWithStats);
@@ -125,6 +101,52 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
     });
   }
 });
+
+/**
+ * Helper function to calculate world statistics
+ * Extracted to reduce cognitive complexity
+ */
+function calculateWorldStatistics(regions: any[]) {
+  let landTilesCount = 0;
+  let oceanTilesCount = 0;
+  const settlementIds = new Set<string>();
+  
+  for (const region of regions) {
+    const tiles = region.tiles || [];
+    for (const tile of tiles) {
+      const tileStats = processTile(tile);
+      landTilesCount += tileStats.landTiles;
+      oceanTilesCount += tileStats.oceanTiles;
+      for (const id of tileStats.settlementIds) {
+        settlementIds.add(id);
+      }
+    }
+  }
+  
+  return {
+    regions: regions.length,
+    settlements: settlementIds.size,
+    landTiles: landTilesCount,
+    oceanTiles: oceanTilesCount
+  };
+}
+
+/**
+ * Helper function to process a single tile
+ */
+function processTile(tile: any) {
+  const landTiles = tile.type === 'LAND' ? 1 : 0;
+  const oceanTiles = tile.type === 'OCEAN' ? 1 : 0;
+  const settlementIds = new Set<string>();
+  
+  for (const plot of tile.plots || []) {
+    if (plot.settlement?.id) {
+      settlementIds.add(plot.settlement.id);
+    }
+  }
+  
+  return { landTiles, oceanTiles, settlementIds };
+}
 
 /**
  * POST /api/worlds

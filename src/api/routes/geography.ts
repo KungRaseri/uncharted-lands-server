@@ -59,13 +59,17 @@ router.get('/', authenticate, async (req, res) => {
     const whereConditions = [eq(regions.worldId, worldId)];
     
     if (xMinBound !== undefined && xMaxBound !== undefined) {
-      whereConditions.push(gte(regions.xCoord, xMinBound));
-      whereConditions.push(lte(regions.xCoord, xMaxBound));
+      whereConditions.push(
+        gte(regions.xCoord, xMinBound),
+        lte(regions.xCoord, xMaxBound)
+      );
     }
     
     if (yMinBound !== undefined && yMaxBound !== undefined) {
-      whereConditions.push(gte(regions.yCoord, yMinBound));
-      whereConditions.push(lte(regions.yCoord, yMaxBound));
+      whereConditions.push(
+        gte(regions.yCoord, yMinBound),
+        lte(regions.yCoord, yMaxBound)
+      );
     }
 
     const worldRegions = await db.query.regions.findMany({
@@ -84,13 +88,14 @@ router.get('/', authenticate, async (req, res) => {
       }
     });
 
+    const hasBounds = xMinBound !== undefined;
     logger.info(`[API] Fetched ${worldRegions.length} regions for world ${worldId}` + 
-      (xMinBound !== undefined ? ` (bounds: ${xMinBound}-${xMaxBound}, ${yMinBound}-${yMaxBound})` : ''));
+      (hasBounds ? ` (bounds: ${xMinBound}-${xMaxBound}, ${yMinBound}-${yMaxBound})` : ''));
 
     res.json({
       regions: worldRegions,
       count: worldRegions.length,
-      bounds: xMinBound !== undefined ? {
+      bounds: hasBounds ? {
         xMin: xMinBound,
         xMax: xMaxBound,
         yMin: yMinBound,
@@ -165,7 +170,7 @@ router.get('/map', authenticate, async (req, res) => {
     let centerRegionY: number;
     let playerSettlement: any = null;
 
-    if (settlement && settlement.plot?.tile?.region) {
+    if (settlement?.plot?.tile?.region) {
       // Player has a settlement - use its location
       worldId = settlement.plot.tile.region.worldId;
       centerRegionX = settlement.plot.tile.region.xCoord;
