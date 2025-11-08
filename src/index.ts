@@ -1,6 +1,6 @@
 /**
  * Uncharted Lands - Game Server
- * 
+ *
  * Real-time multiplayer game server using Socket.IO
  */
 
@@ -10,16 +10,16 @@ import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import type {
-	ClientToServerEvents,
-	ServerToClientEvents,
-	InterServerEvents,
-	SocketData
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData,
 } from './types/socket-events';
 import { registerEventHandlers } from './events/handlers';
 import {
-	authenticationMiddleware,
-	loggingMiddleware,
-	errorHandlingMiddleware
+  authenticationMiddleware,
+  loggingMiddleware,
+  errorHandlingMiddleware,
 } from './middleware/socket-middleware';
 import { logger } from './utils/logger';
 import { closeDatabase } from './db/index';
@@ -40,11 +40,13 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
 
 // Express middleware
-app.use(cors({
-	origin: CORS_ORIGINS,
-	credentials: true,
-	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-}));
+app.use(
+  cors({
+    origin: CORS_ORIGINS,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -56,24 +58,24 @@ app.use('/api', apiRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-	const gameLoopStatus = getGameLoopStatus();
-	res.json({
-		status: 'healthy',
-		uptime: process.uptime(),
-		connections: io?.engine?.clientsCount || 0,
-		environment: NODE_ENV,
-		gameLoop: gameLoopStatus,
-		timestamp: new Date().toISOString()
-	});
+  const gameLoopStatus = getGameLoopStatus();
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    connections: io?.engine?.clientsCount || 0,
+    environment: NODE_ENV,
+    gameLoop: gameLoopStatus,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // 404 handler for unknown routes
 app.use((req, res) => {
-	res.status(404).json({ 
-		error: 'Not found',
-		path: req.path,
-		method: req.method
-	});
+  res.status(404).json({
+    error: 'Not found',
+    path: req.path,
+    method: req.method,
+  });
 });
 
 // Create HTTP server from Express app
@@ -81,24 +83,24 @@ const httpServer = http.createServer(app);
 
 // Create Socket.IO server with TypeScript types
 const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(
-	httpServer,
-	{
-		cors: {
-			origin: CORS_ORIGINS,
-			methods: ['GET', 'POST'],
-			credentials: true
-		},
-		// Connection settings
-		pingTimeout: 60000, // 60 seconds before considering connection dead
-		pingInterval: 25000, // Send ping every 25 seconds
-		upgradeTimeout: 30000, // 30 seconds to complete upgrade
-		maxHttpBufferSize: 1e6, // 1MB max message size
-		// Enable compression for production
-		perMessageDeflate: NODE_ENV === 'production',
-		// Transport options
-		transports: ['websocket', 'polling'],
-		allowUpgrades: true
-	}
+  httpServer,
+  {
+    cors: {
+      origin: CORS_ORIGINS,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+    // Connection settings
+    pingTimeout: 60000, // 60 seconds before considering connection dead
+    pingInterval: 25000, // Send ping every 25 seconds
+    upgradeTimeout: 30000, // 30 seconds to complete upgrade
+    maxHttpBufferSize: 1e6, // 1MB max message size
+    // Enable compression for production
+    perMessageDeflate: NODE_ENV === 'production',
+    // Transport options
+    transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+  }
 );
 
 // Apply middleware
@@ -108,103 +110,103 @@ io.use(errorHandlingMiddleware);
 
 // Handle new connections
 io.on('connection', (socket) => {
-	logger.info(`[CONNECTION] Client connected: ${socket.id}`, {
-		address: socket.handshake.address
-	});
+  logger.info(`[CONNECTION] Client connected: ${socket.id}`, {
+    address: socket.handshake.address,
+  });
 
-	// Send welcome message
-	socket.emit('connected', {
-		message: 'Welcome to Uncharted Lands Server',
-		socketId: socket.id,
-		timestamp: Date.now()
-	});
+  // Send welcome message
+  socket.emit('connected', {
+    message: 'Welcome to Uncharted Lands Server',
+    socketId: socket.id,
+    timestamp: Date.now(),
+  });
 
-	// Register all event handlers
-	registerEventHandlers(socket);
+  // Register all event handlers
+  registerEventHandlers(socket);
 
-	// Track connection duration on disconnect
-	socket.on('disconnect', () => {
-		const duration = Date.now() - socket.data.connectedAt;
-		logger.info(`[CONNECTION] Client disconnected: ${socket.id}`, {
-			duration: `${(duration / 1000).toFixed(2)}s`,
-			playerId: socket.data.playerId
-		});
-	});
+  // Track connection duration on disconnect
+  socket.on('disconnect', () => {
+    const duration = Date.now() - socket.data.connectedAt;
+    logger.info(`[CONNECTION] Client disconnected: ${socket.id}`, {
+      duration: `${(duration / 1000).toFixed(2)}s`,
+      playerId: socket.data.playerId,
+    });
+  });
 });
 
 /**
  * Broadcast message to all clients in a specific world
  */
 export function broadcastToWorld(worldId: string, event: string, data: unknown): void {
-	io.to(`world:${worldId}`).emit(event as keyof ServerToClientEvents, data as never);
+  io.to(`world:${worldId}`).emit(event as keyof ServerToClientEvents, data as never);
 }
 
 /**
  * Broadcast message to all connected clients
  */
 export function broadcastToAll(event: string, data: unknown): void {
-	io.emit(event as keyof ServerToClientEvents, data as never);
+  io.emit(event as keyof ServerToClientEvents, data as never);
 }
 
 /**
  * Get connection statistics
  */
 export function getStats() {
-	return {
-		connections: io.engine.clientsCount,
-		uptime: process.uptime(),
-		environment: NODE_ENV
-	};
+  return {
+    connections: io.engine.clientsCount,
+    uptime: process.uptime(),
+    environment: NODE_ENV,
+  };
 }
 
 // Start server
 httpServer.listen(PORT, HOST, () => {
-	logger.info('═'.repeat(50));
-	logger.info('  Uncharted Lands - Game Server');
-	logger.info('═'.repeat(50));
-	logger.info(`  WebSocket:   ws://${HOST}:${PORT}`);
-	logger.info(`  REST API:    http://${HOST}:${PORT}/api`);
-	logger.info(`  Health:      http://${HOST}:${PORT}/health`);
-	logger.info(`  Environment: ${NODE_ENV}`);
-	logger.info(`  CORS:        ${CORS_ORIGINS.join(', ')}`);
-	logger.info('═'.repeat(50));
+  logger.info('═'.repeat(50));
+  logger.info('  Uncharted Lands - Game Server');
+  logger.info('═'.repeat(50));
+  logger.info(`  WebSocket:   ws://${HOST}:${PORT}`);
+  logger.info(`  REST API:    http://${HOST}:${PORT}/api`);
+  logger.info(`  Health:      http://${HOST}:${PORT}/health`);
+  logger.info(`  Environment: ${NODE_ENV}`);
+  logger.info(`  CORS:        ${CORS_ORIGINS.join(', ')}`);
+  logger.info('═'.repeat(50));
 
-	// Start the game loop
-	startGameLoop(io);
+  // Start the game loop
+  startGameLoop(io);
 });
 
 // Graceful shutdown
 const shutdown = async (signal: string) => {
-	logger.info(`[SHUTDOWN] ${signal} signal received`);
-	
-	// Stop game loop first
-	logger.info('[SHUTDOWN] Stopping game loop...');
-	stopGameLoop();
-	
-	logger.info('[SHUTDOWN] Closing Socket.IO server...');
+  logger.info(`[SHUTDOWN] ${signal} signal received`);
 
-	io.close(async () => {
-		logger.info('[SHUTDOWN] Socket.IO server closed');
+  // Stop game loop first
+  logger.info('[SHUTDOWN] Stopping game loop...');
+  stopGameLoop();
 
-		// Close database connections
-		try {
-			await closeDatabase();
-			logger.info('[SHUTDOWN] Database connections closed');
-		} catch (error) {
-			logger.error('[SHUTDOWN] Error closing database:', error);
-		}
+  logger.info('[SHUTDOWN] Closing Socket.IO server...');
 
-		httpServer.close(() => {
-			logger.info('[SHUTDOWN] HTTP server closed');
-			process.exit(0);
-		});
+  io.close(async () => {
+    logger.info('[SHUTDOWN] Socket.IO server closed');
 
-		// Force exit after 10 seconds
-		setTimeout(() => {
-			logger.error('[SHUTDOWN] Forced shutdown after timeout');
-			process.exit(1);
-		}, 10000);
-	});
+    // Close database connections
+    try {
+      await closeDatabase();
+      logger.info('[SHUTDOWN] Database connections closed');
+    } catch (error) {
+      logger.error('[SHUTDOWN] Error closing database:', error);
+    }
+
+    httpServer.close(() => {
+      logger.info('[SHUTDOWN] HTTP server closed');
+      process.exit(0);
+    });
+
+    // Force exit after 10 seconds
+    setTimeout(() => {
+      logger.error('[SHUTDOWN] Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  });
 };
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -212,11 +214,11 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Handle uncaught errors
 process.on('uncaughtException', (error) => {
-	logger.error('[FATAL] Uncaught exception:', error);
-	shutdown('UNCAUGHT_EXCEPTION');
+  logger.error('[FATAL] Uncaught exception:', error);
+  shutdown('UNCAUGHT_EXCEPTION');
 });
 
 process.on('unhandledRejection', (reason) => {
-	logger.error('[FATAL] Unhandled rejection:', reason);
-	shutdown('UNHANDLED_REJECTION');
+  logger.error('[FATAL] Unhandled rejection:', reason);
+  shutdown('UNHANDLED_REJECTION');
 });

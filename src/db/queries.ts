@@ -1,26 +1,26 @@
 /**
  * Database Query Helpers
- * 
+ *
  * Common database operations for the game server
  */
 
 import { eq, and, desc } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { 
-  db, 
-  accounts, 
-  profiles, 
-  settlements, 
-  settlementStorage, 
+import {
+  db,
+  accounts,
+  profiles,
+  settlements,
+  settlementStorage,
   settlementStructures,
   structureRequirements,
   structureModifiers,
-  servers, 
-  worlds, 
-  regions, 
+  servers,
+  worlds,
+  regions,
   biomes,
-  tiles, 
-  plots 
+  tiles,
+  plots,
 } from './index';
 
 // ===========================
@@ -47,7 +47,7 @@ export async function findAccountByToken(token: string) {
     .from(accounts)
     .where(eq(accounts.userAuthToken, token))
     .limit(1);
-  
+
   return account;
 }
 
@@ -60,7 +60,7 @@ export async function findProfileByAccountId(accountId: string) {
     .from(profiles)
     .where(eq(profiles.accountId, accountId))
     .limit(1);
-  
+
   return profile;
 }
 
@@ -68,12 +68,8 @@ export async function findProfileByAccountId(accountId: string) {
  * Find profile by ID
  */
 export async function findProfileById(profileId: string) {
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.id, profileId))
-    .limit(1);
-  
+  const [profile] = await db.select().from(profiles).where(eq(profiles.id, profileId)).limit(1);
+
   return profile;
 }
 
@@ -107,7 +103,7 @@ export async function getSettlementWithDetails(settlementId: string) {
     .leftJoin(plots, eq(settlements.plotId, plots.id))
     .where(eq(settlements.id, settlementId))
     .limit(1);
-  
+
   return settlement;
 }
 
@@ -125,7 +121,7 @@ export async function createSettlement(
     .insert(settlementStorage)
     .values({
       id: generateId(),
-      ...initialResources
+      ...initialResources,
     })
     .returning();
 
@@ -156,7 +152,7 @@ export async function updateSettlementStorage(
     .set(resources)
     .where(eq(settlementStorage.id, storageId))
     .returning();
-  
+
   return updated;
 }
 
@@ -173,7 +169,7 @@ export async function findWorldByName(worldName: string, serverId: string) {
     .from(worlds)
     .where(and(eq(worlds.name, worldName), eq(worlds.serverId, serverId)))
     .limit(1);
-  
+
   return world;
 }
 
@@ -215,7 +211,7 @@ export async function findServerByAddress(hostname: string, port: number) {
     .from(servers)
     .where(and(eq(servers.hostname, hostname), eq(servers.port, port)))
     .limit(1);
-  
+
   return server;
 }
 
@@ -223,10 +219,7 @@ export async function findServerByAddress(hostname: string, port: number) {
  * Get all online servers
  */
 export async function getOnlineServers() {
-  return await db
-    .select()
-    .from(servers)
-    .where(eq(servers.status, 'ONLINE'));
+  return await db.select().from(servers).where(eq(servers.status, 'ONLINE'));
 }
 
 // ===========================
@@ -237,9 +230,7 @@ export async function getOnlineServers() {
  * Get all biomes
  */
 export async function getAllBiomes() {
-  return await db
-    .select()
-    .from(biomes);
+  return await db.select().from(biomes);
 }
 
 /**
@@ -247,20 +238,22 @@ export async function getAllBiomes() {
  */
 export async function findBiome(precipitation: number, temperature: number) {
   const allBiomes = await getAllBiomes();
-  
+
   // Filter biomes that match both precipitation and temperature
-  let filteredBiomes = allBiomes.filter(biome =>
-    Math.round(precipitation) >= biome.precipitationMin && 
-    Math.round(precipitation) <= biome.precipitationMax &&
-    Math.round(temperature) >= biome.temperatureMin && 
-    Math.round(temperature) <= biome.temperatureMax
+  let filteredBiomes = allBiomes.filter(
+    (biome) =>
+      Math.round(precipitation) >= biome.precipitationMin &&
+      Math.round(precipitation) <= biome.precipitationMax &&
+      Math.round(temperature) >= biome.temperatureMin &&
+      Math.round(temperature) <= biome.temperatureMax
   );
 
   // If no exact match, try matching precipitation only
   if (!filteredBiomes.length) {
-    filteredBiomes = allBiomes.filter(biome =>
-      Math.round(precipitation) >= biome.precipitationMin && 
-      Math.round(precipitation) <= biome.precipitationMax
+    filteredBiomes = allBiomes.filter(
+      (biome) =>
+        Math.round(precipitation) >= biome.precipitationMin &&
+        Math.round(precipitation) <= biome.precipitationMax
     );
   }
 
@@ -288,8 +281,14 @@ export async function getSettlementStructures(settlementId: string) {
       modifiers: structureModifiers,
     })
     .from(settlementStructures)
-    .leftJoin(structureRequirements, eq(settlementStructures.structureRequirementsId, structureRequirements.id))
-    .leftJoin(structureModifiers, eq(settlementStructures.id, structureModifiers.settlementStructureId))
+    .leftJoin(
+      structureRequirements,
+      eq(settlementStructures.structureRequirementsId, structureRequirements.id)
+    )
+    .leftJoin(
+      structureModifiers,
+      eq(settlementStructures.id, structureModifiers.settlementStructureId)
+    )
     .where(eq(settlementStructures.settlementId, settlementId));
 }
 
@@ -342,7 +341,7 @@ export async function createStructure(
     const modifierRecords = await db
       .insert(structureModifiers)
       .values(
-        modifiers.map(mod => ({
+        modifiers.map((mod) => ({
           id: generateId(),
           settlementStructureId: structure.id,
           name: mod.name,
@@ -351,7 +350,7 @@ export async function createStructure(
         }))
       )
       .returning();
-    
+
     return { structure, requirements: reqRecord, modifiers: modifierRecords };
   }
 

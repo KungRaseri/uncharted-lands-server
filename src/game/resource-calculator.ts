@@ -1,6 +1,6 @@
 /**
  * Resource Calculator
- * 
+ *
  * Calculates resource production rates and consumption for settlements
  */
 
@@ -24,7 +24,7 @@ export interface ProductionRates extends Resources {}
 
 /**
  * Calculate base production rates for a settlement based on its plot
- * 
+ *
  * @param plot - The plot where the settlement is located
  * @param tickCount - Number of ticks elapsed (for time-based calculation)
  * @returns Production rates per resource type
@@ -33,10 +33,10 @@ export function calculateProduction(plot: Plot, tickCount: number = 1): Resource
   // Base production per tick (60 ticks = 1 second)
   // These values are per-resource-point per tick
   const BASE_RATE_PER_TICK = 0.01; // 0.01 resource per resource point per tick
-  
+
   // Calculate production for the number of ticks elapsed
   const multiplier = BASE_RATE_PER_TICK * tickCount;
-  
+
   return {
     food: plot.food * multiplier,
     water: plot.water * multiplier,
@@ -48,7 +48,7 @@ export function calculateProduction(plot: Plot, tickCount: number = 1): Resource
 
 /**
  * Calculate time-based production since last collection
- * 
+ *
  * @param plot - The plot where the settlement is located
  * @param lastCollectionTime - Timestamp of last collection (in milliseconds)
  * @param currentTime - Current timestamp (in milliseconds)
@@ -61,17 +61,17 @@ export function calculateTimedProduction(
 ): Resources {
   // Calculate elapsed time in milliseconds
   const elapsedMs = currentTime - lastCollectionTime;
-  
+
   // Convert to ticks (60 ticks per second)
   const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
-  
+
   // Calculate production for elapsed ticks
   return calculateProduction(plot, ticksElapsed);
 }
 
 /**
  * Add resources to storage
- * 
+ *
  * @param storage - Current storage amounts
  * @param resources - Resources to add
  * @param maxCapacity - Maximum storage capacity (optional, defaults to no limit)
@@ -89,7 +89,7 @@ export function addResources(
     stone: storage.stone + resources.stone,
     ore: storage.ore + resources.ore,
   };
-  
+
   // Apply capacity limits if specified
   if (maxCapacity) {
     return {
@@ -100,21 +100,18 @@ export function addResources(
       ore: Math.min(updated.ore, maxCapacity),
     };
   }
-  
+
   return updated;
 }
 
 /**
  * Subtract resources from storage
- * 
+ *
  * @param storage - Current storage amounts
  * @param resources - Resources to subtract
  * @returns Updated storage amounts (won't go below 0)
  */
-export function subtractResources(
-  storage: Resources,
-  resources: Resources
-): Resources {
+export function subtractResources(storage: Resources, resources: Resources): Resources {
   return {
     food: Math.max(0, storage.food - resources.food),
     water: Math.max(0, storage.water - resources.water),
@@ -126,15 +123,12 @@ export function subtractResources(
 
 /**
  * Check if storage has enough resources
- * 
+ *
  * @param storage - Current storage amounts
  * @param required - Required resource amounts
  * @returns True if storage has enough of all resources
  */
-export function hasEnoughResources(
-  storage: Resources,
-  required: Resources
-): boolean {
+export function hasEnoughResources(storage: Resources, required: Resources): boolean {
   return (
     storage.food >= required.food &&
     storage.water >= required.water &&
@@ -147,7 +141,7 @@ export function hasEnoughResources(
 /**
  * Calculate consumption rates for a settlement
  * (Future: based on population, structures, etc.)
- * 
+ *
  * @param populationCount - Number of people in settlement
  * @param structureCount - Number of structures (for maintenance)
  * @returns Consumption rates per tick
@@ -159,10 +153,10 @@ export function calculateConsumption(
   // Base consumption per person per tick
   const FOOD_PER_PERSON_PER_TICK = 0.005;
   const WATER_PER_PERSON_PER_TICK = 0.01;
-  
+
   // Maintenance cost per structure per tick
   const MAINTENANCE_PER_STRUCTURE_PER_TICK = 0.001;
-  
+
   return {
     food: populationCount * FOOD_PER_PERSON_PER_TICK,
     water: populationCount * WATER_PER_PERSON_PER_TICK,
@@ -174,7 +168,7 @@ export function calculateConsumption(
 
 /**
  * Calculate net production (production - consumption)
- * 
+ *
  * @param plot - The plot where the settlement is located
  * @param populationCount - Number of people in settlement
  * @param structureCount - Number of structures
@@ -189,19 +183,19 @@ export function calculateNetProduction(
 ): Resources {
   const production = calculateProduction(plot, tickCount);
   const consumption = calculateConsumption(populationCount, structureCount);
-  
+
   return {
-    food: production.food - (consumption.food * tickCount),
-    water: production.water - (consumption.water * tickCount),
-    wood: production.wood - (consumption.wood * tickCount),
-    stone: production.stone - (consumption.stone * tickCount),
-    ore: production.ore - (consumption.ore * tickCount),
+    food: production.food - consumption.food * tickCount,
+    water: production.water - consumption.water * tickCount,
+    wood: production.wood - consumption.wood * tickCount,
+    stone: production.stone - consumption.stone * tickCount,
+    ore: production.ore - consumption.ore * tickCount,
   };
 }
 
 /**
  * Format resources for display
- * 
+ *
  * @param resources - Resource amounts
  * @returns Formatted string
  */

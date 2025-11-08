@@ -1,6 +1,6 @@
 /**
  * Worlds API Routes
- * 
+ *
  * CRUD operations for world management
  */
 
@@ -25,19 +25,19 @@ router.get('/', authenticateAdmin, async (req, res) => {
           columns: {
             id: true,
             name: true,
-            status: true
-          }
-        }
+            status: true,
+          },
+        },
       },
-      orderBy: (worlds, { desc }) => [desc(worlds.createdAt)]
+      orderBy: (worlds, { desc }) => [desc(worlds.createdAt)],
     });
-    
+
     res.json(allWorlds);
   } catch (error) {
     logger.error('[API] Error fetching worlds:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch worlds', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch worlds',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -49,7 +49,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
 router.get('/:id', authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const world = await db.query.worlds.findFirst({
       where: eq(worlds.id, id),
       with: {
@@ -64,40 +64,40 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
                     settlement: {
                       columns: {
                         id: true,
-                        name: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
-    
+
     if (!world) {
-      return res.status(404).json({ 
-        error: 'World not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'World not found',
+        code: 'NOT_FOUND',
       });
     }
-    
+
     // Calculate statistics
     const stats = calculateWorldStatistics(world.regions || []);
-    
+
     // Add stats to response
     const worldWithStats = {
       ...world,
-      _count: stats
+      _count: stats,
     };
-    
+
     res.json(worldWithStats);
   } catch (error) {
     logger.error('[API] Error fetching world:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch world', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch world',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -110,7 +110,7 @@ function calculateWorldStatistics(regions: any[]) {
   let landTilesCount = 0;
   let oceanTilesCount = 0;
   const settlementIds = new Set<string>();
-  
+
   for (const region of regions) {
     const tiles = region.tiles || [];
     for (const tile of tiles) {
@@ -122,12 +122,12 @@ function calculateWorldStatistics(regions: any[]) {
       }
     }
   }
-  
+
   return {
     regions: regions.length,
     settlements: settlementIds.size,
     landTiles: landTilesCount,
-    oceanTiles: oceanTilesCount
+    oceanTiles: oceanTilesCount,
   };
 }
 
@@ -138,20 +138,20 @@ function processTile(tile: any) {
   const landTiles = tile.type === 'LAND' ? 1 : 0;
   const oceanTiles = tile.type === 'OCEAN' ? 1 : 0;
   const settlementIds = new Set<string>();
-  
+
   for (const plot of tile.plots || []) {
     if (plot.settlement?.id) {
       settlementIds.add(plot.settlement.id);
     }
   }
-  
+
   return { landTiles, oceanTiles, settlementIds };
 }
 
 /**
  * POST /api/worlds
  * Create new world with optional bulk regions/tiles/plots
- * 
+ *
  * Body: {
  *   name: string,
  *   serverId: string,
@@ -165,42 +165,45 @@ function processTile(tile: any) {
  */
 router.post('/', authenticateAdmin, async (req, res) => {
   try {
-    const { 
-      name, 
-      serverId, 
-      elevationSettings, 
-      precipitationSettings, 
+    const {
+      name,
+      serverId,
+      elevationSettings,
+      precipitationSettings,
       temperatureSettings,
       regions: worldRegions,
       tiles: worldTiles,
-      plots: worldPlots
+      plots: worldPlots,
     } = req.body;
 
     // Validation
     if (!name || !serverId) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: name and serverId', 
-        code: 'INVALID_INPUT' 
+      return res.status(400).json({
+        error: 'Missing required fields: name and serverId',
+        code: 'INVALID_INPUT',
       });
     }
 
     // Create world
-    const [newWorld] = await db.insert(worlds).values({
-      id: createId(),
-      name,
-      serverId,
-      elevationSettings: elevationSettings || {},
-      precipitationSettings: precipitationSettings || {},
-      temperatureSettings: temperatureSettings || {}
-    }).returning();
+    const [newWorld] = await db
+      .insert(worlds)
+      .values({
+        id: createId(),
+        name,
+        serverId,
+        elevationSettings: elevationSettings || {},
+        precipitationSettings: precipitationSettings || {},
+        temperatureSettings: temperatureSettings || {},
+      })
+      .returning();
 
     logger.info(`[API] Created world: ${newWorld.id} - ${newWorld.name}`);
 
     // Bulk insert regions if provided
     if (worldRegions && Array.isArray(worldRegions) && worldRegions.length > 0) {
-      const regionsToInsert = worldRegions.map(r => ({
+      const regionsToInsert = worldRegions.map((r) => ({
         ...r,
-        worldId: newWorld.id // Ensure worldId is set
+        worldId: newWorld.id, // Ensure worldId is set
       }));
       await db.insert(regions).values(regionsToInsert);
       logger.info(`[API] Created ${regionsToInsert.length} regions for world ${newWorld.id}`);
@@ -221,10 +224,10 @@ router.post('/', authenticateAdmin, async (req, res) => {
     res.status(201).json(newWorld);
   } catch (error) {
     logger.error('[API] Error creating world:', error);
-    res.status(500).json({ 
-      error: 'Failed to create world', 
+    res.status(500).json({
+      error: 'Failed to create world',
       code: 'CREATE_FAILED',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -240,24 +243,25 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 
     // Check if world exists
     const existing = await db.query.worlds.findFirst({
-      where: eq(worlds.id, id)
+      where: eq(worlds.id, id),
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'World not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'World not found',
+        code: 'NOT_FOUND',
       });
     }
 
     // Update world
-    const [updated] = await db.update(worlds)
+    const [updated] = await db
+      .update(worlds)
       .set({
         name: name || existing.name,
         elevationSettings: elevationSettings || existing.elevationSettings,
         precipitationSettings: precipitationSettings || existing.precipitationSettings,
         temperatureSettings: temperatureSettings || existing.temperatureSettings,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(worlds.id, id))
       .returning();
@@ -266,9 +270,9 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     res.json(updated);
   } catch (error) {
     logger.error('[API] Error updating world:', error);
-    res.status(500).json({ 
-      error: 'Failed to update world', 
-      code: 'UPDATE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to update world',
+      code: 'UPDATE_FAILED',
     });
   }
 });
@@ -283,13 +287,13 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
 
     // Check if world exists
     const existing = await db.query.worlds.findFirst({
-      where: eq(worlds.id, id)
+      where: eq(worlds.id, id),
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'World not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'World not found',
+        code: 'NOT_FOUND',
       });
     }
 
@@ -297,15 +301,15 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     await db.delete(worlds).where(eq(worlds.id, id));
 
     logger.info(`[API] Deleted world: ${id} - ${existing.name}`);
-    res.json({ 
-      success: true, 
-      message: `World "${existing.name}" deleted successfully` 
+    res.json({
+      success: true,
+      message: `World "${existing.name}" deleted successfully`,
     });
   } catch (error) {
     logger.error('[API] Error deleting world:', error);
-    res.status(500).json({ 
-      error: 'Failed to delete world', 
-      code: 'DELETE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to delete world',
+      code: 'DELETE_FAILED',
     });
   }
 });

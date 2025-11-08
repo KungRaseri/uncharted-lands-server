@@ -37,7 +37,10 @@ export const profiles = pgTable('Profile', {
   id: text('id').primaryKey(),
   username: text('username').notNull().unique(),
   picture: text('picture').notNull(),
-  accountId: text('accountId').notNull().unique().references(() => accounts.id, { onDelete: 'cascade' }),
+  accountId: text('accountId')
+    .notNull()
+    .unique()
+    .references(() => accounts.id, { onDelete: 'cascade' }),
 });
 
 export const servers = pgTable(
@@ -59,8 +62,12 @@ export const servers = pgTable(
 export const profileServerData = pgTable(
   'ProfileServerData',
   {
-    profileId: text('profileId').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-    serverId: text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+    profileId: text('profileId')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     profileIdIdx: uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
@@ -80,7 +87,9 @@ export const worlds = pgTable(
     elevationSettings: json('elevationSettings').notNull(),
     precipitationSettings: json('precipitationSettings').notNull(),
     temperatureSettings: json('temperatureSettings').notNull(),
-    serverId: text('serverId').notNull().references(() => servers.id, { onDelete: 'cascade' }),
+    serverId: text('serverId')
+      .notNull()
+      .references(() => servers.id, { onDelete: 'cascade' }),
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
@@ -99,7 +108,9 @@ export const regions = pgTable(
     elevationMap: json('elevationMap').notNull(),
     precipitationMap: json('precipitationMap').notNull(),
     temperatureMap: json('temperatureMap').notNull(),
-    worldId: text('worldId').notNull().references(() => worlds.id, { onDelete: 'cascade' }),
+    worldId: text('worldId')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
   },
   (table) => ({
     nameWorldIdx: uniqueIndex('Region_name_worldId_key').on(table.name, table.worldId),
@@ -136,8 +147,12 @@ export const tiles = pgTable(
   'Tile',
   {
     id: text('id').primaryKey(),
-    biomeId: text('biomeId').notNull().references(() => biomes.id),
-    regionId: text('regionId').notNull().references(() => regions.id, { onDelete: 'cascade' }),
+    biomeId: text('biomeId')
+      .notNull()
+      .references(() => biomes.id),
+    regionId: text('regionId')
+      .notNull()
+      .references(() => regions.id, { onDelete: 'cascade' }),
     elevation: doublePrecision('elevation').notNull(),
     temperature: doublePrecision('temperature').notNull(),
     precipitation: doublePrecision('precipitation').notNull(),
@@ -154,7 +169,9 @@ export const plots = pgTable(
   'Plot',
   {
     id: text('id').primaryKey(),
-    tileId: text('tileId').notNull().references(() => tiles.id, { onDelete: 'cascade' }),
+    tileId: text('tileId')
+      .notNull()
+      .references(() => tiles.id, { onDelete: 'cascade' }),
     area: integer('area').notNull().default(30),
     solar: integer('solar').notNull().default(1),
     wind: integer('wind').notNull().default(1),
@@ -182,9 +199,17 @@ export const settlements = pgTable(
   'Settlement',
   {
     id: text('id').primaryKey(),
-    plotId: text('plotId').notNull().unique().references(() => plots.id, { onDelete: 'cascade' }),
-    playerProfileId: text('playerProfileId').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
-    settlementStorageId: text('settlementStorageId').notNull().unique().references(() => settlementStorage.id, { onDelete: 'cascade' }),
+    plotId: text('plotId')
+      .notNull()
+      .unique()
+      .references(() => plots.id, { onDelete: 'cascade' }),
+    playerProfileId: text('playerProfileId')
+      .notNull()
+      .references(() => profiles.id, { onDelete: 'cascade' }),
+    settlementStorageId: text('settlementStorageId')
+      .notNull()
+      .unique()
+      .references(() => settlementStorage.id, { onDelete: 'cascade' }),
     name: text('name').notNull().default('Home Settlement'),
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
@@ -209,15 +234,22 @@ export const structureRequirements = pgTable('StructureRequirements', {
 
 export const settlementStructures = pgTable('SettlementStructure', {
   id: text('id').primaryKey(),
-  structureRequirementsId: text('structureRequirementsId').notNull().unique().references(() => structureRequirements.id, { onDelete: 'cascade' }),
-  settlementId: text('settlementId').notNull().references(() => settlements.id, { onDelete: 'cascade' }),
+  structureRequirementsId: text('structureRequirementsId')
+    .notNull()
+    .unique()
+    .references(() => structureRequirements.id, { onDelete: 'cascade' }),
+  settlementId: text('settlementId')
+    .notNull()
+    .references(() => settlements.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description').notNull(),
 });
 
 export const structureModifiers = pgTable('StructureModifier', {
   id: text('id').primaryKey(),
-  settlementStructureId: text('settlementStructureId').notNull().references(() => settlementStructures.id, { onDelete: 'cascade' }),
+  settlementStructureId: text('settlementStructureId')
+    .notNull()
+    .references(() => settlementStructures.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description').notNull(),
   value: integer('value').notNull(),

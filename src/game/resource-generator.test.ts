@@ -136,7 +136,7 @@ describe('resource-generator', () => {
       expect(resources.solar).toBeLessThanOrEqual(5);
       expect(resources.wood).toBe(0);
       expect(resources.ore).toBe(0);
-      
+
       // But high water
       expect(resources.water).toBe(10);
     });
@@ -147,7 +147,7 @@ describe('resource-generator', () => {
       // Mountains should have high stone and ore
       expect(resources.stone).toBeGreaterThanOrEqual(6);
       expect(resources.ore).toBeGreaterThan(0);
-      
+
       // High wind due to elevation
       expect(resources.wind).toBeGreaterThanOrEqual(5);
     });
@@ -157,7 +157,7 @@ describe('resource-generator', () => {
 
       // Desert should have lower water due to low precipitation
       expect(resources.water).toBeLessThanOrEqual(6);
-      
+
       // And reduced food
       expect(resources.food).toBeLessThanOrEqual(7);
     });
@@ -171,14 +171,14 @@ describe('resource-generator', () => {
 
     it('should return plots within biome range for land tiles', () => {
       const plots = determinePlotsTotal(temperateTile, temperateForestBiome);
-      
+
       expect(plots).toBeGreaterThanOrEqual(temperateForestBiome.plotsMin);
       expect(plots).toBeLessThanOrEqual(temperateForestBiome.plotsMax);
     });
 
     it('should generate more plots for low elevation tiles', () => {
       const lowTile: Tile = { elevation: 2, precipitation: 200, temperature: 20 };
-      
+
       // Run multiple times to get average (due to randomness)
       let totalPlots = 0;
       const iterations = 100;
@@ -201,7 +201,7 @@ describe('resource-generator', () => {
 
     it('should reduce plots for mountain tiles', () => {
       const plots = determinePlotsTotal(mountainousTile, mountainBiome);
-      
+
       // Mountain plots should be reduced (elevation >= 25 applies 0.6 multiplier)
       expect(plots).toBeLessThanOrEqual(mountainBiome.plotsMax);
     });
@@ -210,7 +210,7 @@ describe('resource-generator', () => {
       // Even with very high elevation
       const veryHighTile: Tile = { elevation: 50, precipitation: 100, temperature: 0 };
       const plots = determinePlotsTotal(veryHighTile, mountainBiome);
-      
+
       expect(plots).toBeGreaterThanOrEqual(1);
     });
   });
@@ -226,7 +226,7 @@ describe('resource-generator', () => {
 
       // Due to variance, values won't be exact but should be close (within ~40% due to 0.2 variance * 2)
       const maxDifferenceRatio = 0.5;
-      
+
       expect(Math.abs(resources1.solar - resources2.solar) / resources1.solar).toBeLessThan(
         maxDifferenceRatio
       );
@@ -258,7 +258,7 @@ describe('resource-generator', () => {
 
       // Forests should have decent wood
       expect(resources.wood).toBeGreaterThan(0);
-      
+
       // And decent food/water
       expect(resources.food).toBeGreaterThan(3);
       expect(resources.water).toBeGreaterThan(3);
@@ -269,7 +269,7 @@ describe('resource-generator', () => {
 
       // Mountains should favor stone and ore
       expect(resources.stone).toBeGreaterThan(resources.wood);
-      
+
       // High wind and solar
       expect(resources.wind).toBeGreaterThanOrEqual(6);
       expect(resources.solar).toBeGreaterThan(4);

@@ -1,6 +1,6 @@
 /**
  * Servers API Routes
- * 
+ *
  * CRUD operations for game server management
  */
 
@@ -24,19 +24,19 @@ router.get('/', authenticateAdmin, async (req, res) => {
         worlds: {
           columns: {
             id: true,
-            name: true
-          }
-        }
+            name: true,
+          },
+        },
       },
-      orderBy: (servers, { desc }) => [desc(servers.createdAt)]
+      orderBy: (servers, { desc }) => [desc(servers.createdAt)],
     });
-    
+
     res.json(allServers);
   } catch (error) {
     logger.error('[API] Error fetching servers:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch servers', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch servers',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -48,27 +48,27 @@ router.get('/', authenticateAdmin, async (req, res) => {
 router.get('/:id', authenticateAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const server = await db.query.servers.findFirst({
       where: eq(servers.id, id),
       with: {
-        worlds: true
-      }
+        worlds: true,
+      },
     });
-    
+
     if (!server) {
-      return res.status(404).json({ 
-        error: 'Server not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Server not found',
+        code: 'NOT_FOUND',
       });
     }
-    
+
     res.json(server);
   } catch (error) {
     logger.error('[API] Error fetching server:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch server', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch server',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -76,7 +76,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
 /**
  * POST /api/servers
  * Create new server
- * 
+ *
  * Body: {
  *   name: string,
  *   hostname?: string,
@@ -90,29 +90,32 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
     // Validation
     if (!name) {
-      return res.status(400).json({ 
-        error: 'Missing required field: name', 
-        code: 'INVALID_INPUT' 
+      return res.status(400).json({
+        error: 'Missing required field: name',
+        code: 'INVALID_INPUT',
       });
     }
 
     // Create server
-    const [newServer] = await db.insert(servers).values({
-      id: createId(),
-      name,
-      hostname: hostname || 'localhost',
-      port: port || 5000,
-      status: status || 'OFFLINE'
-    }).returning();
+    const [newServer] = await db
+      .insert(servers)
+      .values({
+        id: createId(),
+        name,
+        hostname: hostname || 'localhost',
+        port: port || 5000,
+        status: status || 'OFFLINE',
+      })
+      .returning();
 
     logger.info(`[API] Created server: ${newServer.id} - ${newServer.name}`);
     res.status(201).json(newServer);
   } catch (error) {
     logger.error('[API] Error creating server:', error);
-    res.status(500).json({ 
-      error: 'Failed to create server', 
+    res.status(500).json({
+      error: 'Failed to create server',
       code: 'CREATE_FAILED',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -128,24 +131,25 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 
     // Check if server exists
     const existing = await db.query.servers.findFirst({
-      where: eq(servers.id, id)
+      where: eq(servers.id, id),
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'Server not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Server not found',
+        code: 'NOT_FOUND',
       });
     }
 
     // Update server
-    const [updated] = await db.update(servers)
+    const [updated] = await db
+      .update(servers)
       .set({
         name: name || existing.name,
         hostname: hostname || existing.hostname,
         port: port || existing.port,
         status: status || existing.status,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(servers.id, id))
       .returning();
@@ -154,9 +158,9 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     res.json(updated);
   } catch (error) {
     logger.error('[API] Error updating server:', error);
-    res.status(500).json({ 
-      error: 'Failed to update server', 
-      code: 'UPDATE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to update server',
+      code: 'UPDATE_FAILED',
     });
   }
 });
@@ -171,13 +175,13 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
 
     // Check if server exists
     const existing = await db.query.servers.findFirst({
-      where: eq(servers.id, id)
+      where: eq(servers.id, id),
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'Server not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Server not found',
+        code: 'NOT_FOUND',
       });
     }
 
@@ -185,15 +189,15 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     await db.delete(servers).where(eq(servers.id, id));
 
     logger.info(`[API] Deleted server: ${id} - ${existing.name}`);
-    res.json({ 
-      success: true, 
-      message: `Server "${existing.name}" deleted successfully` 
+    res.json({
+      success: true,
+      message: `Server "${existing.name}" deleted successfully`,
     });
   } catch (error) {
     logger.error('[API] Error deleting server:', error);
-    res.status(500).json({ 
-      error: 'Failed to delete server', 
-      code: 'DELETE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to delete server',
+      code: 'DELETE_FAILED',
     });
   }
 });

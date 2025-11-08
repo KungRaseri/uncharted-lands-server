@@ -66,7 +66,7 @@ describe('Event Handlers', () => {
       authenticateHandler!({ playerId: 'player-123' }, callback);
 
       // Use flush promises to wait for async handler to complete
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.data.playerId).toBe('player-123');
         expect(mockSocket.data.authenticated).toBe(true);
         expect(callback).toHaveBeenCalledWith({
@@ -83,7 +83,7 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       authenticateHandler!({ playerId: 'test-player-id' }, callback);
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.data.authenticated).toBe(true);
         expect(mockSocket.data.playerId).toBe('test-player-id');
       });
@@ -99,7 +99,7 @@ describe('Event Handlers', () => {
 
       joinWorldHandler!({ playerId: 'player-123', worldId: 'world-456' });
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.data.worldId).toBe('world-456');
         expect(mockSocket.join).toHaveBeenCalledWith('world:world-456');
       });
@@ -113,7 +113,7 @@ describe('Event Handlers', () => {
 
       joinWorldHandler!({ playerId: 'player-123', worldId: 'test-world' });
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.data.worldId).toBe('test-world');
       });
     });
@@ -132,7 +132,7 @@ describe('Event Handlers', () => {
 
       disconnectHandler!('client disconnect');
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         // Handler should be called (cleanup happens internally)
         expect(mockSocket.data).toBeDefined();
       });
@@ -148,7 +148,7 @@ describe('Event Handlers', () => {
 
       leaveWorldHandler!({ playerId: 'player-123', worldId: 'world-456' });
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.leave).toHaveBeenCalledWith('world:world-456');
         expect(mockSocket.data.worldId).toBeUndefined();
       });
@@ -162,7 +162,7 @@ describe('Event Handlers', () => {
 
       leaveWorldHandler!({ playerId: 'player-123', worldId: 'world-456' });
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
         expect(mockSocket.to).toHaveBeenCalledWith('world:world-456');
       });
     });
@@ -177,11 +177,14 @@ describe('Event Handlers', () => {
 
       gameStateHandler!({ worldId: 'world-456' });
 
-      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
-        expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
-          code: 'AUTH_REQUIRED',
-          message: 'Authentication required',
-        }));
+      return new Promise((resolve) => setTimeout(resolve, 0)).then(() => {
+        expect(mockSocket.emit).toHaveBeenCalledWith(
+          'error',
+          expect.objectContaining({
+            code: 'AUTH_REQUIRED',
+            message: 'Authentication required',
+          })
+        );
       });
     });
 
@@ -199,7 +202,7 @@ describe('Event Handlers', () => {
       gameStateHandler!({ worldId: 'world-456' });
 
       // Wait for async operations
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(queries.getPlayerSettlements).toHaveBeenCalledWith('player-123');
     });
@@ -215,12 +218,14 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Authentication required',
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Authentication required',
+        })
+      );
     });
 
     it('should reject when settlement not found', async () => {
@@ -233,12 +238,14 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Settlement not found',
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Settlement not found',
+        })
+      );
     });
 
     it('should reject when player does not own settlement', async () => {
@@ -259,12 +266,14 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'You do not own this settlement',
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'You do not own this settlement',
+        })
+      );
     });
   });
 
@@ -278,12 +287,14 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       collectHandler!({ settlementId: 'settlement-123' }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Authentication required',
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Authentication required',
+        })
+      );
     });
 
     it('should reject when settlement not found', async () => {
@@ -296,12 +307,14 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       collectHandler!({ settlementId: 'settlement-123' }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-        error: 'Settlement not found',
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          error: 'Settlement not found',
+        })
+      );
     });
   });
 
@@ -330,11 +343,13 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       createWorldHandler!({ worldName: undefined as any, seed: 12345 }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+        })
+      );
     });
 
     it('should reject when world name is too short', async () => {
@@ -346,12 +361,13 @@ describe('Event Handlers', () => {
       const callback = vi.fn();
       createWorldHandler!({ worldName: 'AB', seed: 12345 }, callback);
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
-        success: false,
-      }));
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+        })
+      );
     });
   });
 });
-

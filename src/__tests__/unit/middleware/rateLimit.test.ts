@@ -48,11 +48,9 @@ describe('Rate Limit Middleware', () => {
       expect(limitedResponse.body).toEqual({
         error: 'Too Many Requests',
         code: 'RATE_LIMIT_EXCEEDED',
-        message: expect.stringContaining('15 minutes')
+        message: expect.stringContaining('15 minutes'),
       });
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[RATE LIMIT]')
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('[RATE LIMIT]'));
     });
   });
 
@@ -84,14 +82,10 @@ describe('Rate Limit Middleware', () => {
       expect(limitedResponse.body).toEqual({
         error: 'Too Many Requests',
         code: 'RATE_LIMIT_EXCEEDED',
-        message: expect.stringContaining('modification')
+        message: expect.stringContaining('modification'),
       });
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[RATE LIMIT]')
-      );
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('strict')
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('[RATE LIMIT]'));
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('strict'));
     });
   });
 
@@ -123,14 +117,10 @@ describe('Rate Limit Middleware', () => {
       expect(limitedResponse.body).toEqual({
         error: 'Too Many Requests',
         code: 'RATE_LIMIT_EXCEEDED',
-        message: expect.any(String)
+        message: expect.any(String),
       });
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('[RATE LIMIT]')
-      );
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('read')
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('[RATE LIMIT]'));
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('read'));
     });
   });
 
@@ -159,9 +149,7 @@ describe('Rate Limit Middleware', () => {
         await request(app).get('/test');
       }
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('::ffff:127.0.0.1')
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('::ffff:127.0.0.1'));
     });
 
     it('should include path in warning log', async () => {
@@ -174,9 +162,7 @@ describe('Rate Limit Middleware', () => {
         await request(app).post('/special/route');
       }
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('/special/route')
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('/special/route'));
     });
   });
 

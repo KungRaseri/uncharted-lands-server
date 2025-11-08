@@ -1,6 +1,6 @@
 /**
  * World Generation System
- * 
+ *
  * Generates complete game worlds with:
  * - Procedural terrain using Perlin/Simplex noise
  * - Multiple environmental layers (elevation, precipitation, temperature)
@@ -16,135 +16,135 @@ import { logger } from '../utils/logger';
  * Split a 2D heightmap into chunks
  */
 function chunks(heightMap: number[][], chunkSize: number): number[][][][] {
-	const splitChunks: number[][][][] = [];
+  const splitChunks: number[][][][] = [];
 
-	if (chunkSize === 0) return splitChunks;
+  if (chunkSize === 0) return splitChunks;
 
-	const height = heightMap.length;
-	const width = heightMap[0].length;
+  const height = heightMap.length;
+  const width = heightMap[0].length;
 
-	for (let i = 0; i < height; i += chunkSize) {
-		const rowChunks: number[][][] = [];
-		for (let j = 0; j < width; j += chunkSize) {
-			const chunk: number[][] = [];
+  for (let i = 0; i < height; i += chunkSize) {
+    const rowChunks: number[][][] = [];
+    for (let j = 0; j < width; j += chunkSize) {
+      const chunk: number[][] = [];
 
-			for (let y = i; y < i + chunkSize; y++) {
-				if (y >= height) break;
-				const row = heightMap[y];
-				const slicedRow = row.slice(j, j + chunkSize);
-				chunk.push(slicedRow);
-			}
-			rowChunks.push(chunk);
-		}
-		splitChunks.push(rowChunks);
-	}
+      for (let y = i; y < i + chunkSize; y++) {
+        if (y >= height) break;
+        const row = heightMap[y];
+        const slicedRow = row.slice(j, j + chunkSize);
+        chunk.push(slicedRow);
+      }
+      rowChunks.push(chunk);
+    }
+    splitChunks.push(rowChunks);
+  }
 
-	return splitChunks;
+  return splitChunks;
 }
 
 /**
  * Normalize a value from [-1, 1] to [min, max]
  */
 export function normalizeValue(value: number, min: number, max: number): number {
-	return (value * (max - min)) / 2 + (max + min) / 2;
+  return (value * (max - min)) / 2 + (max + min) / 2;
 }
 
 export interface MapOptions {
-	serverId: string | null;
-	worldName: string;
-	width: number;
-	height: number;
-	seed: number;
+  serverId: string | null;
+  worldName: string;
+  width: number;
+  height: number;
+  seed: number;
 }
 
 export interface NoiseOptions {
-	amplitude: number;
-	persistence: number;
-	frequency: number;
-	octaves: number;
-	scale: (x: number) => number;
+  amplitude: number;
+  persistence: number;
+  frequency: number;
+  octaves: number;
+  scale: (x: number) => number;
 }
 
 /**
  * Generate a heightmap using fractal noise
  */
 export async function generateMap(
-	mapOptions: MapOptions,
-	options: NoiseOptions
+  mapOptions: MapOptions,
+  options: NoiseOptions
 ): Promise<number[][][][]> {
-	const { amplitude, persistence, frequency, octaves, scale } = options;
+  const { amplitude, persistence, frequency, octaves, scale } = options;
 
-	logger.info('[WORLD GEN] Generating heightmap', {
-		width: mapOptions.width,
-		height: mapOptions.height,
-		seed: mapOptions.seed,
-		octaves
-	});
+  logger.info('[WORLD GEN] Generating heightmap', {
+    width: mapOptions.width,
+    height: mapOptions.height,
+    seed: mapOptions.seed,
+    octaves,
+  });
 
-	const noiseFn = makeNoise2D(mapOptions.seed);
+  const noiseFn = makeNoise2D(mapOptions.seed);
 
-	const map = makeRectangle(mapOptions.width, mapOptions.height, noiseFn, {
-		amplitude,
-		persistence,
-		frequency,
-		octaves,
-		scale: scale
-	});
+  const map = makeRectangle(mapOptions.width, mapOptions.height, noiseFn, {
+    amplitude,
+    persistence,
+    frequency,
+    octaves,
+    scale: scale,
+  });
 
-	return chunks(map, 10);
+  return chunks(map, 10);
 }
 
 export interface RegionData {
-	xCoord: number;
-	yCoord: number;
-	elevationMap: number[][];
-	precipitationMap: number[][];
-	temperatureMap: number[][];
+  xCoord: number;
+  yCoord: number;
+  elevationMap: number[][];
+  precipitationMap: number[][];
+  temperatureMap: number[][];
 }
 
 /**
  * Generate all environmental layers for a world
  */
 export async function generateWorldLayers(
-	mapOptions: MapOptions,
-	elevationOptions: NoiseOptions,
-	precipitationOptions: NoiseOptions,
-	temperatureOptions: NoiseOptions
+  mapOptions: MapOptions,
+  elevationOptions: NoiseOptions,
+  precipitationOptions: NoiseOptions,
+  temperatureOptions: NoiseOptions
 ): Promise<RegionData[]> {
-	logger.info('[WORLD GEN] Generating world layers', {
-		worldName: mapOptions.worldName,
-		dimensions: `${mapOptions.width}x${mapOptions.height}`
-	});
+  logger.info('[WORLD GEN] Generating world layers', {
+    worldName: mapOptions.worldName,
+    dimensions: `${mapOptions.width}x${mapOptions.height}`,
+  });
 
-	// Generate all three environmental layers
-	const elevationChunks = await generateMap(mapOptions, elevationOptions);
-	const precipitationChunks = await generateMap(
-		{ ...mapOptions, seed: mapOptions.seed + 1 },
-		precipitationOptions
-	);
-	const temperatureChunks = await generateMap(
-		{ ...mapOptions, seed: mapOptions.seed + 2 },
-		temperatureOptions
-	);
+  // Generate all three environmental layers
+  const elevationChunks = await generateMap(mapOptions, elevationOptions);
+  const precipitationChunks = await generateMap(
+    { ...mapOptions, seed: mapOptions.seed + 1 },
+    precipitationOptions
+  );
+  const temperatureChunks = await generateMap(
+    { ...mapOptions, seed: mapOptions.seed + 2 },
+    temperatureOptions
+  );
 
-	// Combine chunks into regions
-	const regions: RegionData[] = [];
-	
-	for (let y = 0; y < elevationChunks.length; y++) {
-		for (let x = 0; x < elevationChunks[y].length; x++) {
-			regions.push({
-				xCoord: x,
-				yCoord: y,
-				elevationMap: elevationChunks[y][x],
-				precipitationMap: precipitationChunks[y][x],
-				temperatureMap: temperatureChunks[y][x]
-			});
-		}
-	}
+  // Combine chunks into regions
+  const regions: RegionData[] = [];
 
-	logger.info('[WORLD GEN] Generated regions', {
-		regionCount: regions.length
-	});
+  for (let y = 0; y < elevationChunks.length; y++) {
+    for (let x = 0; x < elevationChunks[y].length; x++) {
+      regions.push({
+        xCoord: x,
+        yCoord: y,
+        elevationMap: elevationChunks[y][x],
+        precipitationMap: precipitationChunks[y][x],
+        temperatureMap: temperatureChunks[y][x],
+      });
+    }
+  }
 
-	return regions;
+  logger.info('[WORLD GEN] Generated regions', {
+    regionCount: regions.length,
+  });
+
+  return regions;
 }

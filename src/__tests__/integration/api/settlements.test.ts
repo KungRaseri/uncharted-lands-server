@@ -80,9 +80,7 @@ describe('Settlements API Routes', () => {
 
       vi.mocked(db.db.query.settlements.findMany).mockResolvedValue(mockSettlements as any);
 
-      const response = await request(app)
-        .get('/api/settlements')
-        .expect(200);
+      const response = await request(app).get('/api/settlements').expect(200);
 
       expect(response.body).toEqual(mockSettlements);
       expect(db.db.query.settlements.findMany).toHaveBeenCalledWith({
@@ -112,9 +110,7 @@ describe('Settlements API Routes', () => {
     it('should return 500 on database error', async () => {
       vi.mocked(db.db.query.settlements.findMany).mockRejectedValue(new Error('DB error'));
 
-      const response = await request(app)
-        .get('/api/settlements')
-        .expect(500);
+      const response = await request(app).get('/api/settlements').expect(500);
 
       expect(response.body.error).toBe('Failed to fetch settlements');
     });
@@ -132,9 +128,7 @@ describe('Settlements API Routes', () => {
 
       vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
 
-      const response = await request(app)
-        .get('/api/settlements/settlement-123')
-        .expect(200);
+      const response = await request(app).get('/api/settlements/settlement-123').expect(200);
 
       expect(response.body).toEqual(mockSettlement);
     });
@@ -142,9 +136,7 @@ describe('Settlements API Routes', () => {
     it('should return 404 if settlement not found', async () => {
       vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(undefined);
 
-      const response = await request(app)
-        .get('/api/settlements/nonexistent')
-        .expect(404);
+      const response = await request(app).get('/api/settlements/nonexistent').expect(404);
 
       expect(response.body.error).toBe('Settlement not found');
     });
@@ -152,9 +144,7 @@ describe('Settlements API Routes', () => {
     it('should return 500 on database error', async () => {
       vi.mocked(db.db.query.settlements.findFirst).mockRejectedValue(new Error('DB error'));
 
-      const response = await request(app)
-        .get('/api/settlements/settlement-123')
-        .expect(500);
+      const response = await request(app).get('/api/settlements/settlement-123').expect(500);
 
       expect(response.body.error).toBe('Failed to fetch settlement');
     });
@@ -170,10 +160,7 @@ describe('Settlements API Routes', () => {
     };
 
     it('should return 403 if not authenticated', async () => {
-      const response = await request(app)
-        .post('/api/settlements')
-        .send(validRequest)
-        .expect(403);
+      const response = await request(app).post('/api/settlements').send(validRequest).expect(403);
 
       expect(response.body.code).toBe('UNAUTHORIZED');
     });
@@ -197,9 +184,7 @@ describe('Settlements API Routes', () => {
           precipitation: 200,
           temperature: 20,
           region: { worldId: 'world-123' },
-          plots: [
-            { id: 'plot-1', food: 5, water: 5, wood: 5 },
-          ],
+          plots: [{ id: 'plot-1', food: 5, water: 5, wood: 5 }],
         },
       ];
 
@@ -213,7 +198,7 @@ describe('Settlements API Routes', () => {
 
       vi.mocked(db.db.query.tiles.findMany).mockResolvedValue(mockTiles as any);
       vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
-      
+
       const mockInsert = vi.fn(() => ({
         values: vi.fn().mockResolvedValue(undefined),
       }));
@@ -248,7 +233,7 @@ describe('Settlements API Routes', () => {
 
       vi.mocked(db.db.query.tiles.findMany).mockResolvedValue(mockTiles as any);
       vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
-      
+
       const mockInsert = vi.fn(() => ({
         values: vi.fn().mockResolvedValue(undefined),
       }));
@@ -310,7 +295,7 @@ describe('Settlements API Routes', () => {
 
       vi.mocked(db.db.query.tiles.findMany).mockResolvedValue(mockTiles as any);
       vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
-      
+
       const mockInsert = vi.fn(() => ({
         values: vi.fn().mockResolvedValue(undefined),
       }));
@@ -334,7 +319,7 @@ describe('Settlements API Routes', () => {
       ];
 
       vi.mocked(db.db.query.tiles.findMany).mockResolvedValue(mockTiles as any);
-      
+
       const mockInsert = vi.fn(() => ({
         values: vi.fn().mockRejectedValue(new Error('unique constraint violation')),
       }));

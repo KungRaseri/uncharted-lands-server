@@ -114,9 +114,7 @@ describe('Players API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.accounts.findMany).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findMany).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .get('/api/players')
@@ -186,9 +184,7 @@ describe('Players API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .get('/api/players/player-123')
@@ -296,9 +292,7 @@ describe('Players API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .put('/api/players/player-123')
@@ -367,9 +361,7 @@ describe('Players API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .delete('/api/players/player-123')

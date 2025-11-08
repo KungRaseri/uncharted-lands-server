@@ -1,6 +1,6 @@
 /**
  * Regions, Tiles, and Plots API Routes
- * 
+ *
  * Read operations for world geography data
  */
 
@@ -19,7 +19,7 @@ const router = Router();
 /**
  * GET /api/regions?worldId=xxx&xMin=&xMax=&yMin=&yMax=
  * Get all regions for a world, optionally filtered by coordinate bounds
- * 
+ *
  * Also supports centerX, centerY, radius for lazy loading
  */
 router.get('/', authenticate, async (req, res) => {
@@ -27,9 +27,9 @@ router.get('/', authenticate, async (req, res) => {
     const { worldId, xMin, xMax, yMin, yMax, centerX, centerY, radius } = req.query;
 
     if (!worldId || typeof worldId !== 'string') {
-      return res.status(400).json({ 
-        error: 'Missing required query parameter: worldId', 
-        code: 'INVALID_INPUT' 
+      return res.status(400).json({
+        error: 'Missing required query parameter: worldId',
+        code: 'INVALID_INPUT',
       });
     }
 
@@ -57,19 +57,13 @@ router.get('/', authenticate, async (req, res) => {
 
     // Build WHERE clause with optional coordinate filters
     const whereConditions = [eq(regions.worldId, worldId)];
-    
+
     if (xMinBound !== undefined && xMaxBound !== undefined) {
-      whereConditions.push(
-        gte(regions.xCoord, xMinBound),
-        lte(regions.xCoord, xMaxBound)
-      );
+      whereConditions.push(gte(regions.xCoord, xMinBound), lte(regions.xCoord, xMaxBound));
     }
-    
+
     if (yMinBound !== undefined && yMaxBound !== undefined) {
-      whereConditions.push(
-        gte(regions.yCoord, yMinBound),
-        lte(regions.yCoord, yMaxBound)
-      );
+      whereConditions.push(gte(regions.yCoord, yMinBound), lte(regions.yCoord, yMaxBound));
     }
 
     const worldRegions = await db.query.regions.findMany({
@@ -80,33 +74,37 @@ router.get('/', authenticate, async (req, res) => {
             biome: true,
             plots: {
               with: {
-                settlement: true
-              }
-            }
-          }
-        }
-      }
+                settlement: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     const hasBounds = xMinBound !== undefined;
-    logger.info(`[API] Fetched ${worldRegions.length} regions for world ${worldId}` + 
-      (hasBounds ? ` (bounds: ${xMinBound}-${xMaxBound}, ${yMinBound}-${yMaxBound})` : ''));
+    logger.info(
+      `[API] Fetched ${worldRegions.length} regions for world ${worldId}` +
+        (hasBounds ? ` (bounds: ${xMinBound}-${xMaxBound}, ${yMinBound}-${yMaxBound})` : '')
+    );
 
     res.json({
       regions: worldRegions,
       count: worldRegions.length,
-      bounds: hasBounds ? {
-        xMin: xMinBound,
-        xMax: xMaxBound,
-        yMin: yMinBound,
-        yMax: yMaxBound
-      } : undefined
+      bounds: hasBounds
+        ? {
+            xMin: xMinBound,
+            xMax: xMaxBound,
+            yMin: yMinBound,
+            yMax: yMaxBound,
+          }
+        : undefined,
     });
   } catch (error) {
     logger.error('[API] Error fetching regions:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch regions', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch regions',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -118,12 +116,12 @@ router.get('/', authenticate, async (req, res) => {
 /**
  * GET /api/map?profileId=xxx
  * Get map data for a player's world with lazy loading support
- * 
+ *
  * This endpoint:
  * 1. Finds the player's settlement and world
  * 2. Returns initial 3x3 region grid centered on settlement (or world center if no settlement)
  * 3. Includes player settlement info and world metadata
- * 
+ *
  * Query parameters:
  * - profileId: Player's profile ID (required)
  * - centerX, centerY, radius: Optional custom center for lazy loading
@@ -133,9 +131,9 @@ router.get('/map', authenticate, async (req, res) => {
     const { profileId, centerX, centerY, radius } = req.query;
 
     if (!profileId || typeof profileId !== 'string') {
-      return res.status(400).json({ 
-        error: 'Missing required query parameter: profileId', 
-        code: 'INVALID_INPUT' 
+      return res.status(400).json({
+        error: 'Missing required query parameter: profileId',
+        code: 'INVALID_INPUT',
       });
     }
 
@@ -153,16 +151,16 @@ router.get('/map', authenticate, async (req, res) => {
                   with: {
                     world: {
                       with: {
-                        server: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                        server: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     let worldId: string;
@@ -175,7 +173,7 @@ router.get('/map', authenticate, async (req, res) => {
       worldId = settlement.plot.tile.region.worldId;
       centerRegionX = settlement.plot.tile.region.xCoord;
       centerRegionY = settlement.plot.tile.region.yCoord;
-      
+
       playerSettlement = {
         id: settlement.id,
         name: settlement.name,
@@ -184,25 +182,25 @@ router.get('/map', authenticate, async (req, res) => {
         regionId: settlement.plot.tile.region.id,
         regionCoords: {
           x: centerRegionX,
-          y: centerRegionY
-        }
+          y: centerRegionY,
+        },
       };
 
       logger.info(`[API MAP] Player has settlement at region (${centerRegionX}, ${centerRegionY})`);
     } else {
       // No settlement - find first available world and use center
       logger.info('[API MAP] No settlement found, using fallback world');
-      
+
       const fallbackWorld = await db.query.worlds.findFirst({
         with: {
-          server: true
-        }
+          server: true,
+        },
       });
 
       if (!fallbackWorld) {
-        return res.status(404).json({ 
-          error: 'No world found', 
-          code: 'NO_WORLD' 
+        return res.status(404).json({
+          error: 'No world found',
+          code: 'NO_WORLD',
         });
       }
 
@@ -225,14 +223,14 @@ router.get('/map', authenticate, async (req, res) => {
     const world = await db.query.worlds.findFirst({
       where: eq(worlds.id, worldId),
       with: {
-        server: true
-      }
+        server: true,
+      },
     });
 
     if (!world) {
-      return res.status(404).json({ 
-        error: 'World not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'World not found',
+        code: 'NOT_FOUND',
       });
     }
 
@@ -257,12 +255,12 @@ router.get('/map', authenticate, async (req, res) => {
             biome: true,
             plots: {
               with: {
-                settlement: true
-              }
-            }
-          }
-        }
-      }
+                settlement: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     logger.info(`[API MAP] Loaded ${regionData.length} regions for world ${worldId}`);
@@ -274,7 +272,7 @@ router.get('/map', authenticate, async (req, res) => {
         name: world.name,
         serverId: world.serverId,
         server: world.server,
-        regions: regionData
+        regions: regionData,
       },
       playerSettlement,
       playerProfileId: profileId,
@@ -283,16 +281,16 @@ router.get('/map', authenticate, async (req, res) => {
         xMin: xMinBound,
         xMax: xMaxBound,
         yMin: yMinBound,
-        yMax: yMaxBound
-      }
+        yMax: yMaxBound,
+      },
     };
 
     res.json(response);
   } catch (error) {
     logger.error('[API MAP] Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to load map', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to load map',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -311,25 +309,25 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
         world: true,
         tiles: {
           with: {
-            biome: true
-          }
-        }
-      }
+            biome: true,
+          },
+        },
+      },
     });
 
     if (!region) {
-      return res.status(404).json({ 
-        error: 'Region not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Region not found',
+        code: 'NOT_FOUND',
       });
     }
 
     res.json(region);
   } catch (error) {
     logger.error('[API] Error fetching region:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch region', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch region',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -351,27 +349,27 @@ router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
       with: {
         region: {
           with: {
-            world: true
-          }
+            world: true,
+          },
         },
         biome: true,
-        plots: true
-      }
+        plots: true,
+      },
     });
 
     if (!tile) {
-      return res.status(404).json({ 
-        error: 'Tile not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Tile not found',
+        code: 'NOT_FOUND',
       });
     }
 
     res.json(tile);
   } catch (error) {
     logger.error('[API] Error fetching tile:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch tile', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch tile',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -395,31 +393,30 @@ router.get('/plots/:id', authenticateAdmin, async (req, res) => {
           with: {
             region: {
               with: {
-                world: true
-              }
+                world: true,
+              },
             },
-            biome: true
-          }
-        }
-      }
+            biome: true,
+          },
+        },
+      },
     });
 
     if (!plot) {
-      return res.status(404).json({ 
-        error: 'Plot not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Plot not found',
+        code: 'NOT_FOUND',
       });
     }
 
     res.json(plot);
   } catch (error) {
     logger.error('[API] Error fetching plot:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch plot', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch plot',
+      code: 'FETCH_FAILED',
     });
   }
 });
 
 export default router;
-

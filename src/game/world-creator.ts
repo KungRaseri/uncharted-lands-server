@@ -1,29 +1,23 @@
 /**
  * World Creation Service
- * 
+ *
  * Handles complete world generation from noise maps to database persistence
  */
 
 import { logger } from '../utils/logger';
-import { 
-  generateWorldLayers, 
+import {
+  generateWorldLayers,
   normalizeValue,
   type MapOptions,
-  type NoiseOptions 
+  type NoiseOptions,
 } from './world-generator';
 import {
   generatePlotResources,
   determinePlotsTotal,
   type Biome as BiomeType,
-  type Tile as TileType
+  type Tile as TileType,
 } from './resource-generator';
-import {
-  db,
-  worlds,
-  regions,
-  tiles,
-  plots
-} from '../db/index';
+import { db, worlds, regions, tiles, plots } from '../db/index';
 import { generateId, getAllBiomes, findBiome } from '../db/queries';
 
 export interface WorldCreationOptions {
@@ -48,15 +42,13 @@ export interface WorldCreationResult {
 /**
  * Create a complete world with all regions, tiles, and plots
  */
-export async function createWorld(
-  options: WorldCreationOptions
-): Promise<WorldCreationResult> {
+export async function createWorld(options: WorldCreationOptions): Promise<WorldCreationResult> {
   const startTime = Date.now();
-  
+
   logger.info('[WORLD CREATE] Starting world creation', {
     worldName: options.worldName,
     dimensions: `${options.width}x${options.height}`,
-    seed: options.seed
+    seed: options.seed,
   });
 
   // Step 1: Generate world layers (elevation, precipitation, temperature)
@@ -65,7 +57,7 @@ export async function createWorld(
     worldName: options.worldName,
     width: options.width,
     height: options.height,
-    seed: options.seed
+    seed: options.seed,
   };
 
   const regionData = await generateWorldLayers(
@@ -77,7 +69,7 @@ export async function createWorld(
 
   // Step 2: Load biomes from database
   const biomes = await getAllBiomes();
-  
+
   if (biomes.length === 0) {
     throw new Error('No biomes found in database. Please seed the database first.');
   }
@@ -94,7 +86,7 @@ export async function createWorld(
     precipitationSettings: options.precipitationOptions,
     temperatureSettings: options.temperatureOptions,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   // Step 4: Create regions
@@ -106,7 +98,7 @@ export async function createWorld(
     yCoord: region.yCoord,
     elevationMap: region.elevationMap,
     precipitationMap: region.precipitationMap,
-    temperatureMap: region.temperatureMap
+    temperatureMap: region.temperatureMap,
   }));
 
   logger.info('[WORLD CREATE] Generated regions', { regionCount: regionRecords.length });
@@ -132,7 +124,7 @@ export async function createWorld(
         const type = elevation < 0 ? 'OCEAN' : 'LAND';
         const normalizedPrecip = normalizeValue(precipitationMap[x][y], 0, 450);
         const normalizedTemp = normalizeValue(temperatureMap[x][y], -10, 32);
-        
+
         const biome = await findBiome(normalizedPrecip, normalizedTemp);
 
         if (!biome?.id) {
@@ -148,7 +140,7 @@ export async function createWorld(
           type,
           elevation: elevationMap[x][y],
           precipitation: precipitationMap[x][y],
-          temperature: temperatureMap[x][y]
+          temperature: temperatureMap[x][y],
         });
       }
     }
@@ -177,7 +169,7 @@ export async function createWorld(
     const tileData: TileType = {
       elevation: tile.elevation,
       precipitation: tile.precipitation,
-      temperature: tile.temperature
+      temperature: tile.temperature,
     };
 
     const plotsTotal = determinePlotsTotal(tileData, biome as BiomeType);
@@ -187,7 +179,7 @@ export async function createWorld(
       plotRecords.push({
         id: generateId(),
         tileId: tile.id,
-        ...resources
+        ...resources,
       });
     }
   }
@@ -230,7 +222,7 @@ export async function createWorld(
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
     plotCount: plotRecords.length,
-    duration: `${(duration / 1000).toFixed(2)}s`
+    duration: `${(duration / 1000).toFixed(2)}s`,
   });
 
   return {
@@ -238,6 +230,6 @@ export async function createWorld(
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
     plotCount: plotRecords.length,
-    duration
+    duration,
   };
 }

@@ -221,9 +221,7 @@ describe('Auth API Routes', () => {
     });
 
     it('should return 500 on database error during login', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .post('/api/auth/login')
@@ -239,10 +237,7 @@ describe('Auth API Routes', () => {
 
   describe('POST /api/auth/validate', () => {
     it('should return 400 if token is missing', async () => {
-      const response = await request(app)
-        .post('/api/auth/validate')
-        .send({})
-        .expect(400);
+      const response = await request(app).post('/api/auth/validate').send({}).expect(400);
 
       expect(response.body.error).toBe('Token is required');
     });
@@ -280,9 +275,7 @@ describe('Auth API Routes', () => {
     });
 
     it('should return 500 on database error during validation', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
-        new Error('Database error')
-      );
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database error'));
 
       const response = await request(app)
         .post('/api/auth/validate')

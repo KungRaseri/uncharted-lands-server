@@ -45,9 +45,7 @@ describe('Account API Routes', () => {
 
   describe('GET /api/account/me', () => {
     it('should return 401 when not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/account/me')
-        .expect(401);
+      const response = await request(app).get('/api/account/me').expect(401);
 
       expect(response.body).toEqual({
         error: 'Unauthorized',
@@ -91,7 +89,9 @@ describe('Account API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(new Error('Database connection failed'));
+      vi.mocked(db.db.query.accounts.findFirst).mockRejectedValue(
+        new Error('Database connection failed')
+      );
 
       const response = await request(app)
         .get('/api/account/me')

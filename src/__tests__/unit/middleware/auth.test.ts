@@ -1,6 +1,6 @@
 /**
  * Authentication Middleware Tests
- * 
+ *
  * Tests for authenticate(), authenticateAdmin(), and optionalAuth() middleware
  */
 

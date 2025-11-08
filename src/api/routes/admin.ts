@@ -1,6 +1,6 @@
 /**
  * Admin Dashboard API Routes
- * 
+ *
  * Statistics and overview data for admin panel
  */
 
@@ -32,10 +32,10 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         worlds: {
           columns: {
             id: true,
-            name: true
-          }
-        }
-      }
+            name: true,
+          },
+        },
+      },
     });
 
     // Get recent worlds
@@ -46,10 +46,10 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         server: {
           columns: {
             id: true,
-            name: true
-          }
-        }
-      }
+            name: true,
+          },
+        },
+      },
     });
 
     // Get recent players
@@ -61,10 +61,10 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
           columns: {
             id: true,
             username: true,
-            picture: true
-          }
-        }
-      }
+            picture: true,
+          },
+        },
+      },
     });
 
     const stats = {
@@ -72,22 +72,22 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         servers: Number(serverCount.count),
         worlds: Number(worldCount.count),
         players: Number(accountCount.count),
-        settlements: Number(settlementCount.count)
+        settlements: Number(settlementCount.count),
       },
       recent: {
         servers: recentServers,
         worlds: recentWorlds,
-        players: recentPlayers
+        players: recentPlayers,
       },
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     res.json(stats);
   } catch (error) {
     logger.error('[API] Error fetching dashboard stats:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch dashboard statistics', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch dashboard statistics',
+      code: 'FETCH_FAILED',
     });
   }
 });

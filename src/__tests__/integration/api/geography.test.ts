@@ -45,7 +45,12 @@ vi.mock('../../../api/middleware/auth', () => ({
   authenticateAdmin: (req: any, res: any, next: any) => {
     const cookies = req.headers.cookie;
     if (cookies && cookies.includes('session=admin-session')) {
-      req.user = { id: 'admin-123', email: 'admin@test.com', username: 'admin', role: 'ADMINISTRATOR' };
+      req.user = {
+        id: 'admin-123',
+        email: 'admin@test.com',
+        username: 'admin',
+        role: 'ADMINISTRATOR',
+      };
       next();
     } else {
       res.status(403).json({ error: 'Forbidden', code: 'NOT_ADMIN' });
@@ -53,8 +58,16 @@ vi.mock('../../../api/middleware/auth', () => ({
   },
   authenticate: (req: any, res: any, next: any) => {
     const cookies = req.headers.cookie;
-    if (cookies && (cookies.includes('session=valid-session') || cookies.includes('session=admin-session'))) {
-      req.user = { id: 'user-123', email: 'test@example.com', username: 'testuser', role: 'MEMBER' };
+    if (
+      cookies &&
+      (cookies.includes('session=valid-session') || cookies.includes('session=admin-session'))
+    ) {
+      req.user = {
+        id: 'user-123',
+        email: 'test@example.com',
+        username: 'testuser',
+        role: 'MEMBER',
+      };
       next();
     } else {
       res.status(401).json({ error: 'Unauthorized', code: 'NO_SESSION' });
@@ -78,9 +91,7 @@ describe('Geography API Routes', () => {
 
   describe('GET /api/geography/', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/geography/?worldId=world-123')
-        .expect(401);
+      const response = await request(app).get('/api/geography/?worldId=world-123').expect(401);
 
       expect(response.body.code).toBe('NO_SESSION');
     });
@@ -95,9 +106,7 @@ describe('Geography API Routes', () => {
     });
 
     it('should return regions for a world', async () => {
-      const mockRegions = [
-        { id: 'region-1', xCoord: 0, yCoord: 0, tiles: [] },
-      ];
+      const mockRegions = [{ id: 'region-1', xCoord: 0, yCoord: 0, tiles: [] }];
 
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 

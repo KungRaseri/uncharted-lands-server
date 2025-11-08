@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import { db } from '../../db/index.js';
-import { settlements, settlementStorage, profiles, profileServerData, tiles } from '../../db/schema.js';
+import {
+  settlements,
+  settlementStorage,
+  profiles,
+  profileServerData,
+  tiles,
+} from '../../db/schema.js';
 import { eq, and, gt, lt, gte, lte } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
@@ -18,20 +24,22 @@ router.get('/', async (req, res) => {
 
     // Build the query
     const result = await db.query.settlements.findMany({
-      where: playerProfileId ? eq(settlements.playerProfileId, playerProfileId as string) : undefined,
+      where: playerProfileId
+        ? eq(settlements.playerProfileId, playerProfileId as string)
+        : undefined,
       with: {
         plot: {
           with: {
             tile: {
               with: {
-                biome: true
-              }
-            }
-          }
+                biome: true,
+              },
+            },
+          },
         },
         structures: true,
-        storage: true
-      }
+        storage: true,
+      },
     });
 
     res.json(result);
@@ -57,14 +65,14 @@ router.get('/:id', async (req, res) => {
             tile: {
               with: {
                 biome: true,
-                region: true
-              }
-            }
-          }
+                region: true,
+              },
+            },
+          },
         },
         structures: true,
-        storage: true
-      }
+        storage: true,
+      },
     });
 
     if (!settlement) {
@@ -81,7 +89,7 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/settlements
  * Create a new settlement with profile and storage
- * 
+ *
  * Body: {
  *   username: string,
  *   serverId: string,
@@ -96,80 +104,75 @@ router.post('/', authenticate, async (req, res) => {
 
     // Validate required fields
     if (!username || !serverId || !worldId || !accountId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
-        required: ['username', 'serverId', 'worldId', 'accountId']
+        required: ['username', 'serverId', 'worldId', 'accountId'],
       });
     }
 
     // Step 1: Find a suitable starting plot
     logger.info(`[SETTLEMENT CREATE] Finding suitable plot for world ${worldId}`);
-    
+
     const suitableTiles = await db.query.tiles.findMany({
       where: and(
-        gt(tiles.elevation, 0),      // Must be land
-        lt(tiles.elevation, 25),     // Not too mountainous
+        gt(tiles.elevation, 0), // Must be land
+        lt(tiles.elevation, 25), // Not too mountainous
         gte(tiles.precipitation, 150), // Adequate rainfall
         lte(tiles.precipitation, 350), // Not too much
-        gte(tiles.temperature, 10),   // Warm enough
-        lte(tiles.temperature, 28)    // Not too hot
+        gte(tiles.temperature, 10), // Warm enough
+        lte(tiles.temperature, 28) // Not too hot
       ),
       with: {
         region: true,
-        plots: true
+        plots: true,
       },
-      limit: 100 // Get a sample of good tiles
+      limit: 100, // Get a sample of good tiles
     });
 
     if (suitableTiles.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'No suitable plots found in this world',
-        code: 'NO_VIABLE_PLOTS'
+        code: 'NO_VIABLE_PLOTS',
       });
     }
 
     // Filter for plots with good resources
     let viablePlots = suitableTiles
-      .filter(tile => tile.region.worldId === worldId) // Ensure correct world
-      .flatMap(tile => tile.plots)
-      .filter(plot => 
-        plot.food >= 3 &&
-        plot.water >= 3 &&
-        plot.wood >= 3
-      );
+      .filter((tile) => tile.region.worldId === worldId) // Ensure correct world
+      .flatMap((tile) => tile.plots)
+      .filter((plot) => plot.food >= 3 && plot.water >= 3 && plot.wood >= 3);
 
     // Fallback if no ideal plots
     if (viablePlots.length === 0) {
       logger.warn('[SETTLEMENT CREATE] No ideal plots, using relaxed criteria');
       viablePlots = suitableTiles
-        .filter(tile => tile.region.worldId === worldId)
-        .flatMap(tile => tile.plots)
-        .filter(plot => 
-          plot.food >= 2 &&
-          plot.water >= 2 &&
-          plot.wood >= 2
-        );
+        .filter((tile) => tile.region.worldId === worldId)
+        .flatMap((tile) => tile.plots)
+        .filter((plot) => plot.food >= 2 && plot.water >= 2 && plot.wood >= 2);
     }
 
     if (viablePlots.length === 0) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'No viable plots with sufficient resources found',
-        code: 'INSUFFICIENT_RESOURCES'
+        code: 'INSUFFICIENT_RESOURCES',
       });
     }
 
     // Pick a random plot
     const chosenPlot = viablePlots[Math.floor(Math.random() * viablePlots.length)];
-    
-    logger.info(`[SETTLEMENT CREATE] Chosen plot ${chosenPlot.id} with food=${chosenPlot.food}, water=${chosenPlot.water}, wood=${chosenPlot.wood}`);
+
+    logger.info(
+      `[SETTLEMENT CREATE] Chosen plot ${chosenPlot.id} with food=${chosenPlot.food}, water=${chosenPlot.water}, wood=${chosenPlot.wood}`
+    );
 
     // Step 2: Create profile
     const profileId = createId();
     await db.insert(profiles).values({
       id: profileId,
       username,
-      picture: picture || `https://via.placeholder.com/128x128?text=${username.charAt(0).toUpperCase()}`,
-      accountId
+      picture:
+        picture || `https://via.placeholder.com/128x128?text=${username.charAt(0).toUpperCase()}`,
+      accountId,
     });
 
     logger.info(`[SETTLEMENT CREATE] Created profile ${profileId} for ${username}`);
@@ -177,7 +180,7 @@ router.post('/', authenticate, async (req, res) => {
     // Step 3: Create profile-server data
     await db.insert(profileServerData).values({
       profileId,
-      serverId
+      serverId,
     });
 
     // Step 4: Create storage
@@ -188,7 +191,7 @@ router.post('/', authenticate, async (req, res) => {
       water: 5,
       wood: 10,
       stone: 5,
-      ore: 0
+      ore: 0,
     });
 
     logger.info(`[SETTLEMENT CREATE] Created storage ${storageId}`);
@@ -200,7 +203,7 @@ router.post('/', authenticate, async (req, res) => {
       name: 'Home Settlement',
       plotId: chosenPlot.id,
       playerProfileId: profileId,
-      settlementStorageId: storageId
+      settlementStorageId: storageId,
     });
 
     logger.info(`[SETTLEMENT CREATE] Created settlement ${settlementId} for profile ${profileId}`);
@@ -216,30 +219,30 @@ router.post('/', authenticate, async (req, res) => {
                 biome: true,
                 region: {
                   with: {
-                    world: true
-                  }
-                }
-              }
-            }
-          }
+                    world: true,
+                  },
+                },
+              },
+            },
+          },
         },
         storage: true,
-        playerProfile: true
-      }
+        playerProfile: true,
+      },
     });
 
     res.status(201).json(newSettlement);
   } catch (error) {
     logger.error('[SETTLEMENT CREATE] Error:', error);
-    
+
     // Handle unique constraint violations
     if (error instanceof Error && error.message.includes('unique')) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         error: 'Username already taken or account already has a profile',
-        code: 'DUPLICATE_ENTRY'
+        code: 'DUPLICATE_ENTRY',
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to create settlement' });
   }
 });

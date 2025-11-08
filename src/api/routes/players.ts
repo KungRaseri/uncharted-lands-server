@@ -1,6 +1,6 @@
 /**
  * Players (Accounts/Profiles) API Routes
- * 
+ *
  * Admin operations for user management
  */
 
@@ -20,17 +20,17 @@ router.get('/', authenticateAdmin, async (req, res) => {
   try {
     const allAccounts = await db.query.accounts.findMany({
       with: {
-        profile: true
+        profile: true,
       },
-      orderBy: (accounts, { desc }) => [desc(accounts.createdAt)]
+      orderBy: (accounts, { desc }) => [desc(accounts.createdAt)],
     });
 
     res.json(allAccounts);
   } catch (error) {
     logger.error('[API] Error fetching players:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch players', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch players',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -56,33 +56,33 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
                       with: {
                         region: {
                           with: {
-                            world: true
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                            world: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!account) {
-      return res.status(404).json({ 
-        error: 'Player not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Player not found',
+        code: 'NOT_FOUND',
       });
     }
 
     res.json(account);
   } catch (error) {
     logger.error('[API] Error fetching player:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch player', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch player',
+      code: 'FETCH_FAILED',
     });
   }
 });
@@ -98,29 +98,30 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
 
     // Check if account exists
     const existing = await db.query.accounts.findFirst({
-      where: eq(accounts.id, id)
+      where: eq(accounts.id, id),
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'Player not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Player not found',
+        code: 'NOT_FOUND',
       });
     }
 
     // Validate role
     if (role && !['MEMBER', 'SUPPORT', 'ADMINISTRATOR'].includes(role)) {
-      return res.status(400).json({ 
-        error: 'Invalid role. Must be MEMBER, SUPPORT, or ADMINISTRATOR', 
-        code: 'INVALID_INPUT' 
+      return res.status(400).json({
+        error: 'Invalid role. Must be MEMBER, SUPPORT, or ADMINISTRATOR',
+        code: 'INVALID_INPUT',
       });
     }
 
     // Update account
-    const [updated] = await db.update(accounts)
+    const [updated] = await db
+      .update(accounts)
       .set({
         role: role || existing.role,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(accounts.id, id))
       .returning();
@@ -129,9 +130,9 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     res.json(updated);
   } catch (error) {
     logger.error('[API] Error updating player:', error);
-    res.status(500).json({ 
-      error: 'Failed to update player', 
-      code: 'UPDATE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to update player',
+      code: 'UPDATE_FAILED',
     });
   }
 });
@@ -148,14 +149,14 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     const existing = await db.query.accounts.findFirst({
       where: eq(accounts.id, id),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!existing) {
-      return res.status(404).json({ 
-        error: 'Player not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Player not found',
+        code: 'NOT_FOUND',
       });
     }
 
@@ -163,15 +164,15 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     await db.delete(accounts).where(eq(accounts.id, id));
 
     logger.info(`[API] Deleted player: ${id} - ${existing.email}`);
-    res.json({ 
-      success: true, 
-      message: `Player "${existing.profile?.username || existing.email}" deleted successfully` 
+    res.json({
+      success: true,
+      message: `Player "${existing.profile?.username || existing.email}" deleted successfully`,
     });
   } catch (error) {
     logger.error('[API] Error deleting player:', error);
-    res.status(500).json({ 
-      error: 'Failed to delete player', 
-      code: 'DELETE_FAILED' 
+    res.status(500).json({
+      error: 'Failed to delete player',
+      code: 'DELETE_FAILED',
     });
   }
 });

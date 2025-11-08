@@ -135,9 +135,7 @@ describe('Worlds API Routes', () => {
               {
                 type: 'LAND',
                 biome: {},
-                plots: [
-                  { settlement: { id: 'settlement-1', name: 'Settlement 1' } },
-                ],
+                plots: [{ settlement: { id: 'settlement-1', name: 'Settlement 1' } }],
               },
               {
                 type: 'OCEAN',
@@ -268,7 +266,7 @@ describe('Worlds API Routes', () => {
 
     it('should create world successfully with all settings', async () => {
       const mockWorld = { id: generateTestId('world'), name: 'New World' };
-      
+
       const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
@@ -285,7 +283,7 @@ describe('Worlds API Routes', () => {
 
     it('should create world with default settings when not provided', async () => {
       const mockWorld = { id: generateTestId('world'), name: 'Simple World' };
-      
+
       const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
       const mockValues = vi.fn(() => ({ returning: mockReturning }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
@@ -309,10 +307,11 @@ describe('Worlds API Routes', () => {
           { id: 'region-2', x: 1, y: 0 },
         ],
       };
-      
+
       // First call returns world with .returning(), second call resolves for regions
       const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn()
+      const mockValues = vi
+        .fn()
         .mockReturnValueOnce({ returning: mockReturning }) // world insert
         .mockResolvedValueOnce(undefined); // regions insert
       const mockInsert = vi.fn(() => ({ values: mockValues }));
@@ -332,13 +331,12 @@ describe('Worlds API Routes', () => {
       const mockWorld = { id: generateTestId('world'), name: 'World with Tiles' };
       const worldWithTiles = {
         ...validRequest,
-        tiles: [
-          { id: 'tile-1', x: 0, y: 0, elevation: 10 },
-        ],
+        tiles: [{ id: 'tile-1', x: 0, y: 0, elevation: 10 }],
       };
-      
+
       const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn()
+      const mockValues = vi
+        .fn()
         .mockReturnValueOnce({ returning: mockReturning }) // world insert
         .mockResolvedValueOnce(undefined); // tiles insert
       const mockInsert = vi.fn(() => ({ values: mockValues }));
@@ -357,13 +355,12 @@ describe('Worlds API Routes', () => {
       const mockWorld = { id: generateTestId('world'), name: 'World with Plots' };
       const worldWithPlots = {
         ...validRequest,
-        plots: [
-          { id: 'plot-1', food: 5, water: 5, wood: 5 },
-        ],
+        plots: [{ id: 'plot-1', food: 5, water: 5, wood: 5 }],
       };
-      
+
       const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn()
+      const mockValues = vi
+        .fn()
         .mockReturnValueOnce({ returning: mockReturning }) // world insert
         .mockResolvedValueOnce(undefined); // plots insert
       const mockInsert = vi.fn(() => ({ values: mockValues }));
@@ -379,7 +376,9 @@ describe('Worlds API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      const mockValues = vi.fn(() => ({ returning: vi.fn().mockRejectedValue(new Error('DB error')) }));
+      const mockValues = vi.fn(() => ({
+        returning: vi.fn().mockRejectedValue(new Error('DB error')),
+      }));
       const mockInsert = vi.fn(() => ({ values: mockValues }));
       vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
 
@@ -415,7 +414,7 @@ describe('Worlds API Routes', () => {
       const updatedWorld = { ...existingWorld, name: 'New Name' };
 
       vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(existingWorld as any);
-      
+
       const mockReturning = vi.fn().mockResolvedValue([updatedWorld]);
       const mockWhere = vi.fn(() => ({ returning: mockReturning }));
       const mockSet = vi.fn(() => ({ where: mockWhere }));
@@ -445,8 +444,10 @@ describe('Worlds API Routes', () => {
 
     it('should return 500 on database error', async () => {
       vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue({ id: 'world-123' } as any);
-      
-      const mockWhere = vi.fn(() => ({ returning: vi.fn().mockRejectedValue(new Error('DB error')) }));
+
+      const mockWhere = vi.fn(() => ({
+        returning: vi.fn().mockRejectedValue(new Error('DB error')),
+      }));
       const mockSet = vi.fn(() => ({ where: mockWhere }));
       const mockUpdate = vi.fn(() => ({ set: mockSet }));
       vi.mocked(db.db.update).mockImplementation(mockUpdate as any);
@@ -475,7 +476,7 @@ describe('Worlds API Routes', () => {
       const existingWorld = { id: 'world-123', name: 'World to Delete' };
 
       vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(existingWorld as any);
-      
+
       const mockWhere = vi.fn().mockResolvedValue(undefined);
       const mockDelete = vi.fn(() => ({ where: mockWhere }));
       vi.mocked(db.db.delete).mockImplementation(mockDelete as any);
@@ -501,8 +502,11 @@ describe('Worlds API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue({ id: 'world-123', name: 'World' } as any);
-      
+      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue({
+        id: 'world-123',
+        name: 'World',
+      } as any);
+
       const mockWhere = vi.fn().mockRejectedValue(new Error('DB error'));
       const mockDelete = vi.fn(() => ({ where: mockWhere }));
       vi.mocked(db.db.delete).mockImplementation(mockDelete as any);

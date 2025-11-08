@@ -15,19 +15,19 @@ router.post('/register', async (req, res) => {
     const { email, password, username } = req.body;
 
     if (!email || !password || !username) {
-      return res.status(400).json({ 
-        error: 'Email, password, and username are required' 
+      return res.status(400).json({
+        error: 'Email, password, and username are required',
       });
     }
 
     // Check if account already exists
     const existingAccount = await db.query.accounts.findFirst({
-      where: eq(accounts.email, email)
+      where: eq(accounts.email, email),
     });
 
     if (existingAccount) {
-      return res.status(400).json({ 
-        error: 'Account with this email already exists' 
+      return res.status(400).json({
+        error: 'Account with this email already exists',
       });
     }
 
@@ -44,7 +44,7 @@ router.post('/register', async (req, res) => {
       userAuthToken,
       role: 'MEMBER',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     // Create profile
@@ -52,20 +52,20 @@ router.post('/register', async (req, res) => {
       id: createId(),
       accountId,
       username,
-      picture: '' // Default empty picture
+      picture: '', // Default empty picture
     });
 
     // Fetch the created account with profile
     const newAccount = await db.query.accounts.findFirst({
       where: eq(accounts.id, accountId),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     res.status(201).json({
       success: true,
-      account: newAccount
+      account: newAccount,
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -82,8 +82,8 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ 
-        error: 'Email and password are required' 
+      return res.status(400).json({
+        error: 'Email and password are required',
       });
     }
 
@@ -91,31 +91,32 @@ router.post('/login', async (req, res) => {
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.email, email),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!account) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password' 
+      return res.status(401).json({
+        error: 'Invalid email or password',
       });
     }
 
     // Note: Password comparison should be done with bcrypt
     // For now, direct comparison (assuming pre-hashed)
     if (account.passwordHash !== password) {
-      return res.status(401).json({ 
-        error: 'Invalid email or password' 
+      return res.status(401).json({
+        error: 'Invalid email or password',
       });
     }
 
     // Generate new auth token
     const newAuthToken = createId();
-    
-    await db.update(accounts)
-      .set({ 
+
+    await db
+      .update(accounts)
+      .set({
         userAuthToken: newAuthToken,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       })
       .where(eq(accounts.id, account.id));
 
@@ -123,8 +124,8 @@ router.post('/login', async (req, res) => {
       success: true,
       account: {
         ...account,
-        userAuthToken: newAuthToken
-      }
+        userAuthToken: newAuthToken,
+      },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -141,27 +142,27 @@ router.post('/validate', async (req, res) => {
     const { token } = req.body;
 
     if (!token) {
-      return res.status(400).json({ 
-        error: 'Token is required' 
+      return res.status(400).json({
+        error: 'Token is required',
       });
     }
 
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.userAuthToken, token),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!account) {
-      return res.status(401).json({ 
-        error: 'Invalid token' 
+      return res.status(401).json({
+        error: 'Invalid token',
       });
     }
 
     res.json({
       success: true,
-      account
+      account,
     });
   } catch (error) {
     console.error('Validation error:', error);

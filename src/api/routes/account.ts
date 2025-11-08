@@ -1,6 +1,6 @@
 /**
  * Account API Routes
- * 
+ *
  * User account operations (non-admin)
  */
 
@@ -19,38 +19,38 @@ const router = Router();
 router.get('/me', authenticate, async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        code: 'NO_USER' 
+      return res.status(401).json({
+        error: 'Unauthorized',
+        code: 'NO_USER',
       });
     }
 
     const account = await db.query.accounts.findFirst({
       where: eq(accounts.id, req.user.id),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!account) {
-      return res.status(404).json({ 
-        error: 'Account not found', 
-        code: 'NOT_FOUND' 
+      return res.status(404).json({
+        error: 'Account not found',
+        code: 'NOT_FOUND',
       });
     }
 
     // Remove password hash for security
     const accountWithoutPassword = {
       ...account,
-      passwordHash: ''
+      passwordHash: '',
     };
 
     res.json(accountWithoutPassword);
   } catch (error) {
     logger.error('[API] Error fetching account:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch account', 
-      code: 'FETCH_FAILED' 
+    res.status(500).json({
+      error: 'Failed to fetch account',
+      code: 'FETCH_FAILED',
     });
   }
 });

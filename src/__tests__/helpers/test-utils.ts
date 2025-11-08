@@ -1,6 +1,6 @@
 /**
  * Test Utilities and Helpers
- * 
+ *
  * Provides common testing utilities, mocks, and helper functions
  * for API and integration tests.
  */
@@ -25,7 +25,7 @@ export function createMockRequest(overrides: Partial<Request> = {}): Partial<Req
 /**
  * Mock Express Response
  */
-export function createMockResponse(): Partial<Response> & { 
+export function createMockResponse(): Partial<Response> & {
   status: ReturnType<typeof vi.fn>;
   json: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
@@ -297,7 +297,7 @@ export function createMockDb() {
  * Wait for async operations
  */
 export async function wait(ms: number = 0): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**

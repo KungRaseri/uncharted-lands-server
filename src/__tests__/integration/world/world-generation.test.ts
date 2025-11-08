@@ -63,7 +63,7 @@ describe('World Generation', () => {
     it('should handle region at max coordinates', () => {
       const worldSize = 10;
       const region = { x: worldSize - 1, y: worldSize - 1 };
-      
+
       expect(region.x).toBe(9);
       expect(region.y).toBe(9);
     });
@@ -127,7 +127,7 @@ describe('World Generation', () => {
     it('should have elevation in valid range (-100 to 100)', () => {
       const elevations = [-100, -50, 0, 50, 100];
 
-      elevations.forEach(elevation => {
+      elevations.forEach((elevation) => {
         expect(elevation).toBeGreaterThanOrEqual(-100);
         expect(elevation).toBeLessThanOrEqual(100);
       });
@@ -159,7 +159,7 @@ describe('World Generation', () => {
     it('should have temperature in valid range (-50 to 50)', () => {
       const temperatures = [-50, -25, 0, 25, 50];
 
-      temperatures.forEach(temp => {
+      temperatures.forEach((temp) => {
         expect(temp).toBeGreaterThanOrEqual(-50);
         expect(temp).toBeLessThanOrEqual(50);
       });
@@ -191,7 +191,7 @@ describe('World Generation', () => {
     it('should have precipitation in valid range (0 to 500)', () => {
       const precipitations = [0, 100, 250, 400, 500];
 
-      precipitations.forEach(precip => {
+      precipitations.forEach((precip) => {
         expect(precip).toBeGreaterThanOrEqual(0);
         expect(precip).toBeLessThanOrEqual(500);
       });
@@ -228,14 +228,14 @@ describe('World Generation', () => {
     });
 
     it('should assign land biome based on climate', () => {
-      const grassland = { 
-        elevation: 10, 
-        temperature: 20, 
-        precipitation: 200 
+      const grassland = {
+        elevation: 10,
+        temperature: 20,
+        precipitation: 200,
       };
 
       // Temperate and moderate precipitation
-      const isSuitableForGrassland = 
+      const isSuitableForGrassland =
         grassland.elevation >= 0 &&
         grassland.temperature >= 10 &&
         grassland.temperature <= 28 &&
@@ -246,10 +246,10 @@ describe('World Generation', () => {
     });
 
     it('should assign desert biome to hot, dry areas', () => {
-      const desert = { 
-        elevation: 5, 
-        temperature: 35, 
-        precipitation: 50 
+      const desert = {
+        elevation: 5,
+        temperature: 35,
+        precipitation: 50,
       };
 
       const isDry = desert.precipitation < 100;
@@ -260,10 +260,10 @@ describe('World Generation', () => {
     });
 
     it('should assign mountain biome to high elevation', () => {
-      const mountain = { 
-        elevation: 80, 
-        temperature: 5, 
-        precipitation: 150 
+      const mountain = {
+        elevation: 80,
+        temperature: 5,
+        precipitation: 150,
       };
 
       const isHighElevation = mountain.elevation > 50;
@@ -283,7 +283,7 @@ describe('World Generation', () => {
         water: 3,
       };
 
-      Object.values(plot).forEach(value => {
+      Object.values(plot).forEach((value) => {
         expect(value).toBeGreaterThanOrEqual(0);
         expect(value).toBeLessThanOrEqual(5);
       });
@@ -304,25 +304,23 @@ describe('World Generation', () => {
 
     it('should have higher wood in forest biomes', () => {
       const forestPlot = { wood: 5, stone: 2, ore: 1, food: 3, water: 2 };
-      
+
       expect(forestPlot.wood).toBeGreaterThan(forestPlot.stone);
       expect(forestPlot.wood).toBeGreaterThan(forestPlot.ore);
     });
 
     it('should have higher stone in mountain biomes', () => {
       const mountainPlot = { wood: 1, stone: 5, ore: 4, food: 1, water: 2 };
-      
+
       expect(mountainPlot.stone).toBeGreaterThan(mountainPlot.wood);
       expect(mountainPlot.stone).toBeGreaterThan(mountainPlot.food);
     });
 
     it('should have balanced resources in grassland', () => {
       const grasslandPlot = { wood: 3, stone: 2, ore: 1, food: 4, water: 3 };
-      
-      const hasBalancedResources = 
-        grasslandPlot.wood >= 2 &&
-        grasslandPlot.food >= 2 &&
-        grasslandPlot.water >= 2;
+
+      const hasBalancedResources =
+        grasslandPlot.wood >= 2 && grasslandPlot.food >= 2 && grasslandPlot.water >= 2;
 
       expect(hasBalancedResources).toBe(true);
     });
@@ -354,14 +352,14 @@ describe('World Generation', () => {
 
     it('should support octaves for fractal noise', () => {
       const octaves = 4;
-      
+
       expect(octaves).toBeGreaterThan(0);
       expect(octaves).toBeLessThanOrEqual(8);
     });
 
     it('should support persistence for noise detail', () => {
       const persistence = 0.5;
-      
+
       expect(persistence).toBeGreaterThan(0);
       expect(persistence).toBeLessThanOrEqual(1);
     });

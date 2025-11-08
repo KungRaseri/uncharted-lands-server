@@ -1,6 +1,6 @@
 /**
  * Authentication Middleware for REST API
- * 
+ *
  * Validates admin access for API endpoints
  */
 
@@ -29,7 +29,7 @@ declare global {
 
 /**
  * Authentication middleware for admin routes
- * 
+ *
  * Validates session cookie from SvelteKit and checks for ADMINISTRATOR role.
  * Session cookie contains userAuthToken which is used to look up the user.
  */
@@ -42,13 +42,13 @@ export const authenticateAdmin = async (
     // Extract session from cookies
     // SvelteKit sends cookies in the Cookie header
     const cookies = req.headers.cookie;
-    
+
     if (!cookies) {
       logger.warn('[API AUTH] No cookies provided');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'NO_SESSION',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
       return;
     }
@@ -60,10 +60,10 @@ export const authenticateAdmin = async (
 
     if (!sessionToken) {
       logger.warn('[API AUTH] No session token found in cookies');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'NO_SESSION',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
       return;
     }
@@ -72,16 +72,16 @@ export const authenticateAdmin = async (
     const user = await db.query.accounts.findFirst({
       where: eq(accounts.userAuthToken, sessionToken),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!user) {
       logger.warn('[API AUTH] Invalid session token');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'INVALID_SESSION',
-        message: 'Invalid or expired session' 
+        message: 'Invalid or expired session',
       });
       return;
     }
@@ -89,10 +89,10 @@ export const authenticateAdmin = async (
     // Check if user has ADMINISTRATOR role
     if (user.role !== 'ADMINISTRATOR') {
       logger.warn(`[API AUTH] User ${user.email} (${user.role}) attempted admin access`);
-      res.status(403).json({ 
-        error: 'Forbidden', 
+      res.status(403).json({
+        error: 'Forbidden',
         code: 'NOT_ADMIN',
-        message: 'Administrator access required' 
+        message: 'Administrator access required',
       });
       return;
     }
@@ -102,24 +102,24 @@ export const authenticateAdmin = async (
       id: user.id,
       email: user.email,
       username: user.profile?.username || user.email,
-      role: user.role
+      role: user.role,
     };
 
     logger.info(`[API AUTH] ✓ Admin ${user.email} authenticated`);
     next();
   } catch (error) {
     logger.error('[API AUTH] Authentication error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
+    res.status(500).json({
+      error: 'Internal Server Error',
       code: 'AUTH_ERROR',
-      message: 'Authentication failed' 
+      message: 'Authentication failed',
     });
   }
 };
 
 /**
  * Authentication middleware for any authenticated user (not just admin)
- * 
+ *
  * Validates session cookie and ensures user is logged in.
  */
 export const authenticate = async (
@@ -129,13 +129,13 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const cookies = req.headers.cookie;
-    
+
     if (!cookies) {
       logger.warn('[API AUTH] No cookies provided');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'NO_SESSION',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
       return;
     }
@@ -146,10 +146,10 @@ export const authenticate = async (
 
     if (!sessionToken) {
       logger.warn('[API AUTH] No session token found in cookies');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'NO_SESSION',
-        message: 'Authentication required' 
+        message: 'Authentication required',
       });
       return;
     }
@@ -157,16 +157,16 @@ export const authenticate = async (
     const user = await db.query.accounts.findFirst({
       where: eq(accounts.userAuthToken, sessionToken),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (!user) {
       logger.warn('[API AUTH] Invalid session token');
-      res.status(401).json({ 
-        error: 'Unauthorized', 
+      res.status(401).json({
+        error: 'Unauthorized',
         code: 'INVALID_SESSION',
-        message: 'Invalid or expired session' 
+        message: 'Invalid or expired session',
       });
       return;
     }
@@ -176,17 +176,17 @@ export const authenticate = async (
       id: user.id,
       email: user.email,
       username: user.profile?.username || user.email,
-      role: user.role
+      role: user.role,
     };
 
     logger.info(`[API AUTH] ✓ User ${user.email} authenticated`);
     next();
   } catch (error) {
     logger.error('[API AUTH] Authentication error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
+    res.status(500).json({
+      error: 'Internal Server Error',
       code: 'AUTH_ERROR',
-      message: 'Authentication failed' 
+      message: 'Authentication failed',
     });
   }
 };
@@ -201,7 +201,7 @@ export const optionalAuth = async (
 ): Promise<void> => {
   try {
     const cookies = req.headers.cookie;
-    
+
     if (!cookies) {
       next();
       return;
@@ -219,8 +219,8 @@ export const optionalAuth = async (
     const user = await db.query.accounts.findFirst({
       where: eq(accounts.userAuthToken, sessionToken),
       with: {
-        profile: true
-      }
+        profile: true,
+      },
     });
 
     if (user) {
@@ -228,7 +228,7 @@ export const optionalAuth = async (
         id: user.id,
         email: user.email,
         username: user.profile?.username || user.email,
-        role: user.role
+        role: user.role,
       };
       logger.info(`[API AUTH] Optional auth: ${user.email} (${user.role})`);
     }

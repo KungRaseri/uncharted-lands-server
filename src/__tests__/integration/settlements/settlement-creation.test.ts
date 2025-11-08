@@ -9,8 +9,7 @@ describe('Settlement Creation Logic', () => {
         { id: '3', food: 5, water: 5, wood: 5, stone: 3, ore: 2 },
       ];
 
-      const isIdealPlot = (plot: any) => 
-        plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
+      const isIdealPlot = (plot: any) => plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
 
       const idealPlots = plots.filter(isIdealPlot);
 
@@ -26,11 +25,9 @@ describe('Settlement Creation Logic', () => {
         { id: '3', food: 3, water: 3, wood: 3, stone: 3, ore: 2 },
       ];
 
-      const isIdealPlot = (plot: any) => 
-        plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
+      const isIdealPlot = (plot: any) => plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
 
-      const isRelaxedPlot = (plot: any) =>
-        plot.food >= 2 && plot.water >= 2 && plot.wood >= 2;
+      const isRelaxedPlot = (plot: any) => plot.food >= 2 && plot.water >= 2 && plot.wood >= 2;
 
       const idealPlots = plots.filter(isIdealPlot);
       const relaxedPlots = plots.filter(isRelaxedPlot);
@@ -43,8 +40,7 @@ describe('Settlement Creation Logic', () => {
       const plot1 = { food: 3, water: 3, wood: 3, stone: 2, ore: 1 };
       const plot2 = { food: 5, water: 5, wood: 5, stone: 3, ore: 2 };
 
-      const getScore = (plot: any) => 
-        plot.food + plot.water + plot.wood + plot.stone + plot.ore;
+      const getScore = (plot: any) => plot.food + plot.water + plot.wood + plot.stone + plot.ore;
 
       expect(getScore(plot1)).toBe(12);
       expect(getScore(plot2)).toBe(20);
@@ -59,9 +55,7 @@ describe('Settlement Creation Logic', () => {
         { id: '3', elevation: 50, precipitation: 200, temperature: 20 },
       ];
 
-      const suitableTiles = tiles.filter(t => 
-        t.elevation >= 0 && t.elevation <= 25
-      );
+      const suitableTiles = tiles.filter((t) => t.elevation >= 0 && t.elevation <= 25);
 
       expect(suitableTiles).toHaveLength(1);
       expect(suitableTiles[0].id).toBe('2');
@@ -74,9 +68,7 @@ describe('Settlement Creation Logic', () => {
         { id: '3', elevation: 10, precipitation: 400, temperature: 20 },
       ];
 
-      const suitableTiles = tiles.filter(t => 
-        t.precipitation >= 150 && t.precipitation <= 350
-      );
+      const suitableTiles = tiles.filter((t) => t.precipitation >= 150 && t.precipitation <= 350);
 
       expect(suitableTiles).toHaveLength(1);
       expect(suitableTiles[0].id).toBe('2');
@@ -89,9 +81,7 @@ describe('Settlement Creation Logic', () => {
         { id: '3', elevation: 10, precipitation: 200, temperature: 35 },
       ];
 
-      const suitableTiles = tiles.filter(t => 
-        t.temperature >= 10 && t.temperature <= 28
-      );
+      const suitableTiles = tiles.filter((t) => t.temperature >= 10 && t.temperature <= 28);
 
       expect(suitableTiles).toHaveLength(1);
       expect(suitableTiles[0].id).toBe('2');
@@ -99,21 +89,25 @@ describe('Settlement Creation Logic', () => {
 
     it('should combine all climate filters', () => {
       const tiles = [
-        { id: '1', elevation: -5, precipitation: 180, temperature: 15 },  // Bad elevation
-        { id: '2', elevation: 12, precipitation: 100, temperature: 15 },  // Bad precipitation
-        { id: '3', elevation: 12, precipitation: 180, temperature: 5 },   // Bad temperature
-        { id: '4', elevation: 12, precipitation: 180, temperature: 15 },  // All good
-        { id: '5', elevation: 15, precipitation: 250, temperature: 20 },  // All good
+        { id: '1', elevation: -5, precipitation: 180, temperature: 15 }, // Bad elevation
+        { id: '2', elevation: 12, precipitation: 100, temperature: 15 }, // Bad precipitation
+        { id: '3', elevation: 12, precipitation: 180, temperature: 5 }, // Bad temperature
+        { id: '4', elevation: 12, precipitation: 180, temperature: 15 }, // All good
+        { id: '5', elevation: 15, precipitation: 250, temperature: 20 }, // All good
       ];
 
-      const suitableTiles = tiles.filter(t => 
-        t.elevation >= 0 && t.elevation <= 25 &&
-        t.precipitation >= 150 && t.precipitation <= 350 &&
-        t.temperature >= 10 && t.temperature <= 28
+      const suitableTiles = tiles.filter(
+        (t) =>
+          t.elevation >= 0 &&
+          t.elevation <= 25 &&
+          t.precipitation >= 150 &&
+          t.precipitation <= 350 &&
+          t.temperature >= 10 &&
+          t.temperature <= 28
       );
 
       expect(suitableTiles).toHaveLength(2);
-      expect(suitableTiles.map(t => t.id)).toEqual(['4', '5']);
+      expect(suitableTiles.map((t) => t.id)).toEqual(['4', '5']);
     });
   });
 
@@ -182,8 +176,7 @@ describe('Settlement Creation Logic', () => {
         { id: '2', food: 2, water: 1, wood: 1, stone: 1, ore: 1 },
       ];
 
-      const isIdealPlot = (plot: any) => 
-        plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
+      const isIdealPlot = (plot: any) => plot.food >= 3 && plot.water >= 3 && plot.wood >= 3;
 
       const idealPlots = plots.filter(isIdealPlot);
 
@@ -192,12 +185,9 @@ describe('Settlement Creation Logic', () => {
     });
 
     it('should handle case when no plots meet relaxed criteria', () => {
-      const plots = [
-        { id: '1', food: 1, water: 1, wood: 1, stone: 1, ore: 1 },
-      ];
+      const plots = [{ id: '1', food: 1, water: 1, wood: 1, stone: 1, ore: 1 }];
 
-      const isRelaxedPlot = (plot: any) =>
-        plot.food >= 2 && plot.water >= 2 && plot.wood >= 2;
+      const isRelaxedPlot = (plot: any) => plot.food >= 2 && plot.water >= 2 && plot.wood >= 2;
 
       const relaxedPlots = plots.filter(isRelaxedPlot);
 
@@ -215,7 +205,7 @@ describe('Settlement Creation Logic', () => {
 
   describe('Profile Creation Validation', () => {
     it('should require username', () => {
-      const isValid = (username: string | undefined) => 
+      const isValid = (username: string | undefined) =>
         username !== undefined && username.length > 0;
 
       expect(isValid(undefined)).toBe(false);
@@ -224,7 +214,7 @@ describe('Settlement Creation Logic', () => {
     });
 
     it('should require accountId', () => {
-      const isValid = (accountId: string | undefined) => 
+      const isValid = (accountId: string | undefined) =>
         accountId !== undefined && accountId.length > 0;
 
       expect(isValid(undefined)).toBe(false);
@@ -233,7 +223,7 @@ describe('Settlement Creation Logic', () => {
     });
 
     it('should require serverId', () => {
-      const isValid = (serverId: string | undefined) => 
+      const isValid = (serverId: string | undefined) =>
         serverId !== undefined && serverId.length > 0;
 
       expect(isValid(undefined)).toBe(false);
@@ -242,8 +232,7 @@ describe('Settlement Creation Logic', () => {
     });
 
     it('should require worldId', () => {
-      const isValid = (worldId: string | undefined) => 
-        worldId !== undefined && worldId.length > 0;
+      const isValid = (worldId: string | undefined) => worldId !== undefined && worldId.length > 0;
 
       expect(isValid(undefined)).toBe(false);
       expect(isValid('')).toBe(false);

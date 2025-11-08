@@ -1,6 +1,6 @@
 /**
  * Database Seeding Script for Drizzle ORM
- * 
+ *
  * Seeds initial data for the game, including biomes.
  * Run with: npx tsx src/db/seed.ts
  */
@@ -32,7 +32,7 @@ const biomeData = [
     plotsMin: 0,
     plotsMax: 6,
     plotAreaMin: 50,
-    plotAreaMax: 70
+    plotAreaMax: 70,
   },
   {
     id: createId(),
@@ -51,7 +51,7 @@ const biomeData = [
     plotsMin: 2,
     plotsMax: 8,
     plotAreaMin: 50,
-    plotAreaMax: 85
+    plotAreaMax: 85,
   },
   {
     id: createId(),
@@ -70,7 +70,7 @@ const biomeData = [
     plotsMin: 3,
     plotsMax: 8,
     plotAreaMin: 55,
-    plotAreaMax: 95
+    plotAreaMax: 95,
   },
   {
     id: createId(),
@@ -89,7 +89,7 @@ const biomeData = [
     plotsMin: 3,
     plotsMax: 9,
     plotAreaMin: 55,
-    plotAreaMax: 100
+    plotAreaMax: 100,
   },
   {
     id: createId(),
@@ -108,7 +108,7 @@ const biomeData = [
     plotsMin: 3,
     plotsMax: 9,
     plotAreaMin: 60,
-    plotAreaMax: 95
+    plotAreaMax: 95,
   },
   {
     id: createId(),
@@ -127,7 +127,7 @@ const biomeData = [
     plotsMin: 4,
     plotsMax: 10,
     plotAreaMin: 65,
-    plotAreaMax: 100
+    plotAreaMax: 100,
   },
   {
     id: createId(),
@@ -146,7 +146,7 @@ const biomeData = [
     plotsMin: 1,
     plotsMax: 7,
     plotAreaMin: 50,
-    plotAreaMax: 75
+    plotAreaMax: 75,
   },
   {
     id: createId(),
@@ -165,7 +165,7 @@ const biomeData = [
     plotsMin: 1,
     plotsMax: 7,
     plotAreaMin: 50,
-    plotAreaMax: 70
+    plotAreaMax: 70,
   },
   {
     id: createId(),
@@ -184,7 +184,7 @@ const biomeData = [
     plotsMin: 2,
     plotsMax: 8,
     plotAreaMin: 55,
-    plotAreaMax: 95
+    plotAreaMax: 95,
   },
   {
     id: createId(),
@@ -203,7 +203,7 @@ const biomeData = [
     plotsMin: 1,
     plotsMax: 7,
     plotAreaMin: 50,
-    plotAreaMax: 70
+    plotAreaMax: 70,
   },
   {
     id: createId(),
@@ -222,7 +222,7 @@ const biomeData = [
     plotsMin: 0,
     plotsMax: 5,
     plotAreaMin: 50,
-    plotAreaMax: 60
+    plotAreaMax: 60,
   },
   {
     id: createId(),
@@ -241,8 +241,8 @@ const biomeData = [
     plotsMin: 0,
     plotsMax: 5,
     plotAreaMin: 50,
-    plotAreaMax: 70
-  }
+    plotAreaMax: 70,
+  },
 ];
 
 /**
@@ -250,29 +250,27 @@ const biomeData = [
  */
 async function seedBiomes() {
   logger.info(`[SEED] Starting biome seeding...`);
-  
+
   let created = 0;
   let updated = 0;
-  
+
   for (const biome of biomeData) {
     try {
       // Check if biome exists
       const existing = await db.query.biomes.findFirst({
-        where: eq(biomes.name, biome.name)
+        where: eq(biomes.name, biome.name),
       });
-      
+
       if (existing) {
         // Update existing biome
-        await db.update(biomes)
-          .set(biome)
-          .where(eq(biomes.name, biome.name));
-        
+        await db.update(biomes).set(biome).where(eq(biomes.name, biome.name));
+
         logger.info(`[SEED] Updated biome: ${biome.name} [ID: ${existing.id}]`);
         updated++;
       } else {
         // Insert new biome
         await db.insert(biomes).values(biome);
-        
+
         logger.info(`[SEED] Created biome: ${biome.name} [ID: ${biome.id}]`);
         created++;
       }
@@ -281,9 +279,9 @@ async function seedBiomes() {
       throw error;
     }
   }
-  
+
   logger.info(`[SEED] Biome seeding complete: ${created} created, ${updated} updated`);
-  
+
   return { created, updated, total: biomeData.length };
 }
 
@@ -295,10 +293,11 @@ console.log('\n🌱 Starting database seeding...\n');
 try {
   // Seed biomes
   const biomeResult = await seedBiomes();
-  
+
   console.log('\n✅ Seeding completed successfully!');
-  console.log(`   Biomes: ${biomeResult.created} created, ${biomeResult.updated} updated (${biomeResult.total} total)\n`);
-  
+  console.log(
+    `   Biomes: ${biomeResult.created} created, ${biomeResult.updated} updated (${biomeResult.total} total)\n`
+  );
 } catch (error) {
   console.error('\n❌ Seeding failed:', error);
   if (error instanceof Error) {
