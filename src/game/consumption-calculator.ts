@@ -76,12 +76,12 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
  * - Population capped by capacity
  * 
  * @param structures Array of settlement structures
- * @param currentPopulation Current population (optional, for future use)
+ * @param _currentPopulation Current population (optional, for future use)
  * @returns Current population count
  */
 export function calculatePopulation(
 	structures: Structure[],
-	currentPopulation?: number
+	_currentPopulation?: number
 ): number {
 	const capacity = calculatePopulationCapacity(structures);
 	

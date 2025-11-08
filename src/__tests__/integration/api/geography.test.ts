@@ -3,7 +3,6 @@ import request from 'supertest';
 import express from 'express';
 import geographyRouter from '../../../api/routes/geography';
 import * as db from '../../../db/index';
-import { generateTestId } from '../../helpers/test-utils';
 
 // Mock dependencies
 vi.mock('../../../db/index', () => ({
