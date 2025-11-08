@@ -106,130 +106,6 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-/**
- * GET /api/regions/:id
- * Get region details
- */
-router.get('/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const region = await db.query.regions.findFirst({
-      where: eq(regions.id, id),
-      with: {
-        world: true,
-        tiles: {
-          with: {
-            biome: true
-          }
-        }
-      }
-    });
-
-    if (!region) {
-      return res.status(404).json({ 
-        error: 'Region not found', 
-        code: 'NOT_FOUND' 
-      });
-    }
-
-    res.json(region);
-  } catch (error) {
-    logger.error('[API] Error fetching region:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch region', 
-      code: 'FETCH_FAILED' 
-    });
-  }
-});
-
-// ===========================
-// TILES
-// ===========================
-
-/**
- * GET /api/tiles/:id
- * Get tile details
- */
-router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const tile = await db.query.tiles.findFirst({
-      where: eq(tiles.id, id),
-      with: {
-        region: {
-          with: {
-            world: true
-          }
-        },
-        biome: true,
-        plots: true
-      }
-    });
-
-    if (!tile) {
-      return res.status(404).json({ 
-        error: 'Tile not found', 
-        code: 'NOT_FOUND' 
-      });
-    }
-
-    res.json(tile);
-  } catch (error) {
-    logger.error('[API] Error fetching tile:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch tile', 
-      code: 'FETCH_FAILED' 
-    });
-  }
-});
-
-// ===========================
-// PLOTS
-// ===========================
-
-/**
- * GET /api/plots/:id
- * Get plot details
- */
-router.get('/plots/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const plot = await db.query.plots.findFirst({
-      where: eq(plots.id, id),
-      with: {
-        tile: {
-          with: {
-            region: {
-              with: {
-                world: true
-              }
-            },
-            biome: true
-          }
-        }
-      }
-    });
-
-    if (!plot) {
-      return res.status(404).json({ 
-        error: 'Plot not found', 
-        code: 'NOT_FOUND' 
-      });
-    }
-
-    res.json(plot);
-  } catch (error) {
-    logger.error('[API] Error fetching plot:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch plot', 
-      code: 'FETCH_FAILED' 
-    });
-  }
-});
-
 // ===========================
 // MAP
 // ===========================
@@ -416,4 +292,129 @@ router.get('/map', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/regions/:id
+ * Get region details
+ */
+router.get('/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const region = await db.query.regions.findFirst({
+      where: eq(regions.id, id),
+      with: {
+        world: true,
+        tiles: {
+          with: {
+            biome: true
+          }
+        }
+      }
+    });
+
+    if (!region) {
+      return res.status(404).json({ 
+        error: 'Region not found', 
+        code: 'NOT_FOUND' 
+      });
+    }
+
+    res.json(region);
+  } catch (error) {
+    logger.error('[API] Error fetching region:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch region', 
+      code: 'FETCH_FAILED' 
+    });
+  }
+});
+
+// ===========================
+// TILES
+// ===========================
+
+/**
+ * GET /api/tiles/:id
+ * Get tile details
+ */
+router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tile = await db.query.tiles.findFirst({
+      where: eq(tiles.id, id),
+      with: {
+        region: {
+          with: {
+            world: true
+          }
+        },
+        biome: true,
+        plots: true
+      }
+    });
+
+    if (!tile) {
+      return res.status(404).json({ 
+        error: 'Tile not found', 
+        code: 'NOT_FOUND' 
+      });
+    }
+
+    res.json(tile);
+  } catch (error) {
+    logger.error('[API] Error fetching tile:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch tile', 
+      code: 'FETCH_FAILED' 
+    });
+  }
+});
+
+// ===========================
+// PLOTS
+// ===========================
+
+/**
+ * GET /api/plots/:id
+ * Get plot details
+ */
+router.get('/plots/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const plot = await db.query.plots.findFirst({
+      where: eq(plots.id, id),
+      with: {
+        tile: {
+          with: {
+            region: {
+              with: {
+                world: true
+              }
+            },
+            biome: true
+          }
+        }
+      }
+    });
+
+    if (!plot) {
+      return res.status(404).json({ 
+        error: 'Plot not found', 
+        code: 'NOT_FOUND' 
+      });
+    }
+
+    res.json(plot);
+  } catch (error) {
+    logger.error('[API] Error fetching plot:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch plot', 
+      code: 'FETCH_FAILED' 
+    });
+  }
+});
+
 export default router;
+

@@ -61,6 +61,31 @@ describe('Storage Calculator', () => {
 			expect(capacity.ore).toBe(BASE_STORAGE_CAPACITY.ore);
 		});
 
+		it('should add wood, stone, and ore specific storage modifiers', () => {
+			const structures: Structure[] = [
+				{
+					name: 'Lumber Yard',
+					modifiers: [{ name: 'Wood Storage', value: 250 }]
+				},
+				{
+					name: 'Stone Vault',
+					modifiers: [{ name: 'Stone Storage', value: 350 }]
+				},
+				{
+					name: 'Ore Depot',
+					modifiers: [{ name: 'Ore Storage', value: 150 }]
+				}
+			];
+
+			const capacity = calculateStorageCapacity(structures);
+			
+			expect(capacity.wood).toBe(BASE_STORAGE_CAPACITY.wood + 250);
+			expect(capacity.stone).toBe(BASE_STORAGE_CAPACITY.stone + 350);
+			expect(capacity.ore).toBe(BASE_STORAGE_CAPACITY.ore + 150);
+			expect(capacity.food).toBe(BASE_STORAGE_CAPACITY.food);
+			expect(capacity.water).toBe(BASE_STORAGE_CAPACITY.water);
+		});
+
 		it('should stack multiple storage modifiers', () => {
 			const structures: Structure[] = [
 				{
