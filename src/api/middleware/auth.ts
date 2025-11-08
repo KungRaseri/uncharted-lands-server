@@ -28,6 +28,46 @@ declare global {
 }
 
 /**
+ * Extract session token from cookies
+ * @param cookies - Cookie header string
+ * @returns Session token or null
+ */
+function extractSessionToken(cookies: string | undefined): string | null {
+  if (!cookies) {
+    return null;
+  }
+
+  const sessionRegex = /session=([^;]+)/;
+  const sessionMatch = sessionRegex.exec(cookies);
+  return sessionMatch ? sessionMatch[1] : null;
+}
+
+/**
+ * Validate session token and fetch user from database
+ * @param sessionToken - Session token to validate
+ * @returns User account or null
+ */
+async function validateSessionToken(sessionToken: string) {
+  return await db.query.accounts.findFirst({
+    where: eq(accounts.userAuthToken, sessionToken),
+    with: {
+      profile: true,
+    },
+  });
+}
+
+/**
+ * Send unauthorized error response
+ */
+function sendUnauthorizedResponse(res: Response, code: string, message: string): void {
+  res.status(401).json({
+    error: 'Unauthorized',
+    code,
+    message,
+  });
+}
+
+/**
  * Authentication middleware for admin routes
  *
  * Validates session cookie from SvelteKit and checks for ADMINISTRATOR role.
@@ -39,50 +79,20 @@ export const authenticateAdmin = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Extract session from cookies
-    // SvelteKit sends cookies in the Cookie header
     const cookies = req.headers.cookie;
-
-    if (!cookies) {
-      logger.warn('[API AUTH] No cookies provided');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'NO_SESSION',
-        message: 'Authentication required',
-      });
-      return;
-    }
-
-    // Parse session cookie
-    const sessionRegex = /session=([^;]+)/;
-    const sessionMatch = sessionRegex.exec(cookies);
-    const sessionToken = sessionMatch ? sessionMatch[1] : null;
+    const sessionToken = extractSessionToken(cookies);
 
     if (!sessionToken) {
-      logger.warn('[API AUTH] No session token found in cookies');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'NO_SESSION',
-        message: 'Authentication required',
-      });
+      logger.warn('[API AUTH] No session token found');
+      sendUnauthorizedResponse(res, 'NO_SESSION', 'Authentication required');
       return;
     }
 
-    // Validate session token against database
-    const user = await db.query.accounts.findFirst({
-      where: eq(accounts.userAuthToken, sessionToken),
-      with: {
-        profile: true,
-      },
-    });
+    const user = await validateSessionToken(sessionToken);
 
     if (!user) {
       logger.warn('[API AUTH] Invalid session token');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'INVALID_SESSION',
-        message: 'Invalid or expired session',
-      });
+      sendUnauthorizedResponse(res, 'INVALID_SESSION', 'Invalid or expired session');
       return;
     }
 
@@ -129,45 +139,19 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const cookies = req.headers.cookie;
-
-    if (!cookies) {
-      logger.warn('[API AUTH] No cookies provided');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'NO_SESSION',
-        message: 'Authentication required',
-      });
-      return;
-    }
-
-    const sessionRegex = /session=([^;]+)/;
-    const sessionMatch = sessionRegex.exec(cookies);
-    const sessionToken = sessionMatch ? sessionMatch[1] : null;
+    const sessionToken = extractSessionToken(cookies);
 
     if (!sessionToken) {
-      logger.warn('[API AUTH] No session token found in cookies');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'NO_SESSION',
-        message: 'Authentication required',
-      });
+      logger.warn('[API AUTH] No session token found');
+      sendUnauthorizedResponse(res, 'NO_SESSION', 'Authentication required');
       return;
     }
 
-    const user = await db.query.accounts.findFirst({
-      where: eq(accounts.userAuthToken, sessionToken),
-      with: {
-        profile: true,
-      },
-    });
+    const user = await validateSessionToken(sessionToken);
 
     if (!user) {
       logger.warn('[API AUTH] Invalid session token');
-      res.status(401).json({
-        error: 'Unauthorized',
-        code: 'INVALID_SESSION',
-        message: 'Invalid or expired session',
-      });
+      sendUnauthorizedResponse(res, 'INVALID_SESSION', 'Invalid or expired session');
       return;
     }
 
@@ -201,27 +185,14 @@ export const optionalAuth = async (
 ): Promise<void> => {
   try {
     const cookies = req.headers.cookie;
-
-    if (!cookies) {
-      next();
-      return;
-    }
-
-    const sessionRegex = /session=([^;]+)/;
-    const sessionMatch = sessionRegex.exec(cookies);
-    const sessionToken = sessionMatch ? sessionMatch[1] : null;
+    const sessionToken = extractSessionToken(cookies);
 
     if (!sessionToken) {
       next();
       return;
     }
 
-    const user = await db.query.accounts.findFirst({
-      where: eq(accounts.userAuthToken, sessionToken),
-      with: {
-        profile: true,
-      },
-    });
+    const user = await validateSessionToken(sessionToken);
 
     if (user) {
       req.user = {
