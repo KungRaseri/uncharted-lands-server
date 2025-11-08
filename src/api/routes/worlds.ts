@@ -44,7 +44,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
 
 /**
  * GET /api/worlds/:id
- * Get world details with regions and tiles
+ * Get world details with regions, tiles, and statistics
  */
 router.get('/:id', authenticateAdmin, async (req, res) => {
   try {
@@ -58,7 +58,17 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
           with: {
             tiles: {
               with: {
-                biome: true
+                biome: true,
+                plots: {
+                  with: {
+                    settlement: {
+                      columns: {
+                        id: true,
+                        name: true
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -73,7 +83,40 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
       });
     }
     
-    res.json(world);
+    // Calculate statistics
+    let settlementsCount = 0;
+    let regionsCount = world.regions?.length || 0;
+    let landTilesCount = 0;
+    let oceanTilesCount = 0;
+    
+    // Count settlements (unique by ID to avoid duplicates from plots)
+    const settlementIds = new Set();
+    for (const region of world.regions || []) {
+      for (const tile of region.tiles || []) {
+        if (tile.type === 'LAND') landTilesCount++;
+        if (tile.type === 'OCEAN') oceanTilesCount++;
+        
+        for (const plot of tile.plots || []) {
+          if (plot.settlement?.id) {
+            settlementIds.add(plot.settlement.id);
+          }
+        }
+      }
+    }
+    settlementsCount = settlementIds.size;
+    
+    // Add stats to response
+    const worldWithStats = {
+      ...world,
+      _count: {
+        regions: regionsCount,
+        settlements: settlementsCount,
+        landTiles: landTilesCount,
+        oceanTiles: oceanTilesCount
+      }
+    };
+    
+    res.json(worldWithStats);
   } catch (error) {
     logger.error('[API] Error fetching world:', error);
     res.status(500).json({ 

@@ -5,9 +5,9 @@
  */
 
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and, gte, lte } from 'drizzle-orm';
 import { db, regions, tiles, plots } from '../../db/index';
-import { authenticateAdmin } from '../middleware/auth';
+import { authenticateAdmin, authenticate } from '../middleware/auth';
 import { logger } from '../../utils/logger';
 
 const router = Router();
@@ -17,12 +17,14 @@ const router = Router();
 // ===========================
 
 /**
- * GET /api/regions?worldId=xxx
- * Get all regions for a world
+ * GET /api/regions?worldId=xxx&xMin=&xMax=&yMin=&yMax=
+ * Get all regions for a world, optionally filtered by coordinate bounds
+ * 
+ * Also supports centerX, centerY, radius for lazy loading
  */
-router.get('/', authenticateAdmin, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
-    const { worldId } = req.query;
+    const { worldId, xMin, xMax, yMin, yMax, centerX, centerY, radius } = req.query;
 
     if (!worldId || typeof worldId !== 'string') {
       return res.status(400).json({ 
@@ -31,18 +33,70 @@ router.get('/', authenticateAdmin, async (req, res) => {
       });
     }
 
+    // Build coordinate bounds filters if provided
+    let xMinBound: number | undefined;
+    let xMaxBound: number | undefined;
+    let yMinBound: number | undefined;
+    let yMaxBound: number | undefined;
+
+    // Calculate bounds from center + radius OR use explicit bounds
+    if (centerX && centerY) {
+      const centerXNum = Number.parseInt(centerX as string);
+      const centerYNum = Number.parseInt(centerY as string);
+      const radiusNum = Number.parseInt((radius as string) || '1');
+      xMinBound = centerXNum - radiusNum;
+      xMaxBound = centerXNum + radiusNum;
+      yMinBound = centerYNum - radiusNum;
+      yMaxBound = centerYNum + radiusNum;
+    } else if (xMin && xMax && yMin && yMax) {
+      xMinBound = Number.parseInt(xMin as string);
+      xMaxBound = Number.parseInt(xMax as string);
+      yMinBound = Number.parseInt(yMin as string);
+      yMaxBound = Number.parseInt(yMax as string);
+    }
+
+    // Build WHERE clause with optional coordinate filters
+    const whereConditions = [eq(regions.worldId, worldId)];
+    
+    if (xMinBound !== undefined && xMaxBound !== undefined) {
+      whereConditions.push(gte(regions.xCoord, xMinBound));
+      whereConditions.push(lte(regions.xCoord, xMaxBound));
+    }
+    
+    if (yMinBound !== undefined && yMaxBound !== undefined) {
+      whereConditions.push(gte(regions.yCoord, yMinBound));
+      whereConditions.push(lte(regions.yCoord, yMaxBound));
+    }
+
     const worldRegions = await db.query.regions.findMany({
-      where: eq(regions.worldId, worldId),
+      where: and(...whereConditions),
       with: {
         tiles: {
           with: {
-            biome: true
+            biome: true,
+            plots: {
+              with: {
+                settlement: true
+              }
+            }
           }
         }
       }
     });
 
-    res.json(worldRegions);
+    logger.info(`[API] Fetched ${worldRegions.length} regions for world ${worldId}` + 
+      (xMinBound !== undefined ? ` (bounds: ${xMinBound}-${xMaxBound}, ${yMinBound}-${yMaxBound})` : ''));
+
+    res.json({
+      regions: worldRegions,
+      count: worldRegions.length,
+      bounds: xMinBound !== undefined ? {
+        xMin: xMinBound,
+        xMax: xMaxBound,
+        yMin: yMinBound,
+        yMax: yMaxBound
+      } : undefined
+    });
   } catch (error) {
     logger.error('[API] Error fetching regions:', error);
     res.status(500).json({ 

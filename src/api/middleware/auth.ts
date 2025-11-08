@@ -114,6 +114,79 @@ export const authenticateAdmin = async (
 };
 
 /**
+ * Authentication middleware for any authenticated user (not just admin)
+ * 
+ * Validates session cookie and ensures user is logged in.
+ */
+export const authenticate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const cookies = req.headers.cookie;
+    
+    if (!cookies) {
+      logger.warn('[API AUTH] No cookies provided');
+      res.status(401).json({ 
+        error: 'Unauthorized', 
+        code: 'NO_SESSION',
+        message: 'Authentication required' 
+      });
+      return;
+    }
+
+    const sessionMatch = cookies.match(/session=([^;]+)/);
+    const sessionToken = sessionMatch ? sessionMatch[1] : null;
+
+    if (!sessionToken) {
+      logger.warn('[API AUTH] No session token found in cookies');
+      res.status(401).json({ 
+        error: 'Unauthorized', 
+        code: 'NO_SESSION',
+        message: 'Authentication required' 
+      });
+      return;
+    }
+
+    const user = await db.query.accounts.findFirst({
+      where: eq(accounts.userAuthToken, sessionToken),
+      with: {
+        profile: true
+      }
+    });
+
+    if (!user) {
+      logger.warn('[API AUTH] Invalid session token');
+      res.status(401).json({ 
+        error: 'Unauthorized', 
+        code: 'INVALID_SESSION',
+        message: 'Invalid or expired session' 
+      });
+      return;
+    }
+
+    // Attach user to request (no role check)
+    req.user = {
+      id: user.id,
+      email: user.email,
+      username: user.profile?.username || user.email,
+      role: user.role as 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR'
+    };
+
+    logger.info(`[API AUTH] ✓ User ${user.email} authenticated`);
+    next();
+  } catch (error) {
+    logger.error('[API AUTH] Authentication error:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      code: 'AUTH_ERROR',
+      message: 'Authentication failed' 
+    });
+  }
+};
+
+/**
  * Optional authentication (allows unauthenticated access but attaches user if present)
  */
 export const optionalAuth = async (

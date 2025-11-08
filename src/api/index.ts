@@ -12,11 +12,13 @@ import playersRouter from './routes/players.js';
 import adminRouter from './routes/admin.js';
 import authRouter from './routes/auth.js';
 import settlementsRouter from './routes/settlements.js';
+import accountRouter from './routes/account.js';
 
 const router = Router();
 
 // Mount route handlers
 router.use('/auth', authRouter);
+router.use('/account', accountRouter);
 router.use('/worlds', worldsRouter);
 router.use('/servers', serversRouter);
 router.use('/regions', geographyRouter);  // Handles regions, tiles, plots
