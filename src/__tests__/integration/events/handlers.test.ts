@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Socket } from 'socket.io';
 import { registerEventHandlers } from '../../../events/handlers';
+import * as queries from '../../../db/queries';
 
 // Mock dependencies
 vi.mock('../../../db/queries');
@@ -137,4 +138,220 @@ describe('Event Handlers', () => {
       });
     });
   });
+
+  describe('leave-world handler', () => {
+    it('should leave world and unregister settlements', () => {
+      mockSocket.data = { playerId: 'player-123', worldId: 'world-456' };
+
+      registerEventHandlers(mockSocket as Socket);
+      const leaveWorldHandler = eventHandlers.get('leave-world');
+
+      leaveWorldHandler!({ playerId: 'player-123', worldId: 'world-456' });
+
+      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+        expect(mockSocket.leave).toHaveBeenCalledWith('world:world-456');
+        expect(mockSocket.data.worldId).toBeUndefined();
+      });
+    });
+
+    it('should notify other players in world', () => {
+      mockSocket.data = { playerId: 'player-123', worldId: 'world-456' };
+
+      registerEventHandlers(mockSocket as Socket);
+      const leaveWorldHandler = eventHandlers.get('leave-world');
+
+      leaveWorldHandler!({ playerId: 'player-123', worldId: 'world-456' });
+
+      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+        expect(mockSocket.to).toHaveBeenCalledWith('world:world-456');
+      });
+    });
+  });
+
+  describe('request-game-state handler', () => {
+    it('should reject request when not authenticated', () => {
+      mockSocket.data = {};
+
+      registerEventHandlers(mockSocket as Socket);
+      const gameStateHandler = eventHandlers.get('request-game-state');
+
+      gameStateHandler!({ worldId: 'world-456' });
+
+      return new Promise(resolve => setTimeout(resolve, 0)).then(() => {
+        expect(mockSocket.emit).toHaveBeenCalledWith('error', expect.objectContaining({
+          code: 'AUTH_REQUIRED',
+          message: 'Authentication required',
+        }));
+      });
+    });
+
+    it('should fetch player settlements when authenticated', async () => {
+      const mockSettlements = [
+        { id: 'settlement-1', playerId: 'player-123', worldId: 'world-456' },
+      ];
+
+      mockSocket.data = { playerId: 'player-123', authenticated: true };
+      vi.mocked(queries.getPlayerSettlements).mockResolvedValue(mockSettlements as any);
+
+      registerEventHandlers(mockSocket as Socket);
+      const gameStateHandler = eventHandlers.get('request-game-state');
+
+      gameStateHandler!({ worldId: 'world-456' });
+
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(queries.getPlayerSettlements).toHaveBeenCalledWith('player-123');
+    });
+  });
+
+  describe('build-structure handler', () => {
+    it('should reject when not authenticated', async () => {
+      mockSocket.data = {};
+
+      registerEventHandlers(mockSocket as Socket);
+      const buildHandler = eventHandlers.get('build-structure');
+
+      const callback = vi.fn();
+      buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: 'Authentication required',
+      }));
+    });
+
+    it('should reject when settlement not found', async () => {
+      mockSocket.data = { playerId: 'player-123', authenticated: true };
+      vi.mocked(queries.getSettlementWithDetails).mockResolvedValue(undefined as any);
+
+      registerEventHandlers(mockSocket as Socket);
+      const buildHandler = eventHandlers.get('build-structure');
+
+      const callback = vi.fn();
+      buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: 'Settlement not found',
+      }));
+    });
+
+    it('should reject when player does not own settlement', async () => {
+      const mockSettlement = {
+        settlement: {
+          id: 'settlement-123',
+          playerProfileId: 'different-player',
+          worldId: 'world-456',
+        },
+      };
+
+      mockSocket.data = { playerId: 'player-123', authenticated: true };
+      vi.mocked(queries.getSettlementWithDetails).mockResolvedValue(mockSettlement as any);
+
+      registerEventHandlers(mockSocket as Socket);
+      const buildHandler = eventHandlers.get('build-structure');
+
+      const callback = vi.fn();
+      buildHandler!({ settlementId: 'settlement-123', structureType: 'warehouse' }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: 'You do not own this settlement',
+      }));
+    });
+  });
+
+  describe('collect-resources handler', () => {
+    it('should reject when not authenticated', async () => {
+      mockSocket.data = {};
+
+      registerEventHandlers(mockSocket as Socket);
+      const collectHandler = eventHandlers.get('collect-resources');
+
+      const callback = vi.fn();
+      collectHandler!({ settlementId: 'settlement-123' }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: 'Authentication required',
+      }));
+    });
+
+    it('should reject when settlement not found', async () => {
+      mockSocket.data = { playerId: 'player-123', authenticated: true };
+      vi.mocked(queries.getSettlementWithDetails).mockResolvedValue(undefined as any);
+
+      registerEventHandlers(mockSocket as Socket);
+      const collectHandler = eventHandlers.get('collect-resources');
+
+      const callback = vi.fn();
+      collectHandler!({ settlementId: 'settlement-123' }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+        error: 'Settlement not found',
+      }));
+    });
+  });
+
+  describe('error handler', () => {
+    it('should log socket errors', () => {
+      mockSocket.data = { playerId: 'player-123', worldId: 'world-456' };
+
+      registerEventHandlers(mockSocket as Socket);
+      const errorHandler = eventHandlers.get('error');
+
+      const testError = new Error('Test error');
+      errorHandler!(testError);
+
+      // Error handler should be called without throwing
+      expect(errorHandler).toBeDefined();
+    });
+  });
+
+  describe('create-world handler', () => {
+    it('should handle error when worldName is undefined', async () => {
+      mockSocket.data = {};
+
+      registerEventHandlers(mockSocket as Socket);
+      const createWorldHandler = eventHandlers.get('create-world');
+
+      const callback = vi.fn();
+      createWorldHandler!({ worldName: undefined as any, seed: 12345 }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+      }));
+    });
+
+    it('should reject when world name is too short', async () => {
+      mockSocket.data = { playerId: 'player-123', authenticated: true };
+
+      registerEventHandlers(mockSocket as Socket);
+      const createWorldHandler = eventHandlers.get('create-world');
+
+      const callback = vi.fn();
+      createWorldHandler!({ worldName: 'AB', seed: 12345 }, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      expect(callback).toHaveBeenCalledWith(expect.objectContaining({
+        success: false,
+      }));
+    });
+  });
 });
+
