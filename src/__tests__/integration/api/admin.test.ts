@@ -76,7 +76,7 @@ describe('Admin API Routes', () => {
       const mockSelect = vi.fn(() => ({
         from: vi.fn().mockResolvedValue([{ count: 10 }]),
       }));
-      vi.mocked(db.db.select).mockImplementation(mockSelect);
+      vi.mocked(db.db.select).mockImplementation(mockSelect as any);
 
       // Mock recent data queries
       vi.mocked(db.db.query.servers.findMany).mockResolvedValue([
@@ -124,7 +124,7 @@ describe('Admin API Routes', () => {
       const mockSelect = vi.fn(() => ({
         from: vi.fn().mockResolvedValue([{ count: 0 }]),
       }));
-      vi.mocked(db.db.select).mockImplementation(mockSelect);
+      vi.mocked(db.db.select).mockImplementation(mockSelect as any);
 
       vi.mocked(db.db.query.servers.findMany).mockResolvedValue([] as any);
       vi.mocked(db.db.query.worlds.findMany).mockResolvedValue([] as any);
@@ -148,7 +148,7 @@ describe('Admin API Routes', () => {
       const mockSelect = vi.fn(() => ({
         from: vi.fn().mockRejectedValue(new Error('Database error')),
       }));
-      vi.mocked(db.db.select).mockImplementation(mockSelect);
+      vi.mocked(db.db.select).mockImplementation(mockSelect as any);
 
       const response = await request(app)
         .get('/api/admin/dashboard')
@@ -162,7 +162,7 @@ describe('Admin API Routes', () => {
       const mockSelect = vi.fn(() => ({
         from: vi.fn().mockResolvedValue([{ count: 5 }]),
       }));
-      vi.mocked(db.db.select).mockImplementation(mockSelect);
+      vi.mocked(db.db.select).mockImplementation(mockSelect as any);
 
       vi.mocked(db.db.query.servers.findMany).mockResolvedValue([] as any);
       vi.mocked(db.db.query.worlds.findMany).mockResolvedValue([] as any);
