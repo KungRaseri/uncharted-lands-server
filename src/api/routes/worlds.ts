@@ -63,9 +63,8 @@ router.get('/:id', authenticate, async (req, res) => {
           orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
           with: {
             tiles: {
-              // Order tiles by ID to preserve insertion order (CUIDs are time-sortable)
-              // Tiles are inserted row-by-row during world creation
-              orderBy: (tiles, { asc }) => [asc(tiles.id)],
+              // Order tiles by their coordinates (x=row, y=column) to match creation order
+              orderBy: (tiles, { asc }) => [asc(tiles.xCoord), asc(tiles.yCoord)],
               with: {
                 biome: true,
                 plots: {

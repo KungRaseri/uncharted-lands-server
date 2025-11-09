@@ -15,6 +15,13 @@
       "when": 1762469872528,
       "tag": "0001_military_guardsmen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762731576660,
+      "tag": "0002_aromatic_wong",
+      "breakpoints": true
     }
   ]
 }

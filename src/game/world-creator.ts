@@ -112,6 +112,8 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     elevation: number;
     precipitation: number;
     temperature: number;
+    xCoord: number;
+    yCoord: number;
   }> = [];
 
   for (const region of regionRecords) {
@@ -141,6 +143,8 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
           elevation: elevationMap[x][y],
           precipitation: precipitationMap[x][y],
           temperature: temperatureMap[x][y],
+          xCoord: x,
+          yCoord: y,
         });
       }
     }

@@ -153,6 +153,8 @@ export const tiles = pgTable(
     regionId: text('regionId')
       .notNull()
       .references(() => regions.id, { onDelete: 'cascade' }),
+    xCoord: integer('xCoord').notNull().default(0),
+    yCoord: integer('yCoord').notNull().default(0),
     elevation: doublePrecision('elevation').notNull(),
     temperature: doublePrecision('temperature').notNull(),
     precipitation: doublePrecision('precipitation').notNull(),
@@ -162,6 +164,7 @@ export const tiles = pgTable(
     regionIdx: index('Tile_regionId_idx').on(table.regionId),
     biomeIdx: index('Tile_biomeId_idx').on(table.biomeId),
     typeIdx: index('Tile_type_idx').on(table.type),
+    coordIdx: index('Tile_coords_idx').on(table.xCoord, table.yCoord),
   })
 );
 
