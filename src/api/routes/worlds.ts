@@ -31,6 +31,11 @@ router.get('/', authenticate, async (req, res) => {
             status: true,
           },
         },
+        regions: {
+          columns: {
+            id: true,
+          },
+        },
       },
       orderBy: (worlds, { desc }) => [desc(worlds.createdAt)],
     });
