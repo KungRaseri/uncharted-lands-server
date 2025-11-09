@@ -4,8 +4,8 @@
  * Calculates storage capacity limits and handles resource overflow
  */
 
-import type { Resources } from './resource-calculator';
-import type { Structure } from './consumption-calculator';
+import type { Resources } from './resource-calculator.js';
+import type { Structure } from './consumption-calculator.js';
 
 /**
  * Storage capacity for each resource type

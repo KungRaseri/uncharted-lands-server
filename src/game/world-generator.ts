@@ -10,7 +10,7 @@
 
 import { makeNoise2D } from 'open-simplex-noise';
 import { makeRectangle } from 'fractal-noise';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 /**
  * Split a 2D heightmap into chunks

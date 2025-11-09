@@ -6,9 +6,9 @@
 
 import { Router } from 'express';
 import { sql } from 'drizzle-orm';
-import { db, servers, worlds, accounts, settlements } from '../../db/index';
-import { authenticateAdmin } from '../middleware/auth';
-import { logger } from '../../utils/logger';
+import { db, servers, worlds, accounts, settlements } from '../../db/index.js';
+import { authenticateAdmin } from '../middleware/auth.js';
+import { logger } from '../../utils/logger.js';
 
 const router = Router();
 

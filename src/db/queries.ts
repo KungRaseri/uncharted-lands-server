@@ -21,7 +21,7 @@ import {
   biomes,
   tiles,
   plots,
-} from './index';
+} from './index.js';
 
 // ===========================
 // UTILITY FUNCTIONS

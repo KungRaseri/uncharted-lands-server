@@ -5,9 +5,11 @@
  */
 
 import type { Socket } from 'socket.io';
-import type { ExtendedError } from 'socket.io/dist/namespace';
-import { logger } from '../utils/logger';
-import { findAccountByToken, findProfileByAccountId } from '../db/queries';
+import { logger } from '../utils/logger.js';
+import { findAccountByToken, findProfileByAccountId } from '../db/queries.js';
+
+// Type for Socket.IO middleware error
+type ExtendedError = Error & { data?: unknown };
 
 /**
  * Authentication middleware

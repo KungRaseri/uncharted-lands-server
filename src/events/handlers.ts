@@ -18,22 +18,22 @@ import type {
   WorldDataResponse,
   RequestRegionData,
   RegionDataResponse,
-} from '../types/socket-events';
-import { logger } from '../utils/logger';
+} from '../types/socket-events.js';
+import { logger } from '../utils/logger.js';
 import {
   getSettlementWithDetails,
   updateSettlementStorage,
   getPlayerSettlements,
   createStructure,
-} from '../db/queries';
+} from '../db/queries.js';
 import {
   calculateTimedProduction,
   addResources,
   subtractResources,
   hasEnoughResources,
-} from '../game/resource-calculator';
-import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop';
-import { createWorld } from '../game/world-creator';
+} from '../game/resource-calculator.js';
+import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop.js';
+import { createWorld } from '../game/world-creator.js';
 
 /**
  * Register all event handlers for a socket connection
