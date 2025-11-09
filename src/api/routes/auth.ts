@@ -3,20 +3,55 @@ import { db } from '../../db/index.js';
 import { accounts, profiles } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
+import { logger } from '../../utils/logger.js';
+import { strictLimiter } from '../middleware/rateLimit.js';
+import bcrypt from 'bcrypt';
 
 const router = Router();
+const BCRYPT_ROUNDS = 10; // Standard bcrypt salt rounds
 
 /**
  * POST /api/auth/register
  * Register a new user account
+ * Note: Username is optional and can be set later when joining a world
+ * 
+ * Rate limited to prevent user enumeration attacks
  */
-router.post('/register', async (req, res) => {
+router.post('/register', strictLimiter, async (req, res) => {
+  const requestId = createId().slice(0, 8);
+  
   try {
     const { email, password, username } = req.body;
 
-    if (!email || !password || !username) {
+    logger.debug('[AUTH] Registration attempt', { 
+      requestId,
+      email: email ? `${email.substring(0, 3)}***` : 'missing',
+      hasPassword: !!password,
+      hasUsername: !!username 
+    });
+
+    // Validate required fields
+    if (!email || !password) {
+      logger.warn('[AUTH] Registration failed - missing required fields', { 
+        requestId,
+        hasEmail: !!email,
+        hasPassword: !!password 
+      });
       return res.status(400).json({
-        error: 'Email, password, and username are required',
+        error: 'Email and password are required',
+        code: 'MISSING_FIELDS',
+      });
+    }
+
+    // Validate password length (minimum 16 characters)
+    if (password.length < 16) {
+      logger.warn('[AUTH] Registration failed - password too short', { 
+        requestId,
+        passwordLength: password.length 
+      });
+      return res.status(400).json({
+        error: 'Password must be at least 16 characters long',
+        code: 'PASSWORD_TOO_SHORT',
       });
     }
 
@@ -26,33 +61,50 @@ router.post('/register', async (req, res) => {
     });
 
     if (existingAccount) {
+      logger.info('[AUTH] Registration failed - email already registered', { 
+        requestId,
+        email: `${email.substring(0, 3)}***`,
+        existingAccountId: existingAccount.id 
+      });
       return res.status(400).json({
-        error: 'Account with this email already exists',
+        error: 'An account with this email already exists',
+        code: 'EMAIL_EXISTS',
       });
     }
 
-    // Note: Password hashing should be done by the client before this point
-    // or we need to add bcrypt to the server
+    // Hash the password using bcrypt
+    logger.debug('[AUTH] Hashing password', { requestId });
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // Create account
     const accountId = createId();
     const userAuthToken = createId();
+
+    logger.debug('[AUTH] Creating new account', { requestId, accountId });
 
     // Create account
     await db.insert(accounts).values({
       id: accountId,
       email,
-      passwordHash: password, // In production, this should already be hashed
+      passwordHash, // Store the bcrypt hash
       userAuthToken,
       role: 'MEMBER',
       createdAt: new Date(),
       updatedAt: new Date(),
     });
 
-    // Create profile
+    // Create profile with username (use email as default if not provided)
     await db.insert(profiles).values({
       id: createId(),
       accountId,
-      username,
+      username: username || email, // Default to email if no username provided
       picture: '', // Default empty picture
+    });
+
+    logger.info('[AUTH] ✓ Account created successfully', { 
+      requestId,
+      accountId,
+      email: `${email.substring(0, 3)}***` 
     });
 
     // Fetch the created account with profile
@@ -68,22 +120,37 @@ router.post('/register', async (req, res) => {
       account: newAccount,
     });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Failed to register account' });
+    logger.error('[AUTH] Registration error', error, { requestId });
+    res.status(500).json({ 
+      error: 'Failed to register account',
+      code: 'SERVER_ERROR',
+    });
   }
 });
 
 /**
  * POST /api/auth/login
  * Login with email and password
+ * 
+ * Rate limited to prevent brute force attacks
  */
-router.post('/login', async (req, res) => {
+router.post('/login', strictLimiter, async (req, res) => {
+  const requestId = createId().slice(0, 8);
+  
   try {
     const { email, password } = req.body;
 
+    logger.debug('[AUTH] Login attempt', { 
+      requestId,
+      email: email ? `${email.substring(0, 3)}***` : 'missing',
+      hasPassword: !!password 
+    });
+
     if (!email || !password) {
+      logger.warn('[AUTH] Login failed - missing credentials', { requestId });
       return res.status(400).json({
         error: 'Email and password are required',
+        code: 'MISSING_FIELDS',
       });
     }
 
@@ -96,16 +163,28 @@ router.post('/login', async (req, res) => {
     });
 
     if (!account) {
+      logger.info('[AUTH] Login failed - account not found', { 
+        requestId,
+        email: `${email.substring(0, 3)}***` 
+      });
       return res.status(401).json({
         error: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS',
       });
     }
 
-    // Note: Password comparison should be done with bcrypt
-    // For now, direct comparison (assuming pre-hashed)
-    if (account.passwordHash !== password) {
+    // Compare password using bcrypt
+    logger.debug('[AUTH] Comparing password', { requestId });
+    const passwordMatches = await bcrypt.compare(password, account.passwordHash);
+
+    if (!passwordMatches) {
+      logger.info('[AUTH] Login failed - incorrect password', { 
+        requestId,
+        accountId: account.id 
+      });
       return res.status(401).json({
         error: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS',
       });
     }
 
@@ -120,6 +199,12 @@ router.post('/login', async (req, res) => {
       })
       .where(eq(accounts.id, account.id));
 
+    logger.info('[AUTH] ✓ Login successful', { 
+      requestId,
+      accountId: account.id,
+      email: `${email.substring(0, 3)}***` 
+    });
+
     res.json({
       success: true,
       account: {
@@ -128,8 +213,11 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to login' });
+    logger.error('[AUTH] Login error', error, { requestId });
+    res.status(500).json({ 
+      error: 'Failed to login',
+      code: 'SERVER_ERROR',
+    });
   }
 });
 
@@ -138,12 +226,21 @@ router.post('/login', async (req, res) => {
  * Validate a session token
  */
 router.post('/validate', async (req, res) => {
+  const requestId = createId().slice(0, 8);
+  
   try {
     const { token } = req.body;
 
+    logger.debug('[AUTH] Token validation attempt', { 
+      requestId,
+      hasToken: !!token 
+    });
+
     if (!token) {
+      logger.warn('[AUTH] Validation failed - no token provided', { requestId });
       return res.status(400).json({
         error: 'Token is required',
+        code: 'MISSING_TOKEN',
       });
     }
 
@@ -155,18 +252,31 @@ router.post('/validate', async (req, res) => {
     });
 
     if (!account) {
+      logger.info('[AUTH] Validation failed - invalid token', { 
+        requestId,
+        token: `${token.substring(0, 8)}***` 
+      });
       return res.status(401).json({
         error: 'Invalid token',
+        code: 'INVALID_TOKEN',
       });
     }
+
+    logger.debug('[AUTH] ✓ Token validated', { 
+      requestId,
+      accountId: account.id 
+    });
 
     res.json({
       success: true,
       account,
     });
   } catch (error) {
-    console.error('Validation error:', error);
-    res.status(500).json({ error: 'Failed to validate token' });
+    logger.error('[AUTH] Validation error', error, { requestId });
+    res.status(500).json({ 
+      error: 'Failed to validate token',
+      code: 'SERVER_ERROR',
+    });
   }
 });
 
