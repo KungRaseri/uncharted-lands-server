@@ -4,7 +4,7 @@
  * Calculates resource production rates and consumption for settlements
  */
 
-import type { Plot } from '../db/schema';
+import type { Plot } from '../db/schema.js';
 
 /**
  * Resource types in the game

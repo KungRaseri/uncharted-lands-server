@@ -7,10 +7,10 @@
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { db, worlds, regions, tiles, plots } from '../../db/index';
-import { authenticateAdmin } from '../middleware/auth';
-import { logger } from '../../utils/logger';
-import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses';
+import { db, worlds, regions, tiles, plots } from '../../db/index.js';
+import { authenticateAdmin } from '../middleware/auth.js';
+import { logger } from '../../utils/logger.js';
+import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
 
 const router = Router();
 

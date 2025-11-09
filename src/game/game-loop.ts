@@ -6,26 +6,26 @@
  */
 
 import type { Server as SocketIOServer } from 'socket.io';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import {
   getPlayerSettlements,
   updateSettlementStorage,
   getSettlementWithDetails,
   getSettlementStructures,
-} from '../db/queries';
-import { calculateProduction, addResources, subtractResources } from './resource-calculator';
+} from '../db/queries.js';
+import { calculateProduction, addResources, subtractResources } from './resource-calculator.js';
 import {
   calculatePopulation,
   calculateConsumption,
   hasResourcesForPopulation,
   type Structure,
-} from './consumption-calculator';
+} from './consumption-calculator.js';
 import {
   calculateStorageCapacity,
   clampToCapacity,
   calculateWaste,
   isNearCapacity,
-} from './storage-calculator';
+} from './storage-calculator.js';
 
 // Game loop configuration
 const TICK_RATE = Number.parseInt(process.env.TICK_RATE || '60', 10); // Default: 60 ticks per second

@@ -14,18 +14,18 @@ import type {
   ServerToClientEvents,
   InterServerEvents,
   SocketData,
-} from './types/socket-events';
-import { registerEventHandlers } from './events/handlers';
+} from './types/socket-events.js';
+import { registerEventHandlers } from './events/handlers.js';
 import {
   authenticationMiddleware,
   loggingMiddleware,
   errorHandlingMiddleware,
-} from './middleware/socket-middleware';
-import { logger } from './utils/logger';
-import { closeDatabase } from './db/index';
-import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop';
-import apiRouter from './api/index';
-import { apiLimiter } from './api/middleware/rateLimit';
+} from './middleware/socket-middleware.js';
+import { logger } from './utils/logger.js';
+import { closeDatabase } from './db/index.js';
+import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop.js';
+import apiRouter from './api/index.js';
+import { apiLimiter } from './api/middleware/rateLimit.js';
 
 // Load environment variables
 dotenv.config();

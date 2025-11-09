@@ -5,10 +5,10 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { db } from '../../db';
-import { accounts } from '../../db/schema';
+import { db } from '../../db/index.js';
+import { accounts } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
-import { logger } from '../../utils/logger';
+import { logger } from '../../utils/logger.js';
 
 // Type alias for account roles
 type AccountRole = 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR';

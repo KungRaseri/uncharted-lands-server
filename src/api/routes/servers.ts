@@ -7,9 +7,9 @@
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { db, servers } from '../../db/index';
-import { authenticateAdmin } from '../middleware/auth';
-import { logger } from '../../utils/logger';
+import { db, servers } from '../../db/index.js';
+import { authenticateAdmin } from '../middleware/auth.js';
+import { logger } from '../../utils/logger.js';
 
 const router = Router();
 

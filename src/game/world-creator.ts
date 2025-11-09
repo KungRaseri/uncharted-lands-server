@@ -4,21 +4,21 @@
  * Handles complete world generation from noise maps to database persistence
  */
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import {
   generateWorldLayers,
   normalizeValue,
   type MapOptions,
   type NoiseOptions,
-} from './world-generator';
+} from './world-generator.js';
 import {
   generatePlotResources,
   determinePlotsTotal,
   type Biome as BiomeType,
   type Tile as TileType,
-} from './resource-generator';
-import { db, worlds, regions, tiles, plots } from '../db/index';
-import { generateId, getAllBiomes, findBiome } from '../db/queries';
+} from './resource-generator.js';
+import { db, worlds, regions, tiles, plots } from '../db/index.js';
+import { generateId, getAllBiomes, findBiome } from '../db/queries.js';
 
 export interface WorldCreationOptions {
   serverId: string | null;

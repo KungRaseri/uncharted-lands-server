@@ -6,9 +6,9 @@
 
 import { Router } from 'express';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { db, regions, tiles, plots, settlements, worlds } from '../../db/index';
-import { authenticateAdmin, authenticate } from '../middleware/auth';
-import { logger } from '../../utils/logger';
+import { db, regions, tiles, plots, settlements, worlds } from '../../db/index.js';
+import { authenticateAdmin, authenticate } from '../middleware/auth.js';
+import { logger } from '../../utils/logger.js';
 
 const router = Router();
 

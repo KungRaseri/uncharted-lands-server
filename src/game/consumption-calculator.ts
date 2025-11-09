@@ -7,7 +7,7 @@
  * - Resource decay/spoilage (future)
  */
 
-import type { Resources } from './resource-calculator';
+import type { Resources } from './resource-calculator.js';
 
 /**
  * Per-capita consumption rates per tick (60 ticks per second)
