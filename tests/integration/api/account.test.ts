@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import accountRouter from '../../../api/routes/account';
-import * as db from '../../../db/index';
+import accountRouter from '../../../src/api/routes/account.js';
+import * as db from '../../../src/db/index.js';
 
 // Mock dependencies
-vi.mock('../../../db/index', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     query: {
       accounts: {
@@ -16,7 +16,7 @@ vi.mock('../../../db/index', () => ({
   accounts: {},
 }));
 
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('../../../utils/logger', () => ({
   },
 }));
 
-vi.mock('../../../api/middleware/auth', () => ({
+vi.mock('../../../src/api/middleware/auth.js', () => ({
   authenticate: (req: any, res: any, next: any) => {
     if (req.headers.authorization) {
       req.user = { id: 'user-123', username: 'testuser' };

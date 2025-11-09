@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import settlementsRouter from '../../../api/routes/settlements';
-import * as db from '../../../db/index';
+import settlementsRouter from '../../../src/api/routes/settlements.js';
+import * as db from '../../../src/db/index.js';
 import { generateTestId } from '../../helpers/test-utils';
 
 // Mock dependencies
-vi.mock('../../../db/index', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     query: {
       settlements: {
@@ -29,7 +29,7 @@ vi.mock('../../../db/index', () => ({
   tiles: {},
 }));
 
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock('@paralleldrive/cuid2', () => ({
   createId: () => generateTestId('cuid'),
 }));
 
-vi.mock('../../../api/middleware/auth', () => ({
+vi.mock('../../../src/api/middleware/auth.js', () => ({
   authenticate: (req: any, res: any, next: any) => {
     if (req.headers.authorization === 'Bearer valid-token') {
       req.user = { id: 'user-123', email: 'test@example.com' };

@@ -3,14 +3,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createWorld, type WorldCreationOptions } from '../../../game/world-creator';
-import * as worldGenerator from '../../../game/world-generator';
-import * as resourceGenerator from '../../../game/resource-generator';
-import * as dbModule from '../../../db/index';
-import * as queries from '../../../db/queries';
+import { createWorld, type WorldCreationOptions } from '../../../src/game/world-creator.js';
+import * as worldGenerator from '../../../src/game/world-generator.js';
+import * as resourceGenerator from '../../../src/game/resource-generator.js';
+import * as dbModule from '../../../src/db/index.js';
+import * as queries from '../../../src/db/queries.js';
 
 // Mock dependencies
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -19,9 +19,9 @@ vi.mock('../../../utils/logger', () => ({
   },
 }));
 
-vi.mock('../../../game/world-generator');
-vi.mock('../../../game/resource-generator');
-vi.mock('../../../db/queries');
+vi.mock('../../../src/game/world-generator');
+vi.mock('../../../src/game/resource-generator');
+vi.mock('../../../src/db/queries');
 
 // Helper function to create 2D arrays (declared at module level to avoid nesting)
 const createMapArray = (size: number, value: number) =>

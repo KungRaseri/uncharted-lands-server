@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Socket } from 'socket.io';
-import { registerEventHandlers } from '../../../events/handlers';
-import * as queries from '../../../db/queries';
+import { registerEventHandlers } from '../../../src/events/handlers.js';
+import * as queries from '../../../src/db/queries.js';
 
 // Mock dependencies
-vi.mock('../../../db/queries');
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/db/queries');
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
   },
 }));
-vi.mock('../../../game/game-loop', () => ({
+vi.mock('../../../src/game/game-loop.js', () => ({
   registerSettlement: vi.fn(),
   unregisterSettlement: vi.fn(),
   registerPlayerSettlements: vi.fn(),

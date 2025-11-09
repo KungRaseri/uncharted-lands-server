@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import serversRouter from '../../../api/routes/servers';
-import * as db from '../../../db/index';
+import serversRouter from '../../../src/api/routes/servers.js';
+import * as db from '../../../src/db/index.js';
 import { generateTestId } from '../../helpers/test-utils';
 
 // Mock dependencies
-vi.mock('../../../db/index', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     query: {
       servers: {
@@ -33,7 +33,7 @@ vi.mock('../../../db/index', () => ({
   servers: { id: 'id' },
 }));
 
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock('../../../utils/logger', () => ({
   },
 }));
 
-vi.mock('../../../api/middleware/auth', () => ({
+vi.mock('../../../src/api/middleware/auth.js', () => ({
   authenticateAdmin: (req: any, res: any, next: any) => {
     if (req.headers.authorization === 'Bearer admin-token') {
       req.user = { id: 'admin-123', role: 'ADMINISTRATOR' };

@@ -11,7 +11,7 @@ import {
   registerSettlement,
   unregisterSettlement,
   getGameLoopStatus,
-} from '../../../game/game-loop';
+} from '../../../src/game/game-loop.js';
 
 // Mock Socket.IO
 const mockIo = {
@@ -20,7 +20,7 @@ const mockIo = {
 };
 
 // Mock database queries
-vi.mock('../../../db/queries', () => ({
+vi.mock('../../../src/db/queries.js', () => ({
   getPlayerSettlements: vi.fn(),
   updateSettlementStorage: vi.fn(),
   getSettlementWithDetails: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('../../../db/queries', () => ({
 }));
 
 // Mock resource calculator
-vi.mock('../../../game/resource-calculator', () => ({
+vi.mock('../../../src/game/resource-calculator.js', () => ({
   calculateProduction: vi.fn(() => ({
     food: 10,
     water: 10,
@@ -53,7 +53,7 @@ vi.mock('../../../game/resource-calculator', () => ({
 }));
 
 // Mock consumption calculator
-vi.mock('../../../game/consumption-calculator', () => ({
+vi.mock('../../../src/game/consumption-calculator.js', () => ({
   calculatePopulation: vi.fn(() => 10),
   calculateConsumption: vi.fn(() => ({
     food: 5,
@@ -66,7 +66,7 @@ vi.mock('../../../game/consumption-calculator', () => ({
 }));
 
 // Mock storage calculator
-vi.mock('../../../game/storage-calculator', () => ({
+vi.mock('../../../src/game/storage-calculator.js', () => ({
   calculateStorageCapacity: vi.fn(() => ({
     food: 1000,
     water: 1000,

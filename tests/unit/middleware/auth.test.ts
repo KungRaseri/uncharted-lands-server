@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { authenticateAdmin, authenticate, optionalAuth } from '../../../api/middleware/auth';
+import { authenticateAdmin, authenticate, optionalAuth } from '../../../src/api/middleware/auth.js';
 import {
   createMockRequest,
   createMockResponse,
@@ -13,11 +13,11 @@ import {
   expectUnauthorizedError,
   expectForbiddenError,
   expectServerError,
-} from '../../helpers/test-utils';
-import * as dbModule from '../../../db';
+} from '../helpers/test-utils';
+import * as dbModule from '../../../src/db.js';
 
 // Mock database
-vi.mock('../../../db', () => ({
+vi.mock('../../../src/db.js', () => ({
   db: {
     query: {
       accounts: {
@@ -28,7 +28,7 @@ vi.mock('../../../db', () => ({
 }));
 
 // Mock logger
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),

@@ -11,7 +11,7 @@ import {
   generateWorldLayers,
   type MapOptions,
   type NoiseOptions,
-} from '../../../game/world-generator';
+} from '../../../src/game/world-generator.js';
 
 // Mock the noise libraries
 vi.mock('open-simplex-noise', () => ({

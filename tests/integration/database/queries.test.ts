@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { db } from '../../../db/index.js';
+import { db } from '../../../src/db/index.js';
 import {
   biomes,
   servers,
@@ -11,7 +11,7 @@ import {
   regions,
   settlements,
   settlementStorage,
-} from '../../../db/schema.js';
+} from '../../../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 

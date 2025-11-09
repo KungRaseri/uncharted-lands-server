@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import authRouter from '../../../api/routes/auth';
-import * as db from '../../../db/index';
+import authRouter from '../../../src/api/routes/auth.js';
+import * as db from '../../../src/db/index.js';
 import { generateTestId, generateTestPassword } from '../../helpers/test-utils';
 
 // Mock dependencies
-vi.mock('../../../db/index', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     query: {
       accounts: {
@@ -24,7 +24,7 @@ vi.mock('../../../db/index', () => ({
   },
 }));
 
-vi.mock('../../../db/schema', () => ({
+vi.mock('../../../src/db/schema.js', () => ({
   accounts: { email: 'email', id: 'id', userAuthToken: 'userAuthToken' },
   profiles: {},
 }));

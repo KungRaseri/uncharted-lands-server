@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { apiLimiter, strictLimiter, readLimiter } from '../../../api/middleware/rateLimit';
-import { logger } from '../../../utils/logger';
+import { apiLimiter, strictLimiter, readLimiter } from '../../../src/api/middleware/rateLimit.js';
+import { logger } from '../../../src/utils/logger.js';
 
 // Mock logger
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     warn: vi.fn(),
     info: vi.fn(),

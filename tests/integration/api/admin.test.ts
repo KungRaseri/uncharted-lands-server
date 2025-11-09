@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import adminRouter from '../../../api/routes/admin';
-import * as db from '../../../db/index';
+import adminRouter from '../../../src/api/routes/admin.js';
+import * as db from '../../../src/db/index.js';
 
 // Mock dependencies
-vi.mock('../../../db/index', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     select: vi.fn(() => ({
       from: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('../../../db/index', () => ({
   settlements: {},
 }));
 
-vi.mock('../../../utils/logger', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock('../../../utils/logger', () => ({
   },
 }));
 
-vi.mock('../../../api/middleware/auth', () => ({
+vi.mock('../../../src/api/middleware/auth.js', () => ({
   authenticateAdmin: (req: any, res: any, next: any) => {
     if (req.headers.authorization === 'Bearer admin-token') {
       req.user = { id: 'admin-123', role: 'ADMINISTRATOR' };
