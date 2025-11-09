@@ -11,6 +11,7 @@ import { db, worlds, regions, tiles, plots } from '../../db/index.js';
 import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
+import { generateWorldLayers } from '../../game/world-generator.js';
 
 const router = Router();
 
@@ -166,6 +167,13 @@ router.post('/', authenticateAdmin, async (req, res) => {
       regions: worldRegions,
       tiles: worldTiles,
       plots: worldPlots,
+      // Server-side generation parameters
+      generate,
+      width,
+      height,
+      elevationSeed,
+      precipitationSeed,
+      temperatureSeed,
     } = req.body;
 
     // Validation
@@ -188,8 +196,69 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
     logger.info(`[API] Created world: ${newWorld.id} - ${newWorld.name}`);
 
-    // Bulk insert regions if provided
-    if (worldRegions && Array.isArray(worldRegions) && worldRegions.length > 0) {
+    // Server-side generation mode
+    if (generate && width && height) {
+      logger.info(`[API] Generating world data server-side`, {
+        worldId: newWorld.id,
+        dimensions: `${width}x${height}`,
+      });
+
+      try {
+        // Generate regions using server-side generator
+        const generatedRegions = await generateWorldLayers(
+          {
+            serverId,
+            worldName: name,
+            width,
+            height,
+            seed: elevationSeed || Date.now(),
+          },
+          {
+            amplitude: elevationSettings?.amplitude || 1,
+            persistence: elevationSettings?.persistence || 0.5,
+            frequency: elevationSettings?.frequency || 0.05,
+            octaves: elevationSettings?.octaves || 8,
+            scale: (x: number) => x * (elevationSettings?.scale || 1),
+          },
+          {
+            amplitude: precipitationSettings?.amplitude || 1,
+            persistence: precipitationSettings?.persistence || 0.5,
+            frequency: precipitationSettings?.frequency || 0.05,
+            octaves: precipitationSettings?.octaves || 8,
+            scale: (x: number) => x * (precipitationSettings?.scale || 1),
+          },
+          {
+            amplitude: temperatureSettings?.amplitude || 1,
+            persistence: temperatureSettings?.persistence || 0.5,
+            frequency: temperatureSettings?.frequency || 0.05,
+            octaves: temperatureSettings?.octaves || 8,
+            scale: (x: number) => x * (temperatureSettings?.scale || 1),
+          }
+        );
+
+        // Insert generated regions
+        const regionsToInsert = generatedRegions.map((r) => ({
+          id: createId(),
+          worldId: newWorld.id,
+          xCoord: r.xCoord,
+          yCoord: r.yCoord,
+          name: `${r.xCoord}:${r.yCoord}`,
+          elevationMap: r.elevationMap,
+          precipitationMap: r.precipitationMap,
+          temperatureMap: r.temperatureMap,
+        }));
+
+        await db.insert(regions).values(regionsToInsert);
+        logger.info(`[API] Generated and inserted ${regionsToInsert.length} regions for world ${newWorld.id}`);
+      } catch (error) {
+        logger.error(`[API] Failed to generate world data`, { error });
+        // Clean up the world if generation fails
+        await db.delete(worlds).where(eq(worlds.id, newWorld.id));
+        return sendServerError(res, error, 'Failed to generate world data', 'GENERATION_FAILED');
+      }
+    }
+    // Legacy mode: client provides pre-generated regions
+    else if (worldRegions && Array.isArray(worldRegions) && worldRegions.length > 0) {
       const regionsToInsert = worldRegions.map((r) => ({
         ...r,
         id: r.id || createId(), // Generate ID if not provided

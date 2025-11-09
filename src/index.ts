@@ -47,7 +47,7 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   })
 );
-app.use(express.json());
+app.use(express.json()); // Default limit is sufficient for settings
 app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting to all API routes
