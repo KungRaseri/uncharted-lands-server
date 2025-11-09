@@ -340,14 +340,14 @@ describe('Database Queries', () => {
   describe('Query Helper Functions', () => {
     describe('generateId', () => {
       it('should generate a valid CUID', async () => {
-        const { generateId } = await import('../../../db/queries');
+        const { generateId } = await import('../../../src/db/queries');
         const id = generateId();
         expect(typeof id).toBe('string');
         expect(id.length).toBeGreaterThan(10);
       });
 
       it('should generate unique IDs', async () => {
-        const { generateId } = await import('../../../db/queries');
+        const { generateId } = await import('../../../src/db/queries');
         const id1 = generateId();
         const id2 = generateId();
         expect(id1).not.toBe(id2);
@@ -356,7 +356,7 @@ describe('Database Queries', () => {
 
     describe('getAllBiomes', () => {
       it('should get all biomes', async () => {
-        const { getAllBiomes } = await import('../../../db/queries');
+        const { getAllBiomes } = await import('../../../src/db/queries');
         const biomes = await getAllBiomes();
         expect(Array.isArray(biomes)).toBe(true);
         expect(biomes.length).toBeGreaterThan(0);
@@ -365,7 +365,7 @@ describe('Database Queries', () => {
 
     describe('findBiome', () => {
       it('should find biome by precipitation and temperature', async () => {
-        const { findBiome } = await import('../../../db/queries');
+        const { findBiome } = await import('../../../src/db/queries');
         // Test with mid-range values that should match a biome
         const biome = await findBiome(0.5, 0.5);
         if (biome) {
@@ -375,7 +375,7 @@ describe('Database Queries', () => {
       });
 
       it('should fallback to precipitation-only matching', async () => {
-        const { findBiome } = await import('../../../db/queries');
+        const { findBiome } = await import('../../../src/db/queries');
         // Use extreme temperature that might not match, forcing precipitation fallback
         const biome = await findBiome(500, 9999);
         expect(biome).toBeDefined();
@@ -383,7 +383,7 @@ describe('Database Queries', () => {
       });
 
       it('should fallback to first biome when no match', async () => {
-        const { findBiome } = await import('../../../db/queries');
+        const { findBiome } = await import('../../../src/db/queries');
         // Use values way outside any biome range
         const biome = await findBiome(-9999, -9999);
         expect(biome).toBeDefined();
@@ -415,7 +415,7 @@ describe('Database Queries', () => {
       });
 
       it('should get all online servers', async () => {
-        const { getOnlineServers } = await import('../../../db/queries');
+        const { getOnlineServers } = await import('../../../src/db/queries');
         const onlineServers = await getOnlineServers();
         expect(Array.isArray(onlineServers)).toBe(true);
         expect(onlineServers.length).toBeGreaterThan(0);
@@ -452,7 +452,7 @@ describe('Database Queries', () => {
       });
 
       it('should find server by hostname and port', async () => {
-        const { findServerByAddress } = await import('../../../db/queries');
+        const { findServerByAddress } = await import('../../../src/db/queries');
         const server = await findServerByAddress(testHostname, testPort);
         expect(server).toBeDefined();
         expect(server?.hostname).toBe(testHostname);
@@ -460,7 +460,7 @@ describe('Database Queries', () => {
       });
 
       it('should return undefined for non-existent address', async () => {
-        const { findServerByAddress } = await import('../../../db/queries');
+        const { findServerByAddress } = await import('../../../src/db/queries');
         const server = await findServerByAddress('nonexistent.local', 9999);
         expect(server).toBeUndefined();
       });
@@ -508,7 +508,7 @@ describe('Database Queries', () => {
       });
 
       it('should find world by name and server ID', async () => {
-        const { findWorldByName } = await import('../../../db/queries');
+        const { findWorldByName } = await import('../../../src/db/queries');
         const world = await findWorldByName(testWorldName, testServerId);
         expect(world).toBeDefined();
         expect(world?.name).toBe(testWorldName);
@@ -516,7 +516,7 @@ describe('Database Queries', () => {
       });
 
       it('should return undefined for non-existent world', async () => {
-        const { findWorldByName } = await import('../../../db/queries');
+        const { findWorldByName } = await import('../../../src/db/queries');
         const world = await findWorldByName('Nonexistent World', testServerId);
         expect(world).toBeUndefined();
       });
@@ -563,7 +563,7 @@ describe('Database Queries', () => {
       });
 
       it('should get all regions for a world', async () => {
-        const { getWorldRegions } = await import('../../../db/queries');
+        const { getWorldRegions } = await import('../../../src/db/queries');
         const regions = await getWorldRegions(testWorldId);
         expect(Array.isArray(regions)).toBe(true);
         // Regions might be empty if world was just created
@@ -575,19 +575,20 @@ describe('Database Queries', () => {
 
     describe('getRegionWithTiles', () => {
       it('should get region with tiles and plots', async () => {
-        const { getRegionWithTiles } = await import('../../../db/queries');
+        const { getRegionWithTiles } = await import('../../../src/db/queries');
         // Get first biome to use
         const firstBiome = await db.query.biomes.findFirst();
         if (!firstBiome) return;
 
         // Get or create a server and world first
+        const timestamp = Date.now();
         const serverResult = await db
           .insert(servers)
           .values({
             id: createId(),
-            name: `Server for Region Test ${Date.now()}`,
-            hostname: 'region-test.local',
-            port: 10000,
+            name: `Server for Region Test ${timestamp}`,
+            hostname: `region-test-${timestamp}.local`,
+            port: 10000 + Math.floor(Math.random() * 10000),
             status: 'ONLINE',
           })
           .returning();
@@ -607,7 +608,6 @@ describe('Database Queries', () => {
         const worldId = worldResult[0].id;
 
         // Create a region
-        const { regions } = await import('../../../db/index');
         const regionResult = await db
           .insert(regions)
           .values({
@@ -676,7 +676,7 @@ describe('Database Queries', () => {
       });
 
       it('should find account by token', async () => {
-        const { findAccountByToken } = await import('../../../db/queries');
+        const { findAccountByToken } = await import('../../../src/db/queries');
         const account = await findAccountByToken(testToken);
         expect(account).toBeDefined();
         expect(account.id).toBe(testAccountId);
@@ -684,7 +684,7 @@ describe('Database Queries', () => {
       });
 
       it('should find profile by account ID', async () => {
-        const { findProfileByAccountId } = await import('../../../db/queries');
+        const { findProfileByAccountId } = await import('../../../src/db/queries');
         const profile = await findProfileByAccountId(testAccountId);
         expect(profile).toBeDefined();
         expect(profile.id).toBe(testProfileId);
@@ -692,7 +692,7 @@ describe('Database Queries', () => {
       });
 
       it('should find profile by ID', async () => {
-        const { findProfileById } = await import('../../../db/queries');
+        const { findProfileById } = await import('../../../src/db/queries');
         const profile = await findProfileById(testProfileId);
         expect(profile).toBeDefined();
         expect(profile.id).toBe(testProfileId);
@@ -832,7 +832,7 @@ describe('Database Queries', () => {
       });
 
       it('should create settlement with storage', async () => {
-        const { createSettlement } = await import('../../../db/queries');
+        const { createSettlement } = await import('../../../src/db/queries');
         const result = await createSettlement(testProfileId, testPlotId, 'Test Settlement', {
           food: 100,
           water: 100,
@@ -856,7 +856,7 @@ describe('Database Queries', () => {
       });
 
       it('should get player settlements', async () => {
-        const { getPlayerSettlements, createSettlement } = await import('../../../db/queries');
+        const { getPlayerSettlements, createSettlement } = await import('../../../src/db/queries');
 
         // Create a settlement
         const result = await createSettlement(testProfileId, testPlotId, 'Player Settlement', {
@@ -882,7 +882,7 @@ describe('Database Queries', () => {
       });
 
       it('should return empty array for player with no settlements', async () => {
-        const { getPlayerSettlements } = await import('../../../db/queries');
+        const { getPlayerSettlements } = await import('../../../src/db/queries');
         const nonExistentProfileId = createId();
 
         const settlementList = await getPlayerSettlements(nonExistentProfileId);
@@ -891,7 +891,7 @@ describe('Database Queries', () => {
       });
 
       it('should update settlement storage', async () => {
-        const { createSettlement, updateSettlementStorage } = await import('../../../db/queries');
+        const { createSettlement, updateSettlementStorage } = await import('../../../src/db/queries');
 
         // Create settlement first
         const result = await createSettlement(testProfileId, testPlotId, 'Storage Test', {
@@ -922,7 +922,7 @@ describe('Database Queries', () => {
       });
 
       it('should get settlement with details', async () => {
-        const { createSettlement, getSettlementWithDetails } = await import('../../../db/queries');
+        const { createSettlement, getSettlementWithDetails } = await import('../../../src/db/queries');
 
         // Create settlement first
         const result = await createSettlement(testProfileId, testPlotId, 'Details Test', {
@@ -1122,7 +1122,7 @@ describe('Database Queries', () => {
       });
 
       it('should create structure with requirements and modifiers', async () => {
-        const { createStructure } = await import('../../../db/queries');
+        const { createStructure } = await import('../../../src/db/queries');
         const result = await createStructure(
           testSettlementId,
           'Workshop',
@@ -1152,7 +1152,7 @@ describe('Database Queries', () => {
       });
 
       it('should get settlement structures with requirements and modifiers', async () => {
-        const { getSettlementStructures, createStructure } = await import('../../../db/queries');
+        const { getSettlementStructures, createStructure } = await import('../../../src/db/queries');
 
         // Create a structure first
         await createStructure(
@@ -1184,7 +1184,7 @@ describe('Database Queries', () => {
       });
 
       it('should create structure without modifiers', async () => {
-        const { createStructure } = await import('../../../db/queries');
+        const { createStructure } = await import('../../../src/db/queries');
         const result = await createStructure(testSettlementId, 'Basic Hut', 'Simple shelter', {
           area: 3,
           solar: 0,

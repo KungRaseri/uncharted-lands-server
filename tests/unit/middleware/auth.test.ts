@@ -13,11 +13,11 @@ import {
   expectUnauthorizedError,
   expectForbiddenError,
   expectServerError,
-} from '../helpers/test-utils';
-import * as dbModule from '../../../src/db.js';
+} from '../../helpers/test-utils';
+import * as dbModule from '../../../src/db/index.js';
 
 // Mock database
-vi.mock('../../../src/db.js', () => ({
+vi.mock('../../../src/db/index.js', () => ({
   db: {
     query: {
       accounts: {
