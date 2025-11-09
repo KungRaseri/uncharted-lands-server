@@ -8,7 +8,7 @@ import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { db, worlds, regions, tiles, plots } from '../../db/index.js';
-import { authenticateAdmin } from '../middleware/auth.js';
+import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
 
@@ -17,8 +17,9 @@ const router = Router();
 /**
  * GET /api/worlds
  * List all worlds with server information
+ * Accessible to all authenticated users (needed for settlement creation)
  */
-router.get('/', authenticateAdmin, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const allWorlds = await db.query.worlds.findMany({
       with: {
@@ -42,8 +43,9 @@ router.get('/', authenticateAdmin, async (req, res) => {
 /**
  * GET /api/worlds/:id
  * Get world details with regions, tiles, and statistics
+ * Accessible to all authenticated users
  */
-router.get('/:id', authenticateAdmin, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
