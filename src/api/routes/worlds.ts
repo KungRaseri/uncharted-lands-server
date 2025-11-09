@@ -111,12 +111,33 @@ function calculateWorldStatistics(regions: any[]) {
 
   for (const region of regions) {
     const tiles = region.tiles || [];
-    for (const tile of tiles) {
-      const tileStats = processTile(tile);
-      landTilesCount += tileStats.landTiles;
-      oceanTilesCount += tileStats.oceanTiles;
-      for (const id of tileStats.settlementIds) {
-        settlementIds.add(id);
+    
+    // If region has tile records, count them
+    if (tiles.length > 0) {
+      for (const tile of tiles) {
+        const tileStats = processTile(tile);
+        landTilesCount += tileStats.landTiles;
+        oceanTilesCount += tileStats.oceanTiles;
+        for (const id of tileStats.settlementIds) {
+          settlementIds.add(id);
+        }
+      }
+    }
+    // If region has no tiles but has elevation map, estimate from map data
+    else if (region.elevationMap && Array.isArray(region.elevationMap)) {
+      // elevationMap is a 10x10 array
+      const elevationMap = region.elevationMap;
+      for (const row of elevationMap) {
+        for (const col of row) {
+          for (const elevation of col) {
+            // Ocean is typically elevation < 0, land is >= 0
+            if (elevation < 0) {
+              oceanTilesCount++;
+            } else {
+              landTilesCount++;
+            }
+          }
+        }
       }
     }
   }
