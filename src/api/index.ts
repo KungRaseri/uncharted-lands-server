@@ -4,7 +4,8 @@
  * Combines all API routes for admin operations
  */
 
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
+import { logger } from '../utils/logger.js';
 import worldsRouter from './routes/worlds.js';
 import serversRouter from './routes/servers.js';
 import geographyRouter from './routes/geography.js';
@@ -15,6 +16,34 @@ import settlementsRouter from './routes/settlements.js';
 import accountRouter from './routes/account.js';
 
 const router = Router();
+
+// Request logging middleware
+router.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  
+  // Log request
+  logger.debug('[API] → Request', {
+    method: req.method,
+    path: req.path,
+    query: Object.keys(req.query).length > 0 ? req.query : undefined,
+    ip: req.ip,
+  });
+
+  // Log response when finished
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const level = res.statusCode >= 400 ? 'warn' : 'debug';
+    
+    logger[level]('[API] ← Response', {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+    });
+  });
+
+  next();
+});
 
 // Mount route handlers
 router.use('/auth', authRouter);
