@@ -10,6 +10,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { db, worlds, regions, tiles, plots } from '../../db/index';
 import { authenticateAdmin } from '../middleware/auth';
 import { logger } from '../../utils/logger';
+import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses';
 
 const router = Router();
 
@@ -34,11 +35,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
 
     res.json(allWorlds);
   } catch (error) {
-    logger.error('[API] Error fetching worlds:', error);
-    res.status(500).json({
-      error: 'Failed to fetch worlds',
-      code: 'FETCH_FAILED',
-    });
+    sendServerError(res, error, 'Failed to fetch worlds', 'FETCH_FAILED');
   }
 });
 
@@ -77,10 +74,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!world) {
-      return res.status(404).json({
-        error: 'World not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'World not found');
     }
 
     // Calculate statistics
@@ -94,11 +88,7 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
 
     res.json(worldWithStats);
   } catch (error) {
-    logger.error('[API] Error fetching world:', error);
-    res.status(500).json({
-      error: 'Failed to fetch world',
-      code: 'FETCH_FAILED',
-    });
+    sendServerError(res, error, 'Failed to fetch world', 'FETCH_FAILED');
   }
 });
 
@@ -178,10 +168,7 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
     // Validation
     if (!name || !serverId) {
-      return res.status(400).json({
-        error: 'Missing required fields: name and serverId',
-        code: 'INVALID_INPUT',
-      });
+      return sendBadRequestError(res, 'Missing required fields: name and serverId');
     }
 
     // Create world
@@ -223,12 +210,7 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
     res.status(201).json(newWorld);
   } catch (error) {
-    logger.error('[API] Error creating world:', error);
-    res.status(500).json({
-      error: 'Failed to create world',
-      code: 'CREATE_FAILED',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
+    sendServerError(res, error, 'Failed to create world', 'CREATE_FAILED');
   }
 });
 
@@ -247,10 +229,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({
-        error: 'World not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'World not found');
     }
 
     // Update world
@@ -269,11 +248,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     logger.info(`[API] Updated world: ${id}`);
     res.json(updated);
   } catch (error) {
-    logger.error('[API] Error updating world:', error);
-    res.status(500).json({
-      error: 'Failed to update world',
-      code: 'UPDATE_FAILED',
-    });
+    sendServerError(res, error, 'Failed to update world', 'UPDATE_FAILED');
   }
 });
 
@@ -291,10 +266,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({
-        error: 'World not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'World not found');
     }
 
     // Delete world (cascade will handle related data)
@@ -306,11 +278,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
       message: `World "${existing.name}" deleted successfully`,
     });
   } catch (error) {
-    logger.error('[API] Error deleting world:', error);
-    res.status(500).json({
-      error: 'Failed to delete world',
-      code: 'DELETE_FAILED',
-    });
+    sendServerError(res, error, 'Failed to delete world', 'DELETE_FAILED');
   }
 });
 

@@ -9,6 +9,7 @@ import { eq } from 'drizzle-orm';
 import { db, accounts } from '../../db/index';
 import { authenticateAdmin } from '../middleware/auth';
 import { logger } from '../../utils/logger';
+import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses';
 
 const router = Router();
 
@@ -27,11 +28,7 @@ router.get('/', authenticateAdmin, async (req, res) => {
 
     res.json(allAccounts);
   } catch (error) {
-    logger.error('[API] Error fetching players:', error);
-    res.status(500).json({
-      error: 'Failed to fetch players',
-      code: 'FETCH_FAILED',
-    });
+    sendServerError(res, error, 'Failed to fetch players', 'FETCH_FAILED');
   }
 });
 
@@ -71,19 +68,12 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!account) {
-      return res.status(404).json({
-        error: 'Player not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'Player not found');
     }
 
     res.json(account);
   } catch (error) {
-    logger.error('[API] Error fetching player:', error);
-    res.status(500).json({
-      error: 'Failed to fetch player',
-      code: 'FETCH_FAILED',
-    });
+    sendServerError(res, error, 'Failed to fetch player', 'FETCH_FAILED');
   }
 });
 
@@ -102,18 +92,12 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({
-        error: 'Player not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'Player not found');
     }
 
     // Validate role
     if (role && !['MEMBER', 'SUPPORT', 'ADMINISTRATOR'].includes(role)) {
-      return res.status(400).json({
-        error: 'Invalid role. Must be MEMBER, SUPPORT, or ADMINISTRATOR',
-        code: 'INVALID_INPUT',
-      });
+      return sendBadRequestError(res, 'Invalid role. Must be MEMBER, SUPPORT, or ADMINISTRATOR');
     }
 
     // Update account
@@ -129,11 +113,7 @@ router.put('/:id', authenticateAdmin, async (req, res) => {
     logger.info(`[API] Updated player role: ${id} -> ${role}`);
     res.json(updated);
   } catch (error) {
-    logger.error('[API] Error updating player:', error);
-    res.status(500).json({
-      error: 'Failed to update player',
-      code: 'UPDATE_FAILED',
-    });
+    sendServerError(res, error, 'Failed to update player', 'UPDATE_FAILED');
   }
 });
 
@@ -154,10 +134,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     });
 
     if (!existing) {
-      return res.status(404).json({
-        error: 'Player not found',
-        code: 'NOT_FOUND',
-      });
+      return sendNotFoundError(res, 'Player not found');
     }
 
     // Delete account (cascade will handle profile and settlements)
@@ -169,11 +146,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
       message: `Player "${existing.profile?.username || existing.email}" deleted successfully`,
     });
   } catch (error) {
-    logger.error('[API] Error deleting player:', error);
-    res.status(500).json({
-      error: 'Failed to delete player',
-      code: 'DELETE_FAILED',
-    });
+    sendServerError(res, error, 'Failed to delete player', 'DELETE_FAILED');
   }
 });
 
