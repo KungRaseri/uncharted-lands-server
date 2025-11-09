@@ -8,7 +8,7 @@ import {
   determinePlotsTotal,
   type Tile,
   type Biome,
-} from './resource-generator';
+} from '../../../src/game/resource-generator.js';
 
 describe('resource-generator', () => {
   // Mock tile data for different scenarios

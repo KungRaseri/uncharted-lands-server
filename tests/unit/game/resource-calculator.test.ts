@@ -13,8 +13,8 @@ import {
   calculateNetProduction,
   formatResources,
   type Resources,
-} from './resource-calculator';
-import type { Plot } from '../db/schema';
+} from '../../../src/game/resource-calculator.js';
+import type { Plot } from '../../../src/db/schema.js';
 
 describe('resource-calculator', () => {
   // Mock plot data for testing

@@ -12,7 +12,7 @@ import {
   hasResourcesForPopulation,
   CONSUMPTION_RATES,
   type Structure,
-} from './consumption-calculator';
+} from '../../../src/game/consumption-calculator.js';
 
 describe('Consumption Calculator', () => {
   describe('calculatePopulationCapacity', () => {

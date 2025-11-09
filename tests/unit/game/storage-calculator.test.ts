@@ -12,9 +12,9 @@ import {
   getStorageSummary,
   BASE_STORAGE_CAPACITY,
   type StorageCapacity,
-} from './storage-calculator';
-import type { Structure } from './consumption-calculator';
-import type { Resources } from './resource-calculator';
+} from '../../../src/game/storage-calculator.js';
+import type { Structure } from '../../../src/game/consumption-calculator.js';
+import type { Resources } from '../../../src/game/resource-calculator.js';
 
 describe('Storage Calculator', () => {
   describe('calculateStorageCapacity', () => {
