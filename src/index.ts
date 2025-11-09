@@ -22,7 +22,7 @@ import {
   errorHandlingMiddleware,
 } from './middleware/socket-middleware.js';
 import { logger } from './utils/logger.js';
-import { closeDatabase } from './db/index.js';
+import { closeDatabase, isDatabaseConnected } from './db/index.js';
 import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop.js';
 import apiRouter from './api/index.js';
 import { apiLimiter } from './api/middleware/rateLimit.js';
@@ -59,11 +59,17 @@ app.use('/api', apiRouter);
 // Health check endpoint
 app.get('/health', (req, res) => {
   const gameLoopStatus = getGameLoopStatus();
+  const dbStatus = isDatabaseConnected();
+  
   res.json({
-    status: 'healthy',
+    status: dbStatus ? 'healthy' : 'degraded',
     uptime: process.uptime(),
     connections: io?.engine?.clientsCount || 0,
     environment: NODE_ENV,
+    database: {
+      connected: dbStatus,
+      status: dbStatus ? 'operational' : 'unavailable',
+    },
     gameLoop: gameLoopStatus,
     timestamp: new Date().toISOString(),
   });
@@ -110,9 +116,14 @@ io.use(errorHandlingMiddleware);
 
 // Handle new connections
 io.on('connection', (socket) => {
-  logger.info(`[CONNECTION] Client connected: ${socket.id}`, {
+  const connectionInfo = {
+    socketId: socket.id,
     address: socket.handshake.address,
-  });
+    transport: socket.conn.transport.name,
+    userAgent: socket.handshake.headers['user-agent'],
+  };
+  
+  logger.info('[SOCKET] ✓ Client connected', connectionInfo);
 
   // Send welcome message
   socket.emit('connected', {
@@ -124,12 +135,23 @@ io.on('connection', (socket) => {
   // Register all event handlers
   registerEventHandlers(socket);
 
+  // Log transport upgrades
+  socket.conn.on('upgrade', (transport) => {
+    logger.debug('[SOCKET] Transport upgraded', {
+      socketId: socket.id,
+      from: socket.conn.transport.name,
+      to: transport.name,
+    });
+  });
+
   // Track connection duration on disconnect
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason) => {
     const duration = Date.now() - socket.data.connectedAt;
-    logger.info(`[CONNECTION] Client disconnected: ${socket.id}`, {
+    logger.info('[SOCKET] ✗ Client disconnected', {
+      socketId: socket.id,
+      reason,
       duration: `${(duration / 1000).toFixed(2)}s`,
-      playerId: socket.data.playerId,
+      playerId: socket.data.playerId || 'unauthenticated',
     });
   });
 });
@@ -161,15 +183,31 @@ export function getStats() {
 
 // Start server
 httpServer.listen(PORT, HOST, () => {
-  logger.info('═'.repeat(50));
-  logger.info('  Uncharted Lands - Game Server');
-  logger.info('═'.repeat(50));
-  logger.info(`  WebSocket:   ws://${HOST}:${PORT}`);
-  logger.info(`  REST API:    http://${HOST}:${PORT}/api`);
-  logger.info(`  Health:      http://${HOST}:${PORT}/health`);
-  logger.info(`  Environment: ${NODE_ENV}`);
-  logger.info(`  CORS:        ${CORS_ORIGINS.join(', ')}`);
-  logger.info('═'.repeat(50));
+  const dbStatus = isDatabaseConnected();
+  
+  logger.info('═'.repeat(60));
+  logger.info('  🎮 Uncharted Lands - Game Server');
+  logger.info('═'.repeat(60));
+  logger.info(`  Environment:  ${NODE_ENV}`);
+  logger.info(`  Node Version: ${process.version}`);
+  logger.info('─'.repeat(60));
+  logger.info(`  WebSocket:    ws://${HOST}:${PORT}`);
+  logger.info(`  REST API:     http://${HOST}:${PORT}/api`);
+  logger.info(`  Health Check: http://${HOST}:${PORT}/health`);
+  logger.info('─'.repeat(60));
+  logger.info(`  Database:     ${dbStatus ? '✓ Connected' : '✗ Disconnected'}`);
+  logger.info(`  CORS Origins: ${CORS_ORIGINS.length} configured`);
+  for (const origin of CORS_ORIGINS) {
+    logger.info(`    • ${origin}`);
+  }
+  logger.info('═'.repeat(60));
+
+  if (dbStatus) {
+    logger.info('[STARTUP] ✓ All systems operational');
+  } else {
+    logger.warn('[STARTUP] ⚠️  Server started WITHOUT database connection');
+    logger.warn('[STARTUP] Database operations will fail until connection is restored');
+  }
 
   // Start the game loop
   startGameLoop(io);

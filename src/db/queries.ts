@@ -6,6 +6,7 @@
 
 import { eq, and, desc } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
+import { logger } from '../utils/logger.js';
 import {
   db,
   accounts,
@@ -42,13 +43,18 @@ export const generateId = createId;
  * Find account by auth token
  */
 export async function findAccountByToken(token: string) {
-  const [account] = await db
-    .select()
-    .from(accounts)
-    .where(eq(accounts.userAuthToken, token))
-    .limit(1);
+  try {
+    const [account] = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.userAuthToken, token))
+      .limit(1);
 
-  return account;
+    return account;
+  } catch (error) {
+    logger.error('[DB] Failed to find account by token', error);
+    throw error;
+  }
 }
 
 /**

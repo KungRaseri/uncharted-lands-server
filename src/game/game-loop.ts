@@ -35,6 +35,8 @@ const TICK_INTERVAL_MS = 1000 / TICK_RATE; // ~16.67ms per tick (at 60 ticks/sec
 let gameLoopInterval: NodeJS.Timeout | null = null;
 let currentTick = 0;
 let isRunning = false;
+let lastStatusLog = 0;
+const STATUS_LOG_INTERVAL = TICK_RATE * 300; // Log status every 5 minutes (300 seconds)
 
 // Track active settlements that need updates
 const activeSettlements = new Map<
@@ -52,13 +54,13 @@ const activeSettlements = new Map<
  */
 export function startGameLoop(io: SocketIOServer): void {
   if (isRunning) {
-    logger.warn('[GAME LOOP] Attempted to start game loop that is already running');
+    logger.warn('[GAME LOOP] ⚠️  Attempted to start game loop that is already running');
     return;
   }
 
-  logger.info('[GAME LOOP] Starting game loop', {
-    tickRate: TICK_RATE,
-    tickInterval: TICK_INTERVAL_MS,
+  logger.info('[GAME LOOP] 🎮 Starting game loop...', {
+    tickRate: `${TICK_RATE} ticks/second`,
+    tickInterval: `${TICK_INTERVAL_MS.toFixed(2)}ms`,
   });
 
   isRunning = true;
@@ -68,11 +70,11 @@ export function startGameLoop(io: SocketIOServer): void {
     try {
       await processTick(io);
     } catch (error) {
-      logger.error('[GAME LOOP] Error processing tick:', error);
+      logger.error('[GAME LOOP] ✗ Error processing tick', error, { tick: currentTick });
     }
   }, TICK_INTERVAL_MS);
 
-  logger.info('[GAME LOOP] Game loop started successfully');
+  logger.info('[GAME LOOP] ✓ Game loop started successfully');
 }
 
 /**
@@ -80,12 +82,13 @@ export function startGameLoop(io: SocketIOServer): void {
  */
 export function stopGameLoop(): void {
   if (!isRunning) {
-    logger.warn('[GAME LOOP] Attempted to stop game loop that is not running');
+    logger.warn('[GAME LOOP] ⚠️  Attempted to stop game loop that is not running');
     return;
   }
 
-  logger.info('[GAME LOOP] Stopping game loop', {
+  logger.info('[GAME LOOP] 🛑 Stopping game loop...', {
     finalTick: currentTick,
+    activeSettlements: activeSettlements.size,
   });
 
   if (gameLoopInterval) {
@@ -97,7 +100,7 @@ export function stopGameLoop(): void {
   currentTick = 0;
   activeSettlements.clear();
 
-  logger.info('[GAME LOOP] Game loop stopped successfully');
+  logger.info('[GAME LOOP] ✓ Game loop stopped successfully');
 }
 
 /**
@@ -105,6 +108,17 @@ export function stopGameLoop(): void {
  */
 async function processTick(io: SocketIOServer): Promise<void> {
   currentTick++;
+
+  // Log status periodically
+  if (currentTick - lastStatusLog >= STATUS_LOG_INTERVAL) {
+    logger.info('[GAME LOOP] 📊 Status update', {
+      tick: currentTick,
+      uptime: `${Math.floor(currentTick / TICK_RATE / 60)}m ${Math.floor((currentTick / TICK_RATE) % 60)}s`,
+      activeSettlements: activeSettlements.size,
+      connections: io.engine.clientsCount,
+    });
+    lastStatusLog = currentTick;
+  }
 
   // Update every 60 ticks (once per second)
   // This prevents overwhelming the database with updates
@@ -234,7 +248,7 @@ async function processSettlement(
         timestamp: Date.now(),
       });
 
-      logger.info('[GAME LOOP] Resources wasted due to capacity', {
+      logger.debug('[GAME LOOP] Resources wasted due to capacity', {
         settlementId: settlement.settlementId,
         waste,
       });
@@ -303,7 +317,7 @@ export function registerSettlement(settlementId: string, playerId: string, world
     lastUpdateTick: currentTick,
   });
 
-  logger.info('[GAME LOOP] Settlement registered for auto-updates', {
+  logger.debug('[GAME LOOP] Settlement registered for auto-updates', {
     settlementId,
     playerId,
     worldId,
@@ -318,7 +332,7 @@ export function unregisterSettlement(settlementId: string): void {
   const removed = activeSettlements.delete(settlementId);
 
   if (removed) {
-    logger.info('[GAME LOOP] Settlement unregistered from auto-updates', {
+    logger.debug('[GAME LOOP] Settlement unregistered from auto-updates', {
       settlementId,
       activeSettlementCount: activeSettlements.size,
     });
