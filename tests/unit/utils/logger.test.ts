@@ -155,5 +155,28 @@ describe('Logger Utility', () => {
       logger.error('Nested error occurred', nestedError);
       expect(consoleSpy.error).toHaveBeenCalled();
     });
+
+    it('should handle non-Error objects in error logging', () => {
+      const nonError = { message: 'Not an Error object', code: 500 };
+      logger.error('Non-error object logged', nonError, { extra: 'context' });
+      expect(consoleSpy.error).toHaveBeenCalled();
+      const callArgs = consoleSpy.error.mock.calls[0][0];
+      expect(callArgs).toContain('extra');
+    });
+
+    it('should handle string errors', () => {
+      logger.error('Error message', 'string error value');
+      expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should handle undefined errors', () => {
+      logger.error('Error without value', undefined);
+      expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should handle null errors', () => {
+      logger.error('Error with null', null);
+      expect(consoleSpy.error).toHaveBeenCalled();
+    });
   });
 });
