@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('Error fetching settlements:', error);
+    logger.error('[API] Error fetching settlements', error);
     res.status(500).json({ error: 'Failed to fetch settlements' });
   }
 });
@@ -81,7 +81,7 @@ router.get('/:id', async (req, res) => {
 
     res.json(settlement);
   } catch (error) {
-    console.error('Error fetching settlement:', error);
+    logger.error('[API] Error fetching settlement', error);
     res.status(500).json({ error: 'Failed to fetch settlement' });
   }
 });
