@@ -44,7 +44,7 @@ router.get('/', authenticate, async (req, res) => {
 
 /**
  * GET /api/servers/:id
- * Get server details with worlds
+ * Get server details with worlds and players
  * Accessible to all authenticated users
  */
 router.get('/:id', authenticate, async (req, res) => {
@@ -55,6 +55,11 @@ router.get('/:id', authenticate, async (req, res) => {
       where: eq(servers.id, id),
       with: {
         worlds: true,
+        players: {
+          with: {
+            profile: true,
+          },
+        },
       },
     });
 

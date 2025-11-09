@@ -192,6 +192,7 @@ router.post('/', authenticateAdmin, async (req, res) => {
     if (worldRegions && Array.isArray(worldRegions) && worldRegions.length > 0) {
       const regionsToInsert = worldRegions.map((r) => ({
         ...r,
+        id: r.id || createId(), // Generate ID if not provided
         worldId: newWorld.id, // Ensure worldId is set
       }));
       await db.insert(regions).values(regionsToInsert);
