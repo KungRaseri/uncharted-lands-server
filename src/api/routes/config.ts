@@ -10,8 +10,8 @@ const router = Router();
  */
 router.get('/game', async (_req, res) => {
   try {
-    // TODO: In the future, fetch this from database tables instead of hardcoded config
-    // For now, return the default configuration
+    // Future enhancement: Fetch from database tables for dynamic configuration
+    // For now, return the default configuration from code
     res.json(DEFAULT_GAME_CONFIG);
   } catch (error) {
     console.error('Error fetching game config:', error);
@@ -25,7 +25,8 @@ router.get('/game', async (_req, res) => {
  */
 router.get('/version', async (_req, res) => {
   try {
-    // TODO: Store config version in database, increment when game balance changes
+    // Future enhancement: Store version in database, increment when balance changes
+    // For now, use a static version
     res.json({ version: '1.0.0', lastUpdated: new Date().toISOString() });
   } catch (error) {
     console.error('Error fetching config version:', error);

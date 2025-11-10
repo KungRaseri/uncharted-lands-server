@@ -61,6 +61,49 @@ export type SpecialResource = (typeof SPECIAL_RESOURCES)[number];
 // CONFIGURATION TYPES
 // ===========================
 
+export interface ResourceDisplayConfig {
+  type: ResourceType;
+  name: string;
+  icon: string;
+  description?: string;
+}
+
+export interface ExtractorDisplayConfig {
+  type: ExtractorType;
+  name: string;
+  icon?: string;
+  description?: string;
+}
+
+export interface BuildingDisplayConfig {
+  type: BuildingType;
+  name: string;
+  icon?: string;
+  description?: string;
+}
+
+export interface QualityDisplayConfig {
+  threshold: number;
+  rating: string;
+  color: string;
+  multiplier: number;
+}
+
+export interface AccumulationConfig {
+  /** Hours before diminishing returns start */
+  fullRateHours: number;
+  /** Multiplier for next tier (e.g., 0.5 = 50% rate) */
+  tier1Multiplier: number;
+  /** Hours before second diminishing returns tier */
+  tier1Hours: number;
+  /** Multiplier for third tier */
+  tier2Multiplier: number;
+  /** Hours before third diminishing returns tier */
+  tier2Hours: number;
+  /** Maximum effective hours cap */
+  maxHours: number;
+}
+
 export interface ProductionRateConfig {
   resourceType: ResourceType;
   extractorType: ExtractorType;
@@ -95,6 +138,11 @@ export interface GameConfig {
     good: number;
     excellent: number;
   };
+  resourceDisplay: ResourceDisplayConfig[];
+  extractorDisplay: ExtractorDisplayConfig[];
+  buildingDisplay: BuildingDisplayConfig[];
+  qualityDisplay: QualityDisplayConfig[];
+  accumulation: AccumulationConfig;
 }
 
 // ===========================
@@ -136,5 +184,49 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     average: 60,
     good: 80,
     excellent: 100,
+  },
+  resourceDisplay: [
+    { type: 'FOOD', name: 'Food', icon: '🌾', description: 'Basic sustenance for your people' },
+    { type: 'WOOD', name: 'Wood', icon: '🪵', description: 'Essential building material' },
+    { type: 'STONE', name: 'Stone', icon: '🪨', description: 'Durable construction resource' },
+    { type: 'ORE', name: 'Ore', icon: '⛏️', description: 'Metal for advanced structures' },
+    { type: 'CLAY', name: 'Clay', icon: '🧱', description: 'Pottery and construction material' },
+    { type: 'HERBS', name: 'Herbs', icon: '🌿', description: 'Medicinal plants' },
+    { type: 'PELTS', name: 'Pelts', icon: '🦊', description: 'Animal furs for trade' },
+    { type: 'GEMS', name: 'Gems', icon: '💎', description: 'Rare precious stones' },
+    { type: 'EXOTIC_WOOD', name: 'Exotic Wood', icon: '🌳', description: 'Rare hardwood timber' },
+  ],
+  extractorDisplay: [
+    { type: 'FARM', name: 'Farm', icon: '🌾', description: 'Grows food crops' },
+    { type: 'LUMBER_MILL', name: 'Lumber Mill', icon: '🪵', description: 'Processes timber' },
+    { type: 'QUARRY', name: 'Quarry', icon: '🪨', description: 'Extracts stone and clay' },
+    { type: 'MINE', name: 'Mine', icon: '⛏️', description: 'Digs for ore and gems' },
+    { type: 'FISHING_DOCK', name: 'Fishing Dock', icon: '🎣', description: 'Catches fish' },
+    { type: 'HUNTERS_LODGE', name: "Hunter's Lodge", icon: '🏹', description: 'Hunts for pelts' },
+    { type: 'HERB_GARDEN', name: 'Herb Garden', icon: '🌿', description: 'Cultivates herbs' },
+  ],
+  buildingDisplay: [
+    { type: 'HOUSE', name: 'House', icon: '🏠', description: 'Housing for settlers' },
+    { type: 'STORAGE', name: 'Storage', icon: '📦', description: 'Stores resources' },
+    { type: 'BARRACKS', name: 'Barracks', icon: '⚔️', description: 'Trains military units' },
+    { type: 'WORKSHOP', name: 'Workshop', icon: '🔨', description: 'Crafts tools and equipment' },
+    { type: 'MARKETPLACE', name: 'Marketplace', icon: '🏪', description: 'Enables trade' },
+    { type: 'TOWN_HALL', name: 'Town Hall', icon: '🏛️', description: 'Administrative center' },
+    { type: 'WALL', name: 'Wall', icon: '🧱', description: 'Defensive structure' },
+  ],
+  qualityDisplay: [
+    { threshold: 20, rating: 'Very Poor', color: 'text-red-600', multiplier: 0.5 },
+    { threshold: 40, rating: 'Poor', color: 'text-orange-600', multiplier: 0.75 },
+    { threshold: 60, rating: 'Average', color: 'text-yellow-600', multiplier: 1 },
+    { threshold: 80, rating: 'Good', color: 'text-green-600', multiplier: 1.5 },
+    { threshold: 100, rating: 'Excellent', color: 'text-blue-600', multiplier: 2 },
+  ],
+  accumulation: {
+    fullRateHours: 24,
+    tier1Multiplier: 0.5,
+    tier1Hours: 48,
+    tier2Multiplier: 0.25,
+    tier2Hours: 96,
+    maxHours: 96,
   },
 };
