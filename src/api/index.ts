@@ -16,6 +16,7 @@ import settlementsRouter from './routes/settlements.js';
 import accountRouter from './routes/account.js';
 import plotsRouter from './routes/plots.js';
 import structuresRouter from './routes/structures.js';
+import configRouter from './routes/config.js';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use((req: Request, res: Response, next: NextFunction) => {
 // Mount route handlers
 router.use('/auth', authRouter);
 router.use('/account', accountRouter);
+router.use('/config', configRouter);
 router.use('/worlds', worldsRouter);
 router.use('/servers', serversRouter);
 router.use('/regions', geographyRouter); // Handles regions, tiles, plots
