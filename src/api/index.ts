@@ -14,6 +14,8 @@ import adminRouter from './routes/admin.js';
 import authRouter from './routes/auth.js';
 import settlementsRouter from './routes/settlements.js';
 import accountRouter from './routes/account.js';
+import plotsRouter from './routes/plots.js';
+import structuresRouter from './routes/structures.js';
 
 const router = Router();
 
@@ -53,6 +55,8 @@ router.use('/servers', serversRouter);
 router.use('/regions', geographyRouter); // Handles regions, tiles, plots
 router.use('/players', playersRouter);
 router.use('/settlements', settlementsRouter);
+router.use('/plots', plotsRouter);
+router.use('/structures', structuresRouter);
 router.use('/admin', adminRouter);
 
 // Health check for API

@@ -17,6 +17,11 @@ import {
   type Biome as BiomeType,
   type Tile as TileType,
 } from './resource-generator.js';
+import {
+  calculateResourceQuality,
+  calculatePlotSlots,
+  determineSpecialResource,
+} from '../utils/resource-quality.js';
 import { db, worlds, regions, tiles, plots } from '../db/index.js';
 import { generateId, getAllBiomes, findBiome } from '../db/queries.js';
 
@@ -114,6 +119,12 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     temperature: number;
     xCoord: number;
     yCoord: number;
+    foodQuality: number;
+    woodQuality: number;
+    stoneQuality: number;
+    oreQuality: number;
+    plotSlots: number;
+    specialResource?: 'GEMS' | 'EXOTIC_WOOD' | 'MAGICAL_HERBS' | 'ANCIENT_STONE' | null;
   }> = [];
 
   for (const region of regionRecords) {
@@ -135,6 +146,12 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
           );
         }
 
+        // Calculate resource quality based on biome
+        const tileSeed = options.seed + x * 1000 + y;
+        const resourceQuality = calculateResourceQuality(biome, tileSeed);
+        const plotSlots = calculatePlotSlots(biome);
+        const specialResource = determineSpecialResource(biome, (tileSeed % 100) / 100);
+
         tileRecords.push({
           id: generateId(),
           regionId: region.id,
@@ -145,6 +162,12 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
           temperature: temperatureMap[x][y],
           xCoord: x,
           yCoord: y,
+          foodQuality: resourceQuality.foodQuality,
+          woodQuality: resourceQuality.woodQuality,
+          stoneQuality: resourceQuality.stoneQuality,
+          oreQuality: resourceQuality.oreQuality,
+          plotSlots,
+          specialResource,
         });
       }
     }
