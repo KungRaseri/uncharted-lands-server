@@ -111,7 +111,7 @@ export const authenticateAdmin = async (
     req.user = {
       id: user.id,
       email: user.email,
-      username: user.profile?.username || user.email,
+      username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
       role: user.role,
     };
 
@@ -159,7 +159,7 @@ export const authenticate = async (
     req.user = {
       id: user.id,
       email: user.email,
-      username: user.profile?.username || user.email,
+      username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
       role: user.role,
     };
 
@@ -198,7 +198,7 @@ export const optionalAuth = async (
       req.user = {
         id: user.id,
         email: user.email,
-        username: user.profile?.username || user.email,
+        username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
         role: user.role,
       };
       logger.info(`[API AUTH] Optional auth: ${user.email} (${user.role})`);

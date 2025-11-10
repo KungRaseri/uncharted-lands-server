@@ -64,7 +64,7 @@ router.get('/:id', authenticate, async (req, res) => {
           with: {
             tiles: {
               // Order tiles by their coordinates (x=row, y=column) to match creation order
-              orderBy: (tiles, { asc }) => [asc(tiles.xCoord), asc(tiles.yCoord)],
+              orderBy: (tilesTable: typeof tiles, { asc }: any) => [asc(tilesTable.xCoord), asc(tilesTable.yCoord)],
               with: {
                 biome: true,
                 plots: {
