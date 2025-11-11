@@ -321,10 +321,11 @@ export function generateTestId(prefix: string = 'test-id'): string {
 }
 
 /**
- * Generate a random test password
+ * Generate a random test password (minimum 16 characters)
  */
 export function generateTestPassword(): string {
-  return `test-pass-${Math.random().toString(36).substring(7)}`; // NOSONAR
+  const randomPart = Math.random().toString(36).substring(2);
+  return `test-password-${randomPart}`.padEnd(16, '0'); // NOSONAR - Ensure minimum 16 chars
 }
 
 export function generateRandomString(length: number = 10): string {
