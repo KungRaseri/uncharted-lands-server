@@ -117,6 +117,72 @@ describe('Settlements API Routes', () => {
   });
 
   describe('GET /api/settlements/:id', () => {
+    it('should return a specific settlement with structures and modifiers', async () => {
+      const mockSettlement = {
+        id: 'settlement-123',
+        name: 'Settlement 1',
+        plot: { tile: { biome: {}, region: {} } },
+        structures: [
+          {
+            id: 'structure-1',
+            name: 'House',
+            modifiers: [
+              { id: 'mod-1', name: 'Population', value: 10 },
+            ],
+          },
+        ],
+        storage: {},
+      };
+
+      vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
+
+      const response = await request(app).get('/api/settlements/settlement-123').expect(200);
+
+      expect(response.body).toEqual(mockSettlement);
+      expect(response.body.structures).toHaveLength(1);
+      expect(response.body.structures[0].modifiers).toHaveLength(1);
+    });
+
+    it('should return settlement with empty structures array if no structures', async () => {
+      const mockSettlement = {
+        id: 'settlement-123',
+        name: 'Settlement 1',
+        plot: { tile: { biome: {}, region: {} } },
+        structures: undefined, // Drizzle might not include this
+        storage: {},
+      };
+
+      vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
+
+      const response = await request(app).get('/api/settlements/settlement-123').expect(200);
+
+      // Server should ensure structures is always an array
+      expect(response.body.structures).toEqual([]);
+    });
+
+    it('should return structures with empty modifiers array if no modifiers', async () => {
+      const mockSettlement = {
+        id: 'settlement-123',
+        name: 'Settlement 1',
+        plot: { tile: { biome: {}, region: {} } },
+        structures: [
+          {
+            id: 'structure-1',
+            name: 'House',
+            modifiers: undefined, // No modifiers
+          },
+        ],
+        storage: {},
+      };
+
+      vi.mocked(db.db.query.settlements.findFirst).mockResolvedValue(mockSettlement as any);
+
+      const response = await request(app).get('/api/settlements/settlement-123').expect(200);
+
+      // Server should ensure each structure has modifiers array
+      expect(response.body.structures[0].modifiers).toEqual([]);
+    });
+
     it('should return a specific settlement', async () => {
       const mockSettlement = {
         id: 'settlement-123',

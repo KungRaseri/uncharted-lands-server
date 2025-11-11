@@ -170,6 +170,39 @@ describe('Authentication Middleware', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
+    it('should include profileId in user object', async () => {
+      const mockAdmin = {
+        id: 'admin-1',
+        email: 'admin@example.com',
+        role: 'ADMINISTRATOR',
+        profile: {
+          id: 'profile-123',
+          username: 'adminuser',
+        },
+      };
+      mockDb.query.accounts.findFirst.mockResolvedValue(mockAdmin);
+
+      const req = createMockRequest({
+        headers: {
+          cookie: 'session=valid-admin-token',
+        },
+      });
+      const res = createMockResponse();
+      const next = createMockNext();
+
+      await authenticateAdmin(req as any, res as any, next);
+
+      expect(next).toHaveBeenCalled();
+      expect((req as any).user).toEqual({
+        id: mockAdmin.id,
+        profileId: mockAdmin.profile.id,
+        email: mockAdmin.email,
+        username: mockAdmin.profile.username,
+        role: mockAdmin.role,
+      });
+      expect((req as any).user.profileId).toBe('profile-123');
+    });
+
     it('should use email as username fallback', async () => {
       const mockAdmin = {
         id: 'admin-1',
