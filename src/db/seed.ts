@@ -288,22 +288,21 @@ async function seedBiomes() {
 /**
  * Main seeding execution
  */
-console.log('\n🌱 Starting database seeding...\n');
+logger.info('[SEED] Starting database seeding...');
 
 try {
   // Seed biomes
   const biomeResult = await seedBiomes();
 
-  console.log('\n✅ Seeding completed successfully!');
-  console.log(
-    `   Biomes: ${biomeResult.created} created, ${biomeResult.updated} updated (${biomeResult.total} total)\n`
-  );
+  logger.info('[SEED] ✅ Seeding completed successfully!', {
+    biomes: {
+      created: biomeResult.created,
+      updated: biomeResult.updated,
+      total: biomeResult.total,
+    },
+  });
 } catch (error) {
-  console.error('\n❌ Seeding failed:', error);
-  if (error instanceof Error) {
-    console.error('Error message:', error.message);
-    console.error('Stack trace:', error.stack);
-  }
+  logger.error('[SEED] ❌ Seeding failed', error);
   process.exit(1);
 } finally {
   // Close database connection

@@ -1,4 +1,5 @@
 import type { Response } from 'express';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Sends a standardized error response with optional error logging
@@ -10,7 +11,7 @@ export function sendErrorResponse(
   code?: string,
   message?: string
 ): void {
-  console.error(`API Error [${code || 'UNKNOWN'}]:`, error);
+  logger.error(`[API] Error [${code || 'UNKNOWN'}]`, error);
 
   res.status(status).json({
     error: message || 'An error occurred',

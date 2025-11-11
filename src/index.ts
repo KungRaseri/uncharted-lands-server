@@ -47,7 +47,7 @@ app.use(
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   })
 );
-app.use(express.json());
+app.use(express.json()); // Default limit is sufficient for settings
 app.use(express.urlencoded({ extended: true }));
 
 // Apply rate limiting to all API routes
@@ -60,7 +60,7 @@ app.use('/api', apiRouter);
 app.get('/health', (req, res) => {
   const gameLoopStatus = getGameLoopStatus();
   const dbStatus = isDatabaseConnected();
-  
+
   res.json({
     status: dbStatus ? 'healthy' : 'degraded',
     uptime: process.uptime(),
@@ -122,7 +122,7 @@ io.on('connection', (socket) => {
     transport: socket.conn.transport.name,
     userAgent: socket.handshake.headers['user-agent'],
   };
-  
+
   logger.info('[SOCKET] ✓ Client connected', connectionInfo);
 
   // Send welcome message
@@ -184,7 +184,7 @@ export function getStats() {
 // Start server
 httpServer.listen(PORT, HOST, () => {
   const dbStatus = isDatabaseConnected();
-  
+
   logger.info('═'.repeat(60));
   logger.info('  🎮 Uncharted Lands - Game Server');
   logger.info('═'.repeat(60));

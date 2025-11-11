@@ -33,6 +33,16 @@ vi.mock('@paralleldrive/cuid2', () => ({
   createId: vi.fn(() => generateTestId()),
 }));
 
+vi.mock('bcrypt', () => ({
+  default: {
+    hash: vi.fn((password: string) => Promise.resolve(`hashed_${password}`)),
+    compare: vi.fn((password: string, hash: string) => {
+      // Simple mock: check if hash starts with 'hashed_' and matches password
+      return Promise.resolve(hash === `hashed_${password}`);
+    }),
+  },
+}));
+
 describe('Auth API Routes', () => {
   let app: express.Application;
   const TEST_PASSWORD = generateTestPassword();
@@ -55,7 +65,7 @@ describe('Auth API Routes', () => {
         .send({ password: TEST_PASSWORD, username: 'testuser' })
         .expect(400);
 
-      expect(response.body.error).toBe('Email, password, and username are required');
+      expect(response.body.error).toBe('Email and password are required');
     });
 
     it('should return 400 if password is missing', async () => {
@@ -64,16 +74,29 @@ describe('Auth API Routes', () => {
         .send({ email: 'test@example.com', username: 'testuser' })
         .expect(400);
 
-      expect(response.body.error).toBe('Email, password, and username are required');
+      expect(response.body.error).toBe('Email and password are required');
     });
 
-    it('should return 400 if username is missing', async () => {
+    it('should successfully register without username', async () => {
+      // Username is optional - can be set later when joining a world
+      vi.mocked(db.db.query.accounts.findFirst)
+        .mockResolvedValueOnce(null as any)
+        .mockResolvedValueOnce({
+          id: 'new-account-id',
+          email: 'test@example.com',
+          profile: {
+            id: 'profile-id',
+            username: null,
+          },
+        } as any);
+
       const response = await request(app)
         .post('/api/auth/register')
         .send({ email: 'test@example.com', password: TEST_PASSWORD })
-        .expect(400);
+        .expect(201);
 
-      expect(response.body.error).toBe('Email, password, and username are required');
+      expect(response.body.success).toBe(true);
+      expect(response.body.account).toBeDefined();
     });
 
     it('should return 400 if account already exists', async () => {
@@ -91,7 +114,7 @@ describe('Auth API Routes', () => {
         })
         .expect(400);
 
-      expect(response.body.error).toBe('Account with this email already exists');
+      expect(response.body.error).toBe('An account with this email already exists');
     });
 
     it('should successfully register a new account', async () => {
@@ -174,10 +197,11 @@ describe('Auth API Routes', () => {
     });
 
     it('should return 401 if password is incorrect', async () => {
+      // Mock database with a different password hash
       vi.mocked(db.db.query.accounts.findFirst).mockResolvedValue({
         id: 'user-123',
         email: 'test@example.com',
-        passwordHash: 'correct-hash',
+        passwordHash: 'hashed_correct_password', // This is the hash of 'correct_password'
         profile: {
           id: 'profile-123',
           username: 'testuser',
@@ -188,7 +212,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: 'wrong-' + TEST_PASSWORD,
+          password: 'wrong-password', // Different password, so bcrypt.compare will return false
         })
         .expect(401);
 
@@ -196,7 +220,9 @@ describe('Auth API Routes', () => {
     });
 
     it('should successfully login with correct credentials', async () => {
-      const testPasswordHash = 'hash-' + TEST_PASSWORD;
+      // Mock database to return an account with a hashed password
+      // Our bcrypt mock will hash TEST_PASSWORD to 'hashed_' + TEST_PASSWORD
+      const testPasswordHash = `hashed_${TEST_PASSWORD}`;
       vi.mocked(db.db.query.accounts.findFirst).mockResolvedValue({
         id: 'user-123',
         email: 'test@example.com',
@@ -211,7 +237,7 @@ describe('Auth API Routes', () => {
         .post('/api/auth/login')
         .send({
           email: 'test@example.com',
-          password: testPasswordHash,
+          password: TEST_PASSWORD, // Send plain password, bcrypt.compare will handle it
         })
         .expect(200);
 

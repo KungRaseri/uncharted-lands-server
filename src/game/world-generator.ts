@@ -130,11 +130,13 @@ export async function generateWorldLayers(
   // Combine chunks into regions
   const regions: RegionData[] = [];
 
+  // Iterate y (row) then x (column) to match preview display order
+  // xCoord represents the row, yCoord represents the column
   for (let y = 0; y < elevationChunks.length; y++) {
     for (let x = 0; x < elevationChunks[y].length; x++) {
       regions.push({
-        xCoord: x,
-        yCoord: y,
+        xCoord: y, // y index becomes xCoord (row)
+        yCoord: x, // x index becomes yCoord (column)
         elevationMap: elevationChunks[y][x],
         precipitationMap: precipitationChunks[y][x],
         temperatureMap: temperatureChunks[y][x],

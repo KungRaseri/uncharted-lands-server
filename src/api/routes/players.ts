@@ -143,7 +143,7 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     logger.info(`[API] Deleted player: ${id} - ${existing.email}`);
     res.json({
       success: true,
-      message: `Player "${existing.profile?.username || existing.email}" deleted successfully`,
+      message: `Player "${(existing.profile && !Array.isArray(existing.profile) ? existing.profile.username : null) || existing.email}" deleted successfully`,
     });
   } catch (error) {
     sendServerError(res, error, 'Failed to delete player', 'DELETE_FAILED');

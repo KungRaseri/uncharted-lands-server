@@ -8,17 +8,19 @@ import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { db, worlds, regions, tiles, plots } from '../../db/index.js';
-import { authenticateAdmin } from '../middleware/auth.js';
+import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
+import { createWorld } from '../../game/world-creator.js';
 
 const router = Router();
 
 /**
  * GET /api/worlds
  * List all worlds with server information
+ * Accessible to all authenticated users (needed for settlement creation)
  */
-router.get('/', authenticateAdmin, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const allWorlds = await db.query.worlds.findMany({
       with: {
@@ -27,6 +29,11 @@ router.get('/', authenticateAdmin, async (req, res) => {
             id: true,
             name: true,
             status: true,
+          },
+        },
+        regions: {
+          columns: {
+            id: true,
           },
         },
       },
@@ -42,8 +49,9 @@ router.get('/', authenticateAdmin, async (req, res) => {
 /**
  * GET /api/worlds/:id
  * Get world details with regions, tiles, and statistics
+ * Accessible to all authenticated users
  */
-router.get('/:id', authenticateAdmin, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -52,8 +60,14 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
       with: {
         server: true,
         regions: {
+          orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
           with: {
             tiles: {
+              // Order tiles by their coordinates (x=row, y=column) to match creation order
+              orderBy: (tilesTable: typeof tiles, { asc }: any) => [
+                asc(tilesTable.xCoord),
+                asc(tilesTable.yCoord),
+              ],
               with: {
                 biome: true,
                 plots: {
@@ -103,12 +117,33 @@ function calculateWorldStatistics(regions: any[]) {
 
   for (const region of regions) {
     const tiles = region.tiles || [];
-    for (const tile of tiles) {
-      const tileStats = processTile(tile);
-      landTilesCount += tileStats.landTiles;
-      oceanTilesCount += tileStats.oceanTiles;
-      for (const id of tileStats.settlementIds) {
-        settlementIds.add(id);
+
+    // If region has tile records, count them
+    if (tiles.length > 0) {
+      for (const tile of tiles) {
+        const tileStats = processTile(tile);
+        landTilesCount += tileStats.landTiles;
+        oceanTilesCount += tileStats.oceanTiles;
+        for (const id of tileStats.settlementIds) {
+          settlementIds.add(id);
+        }
+      }
+    }
+    // If region has no tiles but has elevation map, estimate from map data
+    else if (region.elevationMap && Array.isArray(region.elevationMap)) {
+      // elevationMap is a 10x10 array (2D: [row][col])
+      const elevationMap = region.elevationMap;
+      for (const row of elevationMap) {
+        if (Array.isArray(row)) {
+          for (const elevation of row) {
+            // Ocean is typically elevation < 0, land is >= 0
+            if (elevation < 0) {
+              oceanTilesCount++;
+            } else {
+              landTilesCount++;
+            }
+          }
+        }
       }
     }
   }
@@ -164,6 +199,11 @@ router.post('/', authenticateAdmin, async (req, res) => {
       regions: worldRegions,
       tiles: worldTiles,
       plots: worldPlots,
+      // Server-side generation parameters
+      generate,
+      width,
+      height,
+      elevationSeed,
     } = req.body;
 
     // Validation
@@ -171,7 +211,65 @@ router.post('/', authenticateAdmin, async (req, res) => {
       return sendBadRequestError(res, 'Missing required fields: name and serverId');
     }
 
-    // Create world
+    // Server-side generation mode (FULL world with tiles and plots)
+    if (generate && width && height) {
+      logger.info(`[API] Generating complete world server-side`, {
+        name,
+        serverId,
+        dimensions: `${width}x${height}`,
+      });
+
+      try {
+        const result = await createWorld({
+          serverId,
+          worldName: name,
+          width,
+          height,
+          seed: elevationSeed || Date.now(),
+          elevationOptions: {
+            amplitude: elevationSettings?.amplitude || 1,
+            persistence: elevationSettings?.persistence || 0.5,
+            frequency: elevationSettings?.frequency || 0.05,
+            octaves: elevationSettings?.octaves || 8,
+            scale: (x: number) => x * (elevationSettings?.scale || 1),
+          },
+          precipitationOptions: {
+            amplitude: precipitationSettings?.amplitude || 1,
+            persistence: precipitationSettings?.persistence || 0.5,
+            frequency: precipitationSettings?.frequency || 0.05,
+            octaves: precipitationSettings?.octaves || 8,
+            scale: (x: number) => x * (precipitationSettings?.scale || 1),
+          },
+          temperatureOptions: {
+            amplitude: temperatureSettings?.amplitude || 1,
+            persistence: temperatureSettings?.persistence || 0.5,
+            frequency: temperatureSettings?.frequency || 0.05,
+            octaves: temperatureSettings?.octaves || 8,
+            scale: (x: number) => x * (temperatureSettings?.scale || 1),
+          },
+        });
+
+        logger.info(`[API] World creation complete`, {
+          worldId: result.worldId,
+          regions: result.regionCount,
+          tiles: result.tileCount,
+          plots: result.plotCount,
+          duration: `${(result.duration / 1000).toFixed(2)}s`,
+        });
+
+        // Fetch the created world to return
+        const createdWorld = await db.query.worlds.findFirst({
+          where: eq(worlds.id, result.worldId),
+        });
+
+        return res.status(201).json(createdWorld);
+      } catch (error) {
+        logger.error(`[API] Failed to generate world`, { error });
+        return sendServerError(res, error, 'Failed to generate world data', 'GENERATION_FAILED');
+      }
+    }
+
+    // Legacy mode: Manual world creation (regions only, no tiles/plots)
     const [newWorld] = await db
       .insert(worlds)
       .values({
@@ -190,7 +288,8 @@ router.post('/', authenticateAdmin, async (req, res) => {
     if (worldRegions && Array.isArray(worldRegions) && worldRegions.length > 0) {
       const regionsToInsert = worldRegions.map((r) => ({
         ...r,
-        worldId: newWorld.id, // Ensure worldId is set
+        id: r.id || createId(),
+        worldId: newWorld.id,
       }));
       await db.insert(regions).values(regionsToInsert);
       logger.info(`[API] Created ${regionsToInsert.length} regions for world ${newWorld.id}`);

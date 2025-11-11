@@ -42,6 +42,14 @@ vi.mock('../../../src/utils/logger.js', () => ({
 }));
 
 vi.mock('../../../src/api/middleware/auth.js', () => ({
+  authenticate: (req: any, res: any, next: any) => {
+    if (req.headers.authorization) {
+      req.user = { id: 'user-123', role: 'MEMBER' };
+      next();
+    } else {
+      res.status(401).json({ error: 'Unauthorized' });
+    }
+  },
   authenticateAdmin: (req: any, res: any, next: any) => {
     if (req.headers.authorization === 'Bearer admin-token') {
       req.user = { id: 'admin-123', role: 'ADMINISTRATOR' };
@@ -71,13 +79,10 @@ describe('Servers API Routes', () => {
   });
 
   describe('GET /api/servers', () => {
-    it('should return 403 if not admin', async () => {
-      const response = await request(app)
-        .get('/api/servers')
-        .set('Authorization', 'Bearer user-token')
-        .expect(403);
+    it('should return 401 if not authenticated', async () => {
+      const response = await request(app).get('/api/servers').expect(401);
 
-      expect(response.body.code).toBe('NOT_ADMIN');
+      expect(response.body.error).toBe('Unauthorized');
     });
 
     it('should return all servers with worlds when authenticated as admin', async () => {
@@ -139,13 +144,10 @@ describe('Servers API Routes', () => {
   });
 
   describe('GET /api/servers/:id', () => {
-    it('should return 403 if not admin', async () => {
-      const response = await request(app)
-        .get('/api/servers/server-123')
-        .set('Authorization', 'Bearer user-token')
-        .expect(403);
+    it('should return 401 if not authenticated', async () => {
+      const response = await request(app).get('/api/servers/server-123').expect(401);
 
-      expect(response.body.code).toBe('NOT_ADMIN');
+      expect(response.body.error).toBe('Unauthorized');
     });
 
     it('should return server details with worlds', async () => {

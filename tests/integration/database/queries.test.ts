@@ -891,7 +891,9 @@ describe('Database Queries', () => {
       });
 
       it('should update settlement storage', async () => {
-        const { createSettlement, updateSettlementStorage } = await import('../../../src/db/queries');
+        const { createSettlement, updateSettlementStorage } = await import(
+          '../../../src/db/queries'
+        );
 
         // Create settlement first
         const result = await createSettlement(testProfileId, testPlotId, 'Storage Test', {
@@ -922,7 +924,9 @@ describe('Database Queries', () => {
       });
 
       it('should get settlement with details', async () => {
-        const { createSettlement, getSettlementWithDetails } = await import('../../../src/db/queries');
+        const { createSettlement, getSettlementWithDetails } = await import(
+          '../../../src/db/queries'
+        );
 
         // Create settlement first
         const result = await createSettlement(testProfileId, testPlotId, 'Details Test', {
@@ -1152,7 +1156,9 @@ describe('Database Queries', () => {
       });
 
       it('should get settlement structures with requirements and modifiers', async () => {
-        const { getSettlementStructures, createStructure } = await import('../../../src/db/queries');
+        const { getSettlementStructures, createStructure } = await import(
+          '../../../src/db/queries'
+        );
 
         // Create a structure first
         await createStructure(

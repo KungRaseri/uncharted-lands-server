@@ -228,7 +228,8 @@ describe('Test Utils', () => {
 
     it('should generate test password', () => {
       const password = generateTestPassword();
-      expect(password).toContain('test-pass-');
+      expect(password).toContain('test-password-');
+      expect(password.length).toBeGreaterThanOrEqual(16);
     });
 
     it('should generate random string of specified length', () => {

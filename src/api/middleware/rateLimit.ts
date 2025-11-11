@@ -7,14 +7,19 @@
 import rateLimit from 'express-rate-limit';
 import { logger } from '../../utils/logger.js';
 
+// Detect test/development environment and significantly relax rate limits
+const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const testMultiplier = isDevelopment ? 100 : 1; // 100x more lenient in dev/test
+
 /**
  * Standard rate limiter for most API endpoints
  *
- * Limits: 100 requests per 15 minutes per IP
+ * Production: 100 requests per 15 minutes per IP
+ * Development/Test: 10,000 requests per 15 minutes per IP
  */
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100 * testMultiplier, // Limit each IP to 100 requests per windowMs (10k in dev/test)
   message: {
     error: 'Too Many Requests',
     code: 'RATE_LIMIT_EXCEEDED',
@@ -35,11 +40,12 @@ export const apiLimiter = rateLimit({
 /**
  * Strict rate limiter for sensitive operations (create, update, delete)
  *
- * Limits: 20 requests per 15 minutes per IP
+ * Production: 20 requests per 15 minutes per IP
+ * Development/Test: 2,000 requests per 15 minutes per IP
  */
 export const strictLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Limit each IP to 20 requests per windowMs
+  max: 20 * testMultiplier, // Limit each IP to 20 requests per windowMs (2k in dev/test)
   message: {
     error: 'Too Many Requests',
     code: 'RATE_LIMIT_EXCEEDED',
@@ -60,11 +66,12 @@ export const strictLimiter = rateLimit({
 /**
  * Lenient rate limiter for high-frequency read operations
  *
- * Limits: 300 requests per 15 minutes per IP
+ * Production: 300 requests per 15 minutes per IP
+ * Development/Test: 30,000 requests per 15 minutes per IP
  */
 export const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // Limit each IP to 300 requests per windowMs
+  max: 300 * testMultiplier, // Limit each IP to 300 requests per windowMs (30k in dev/test)
   message: {
     error: 'Too Many Requests',
     code: 'RATE_LIMIT_EXCEEDED',

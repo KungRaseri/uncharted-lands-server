@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
 
     res.json(result);
   } catch (error) {
-    console.error('Error fetching settlements:', error);
+    logger.error('[API] Error fetching settlements', error);
     res.status(500).json({ error: 'Failed to fetch settlements' });
   }
 });
@@ -70,7 +70,11 @@ router.get('/:id', async (req, res) => {
             },
           },
         },
-        structures: true,
+        structures: {
+          with: {
+            modifiers: true,
+          },
+        },
         storage: true,
       },
     });
@@ -79,9 +83,20 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Settlement not found' });
     }
 
+    // Ensure structures array exists (Drizzle might omit it if empty)
+    if (!settlement.structures) {
+      settlement.structures = [];
+    }
+
+    // Ensure each structure has a modifiers array
+    settlement.structures = settlement.structures.map((structure: any) => ({
+      ...structure,
+      modifiers: structure.modifiers || [],
+    }));
+
     res.json(settlement);
   } catch (error) {
-    console.error('Error fetching settlement:', error);
+    logger.error('[API] Error fetching settlement', error);
     res.status(500).json({ error: 'Failed to fetch settlement' });
   }
 });
@@ -115,12 +130,12 @@ router.post('/', authenticate, async (req, res) => {
 
     const suitableTiles = await db.query.tiles.findMany({
       where: and(
-        gt(tiles.elevation, 0), // Must be land
-        lt(tiles.elevation, 25), // Not too mountainous
-        gte(tiles.precipitation, 150), // Adequate rainfall
-        lte(tiles.precipitation, 350), // Not too much
-        gte(tiles.temperature, 10), // Warm enough
-        lte(tiles.temperature, 28) // Not too hot
+        gt(tiles.elevation, 0), // Must be land (elevation > 0)
+        lt(tiles.elevation, 0.8), // Not too mountainous (< 0.8)
+        gte(tiles.precipitation, 0.3), // Adequate rainfall (>= 0.3)
+        lte(tiles.precipitation, 0.8), // Not too much (< 0.8)
+        gte(tiles.temperature, -0.3), // Warm enough (>= -0.3, which is "cool" range)
+        lte(tiles.temperature, 0.5) // Not too hot (<= 0.5, which is "warm" range)
       ),
       with: {
         region: true,

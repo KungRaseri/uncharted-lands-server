@@ -22,10 +22,10 @@ describe('API Router', () => {
 
     it('should have health check route registered', () => {
       const routes = router.stack || [];
-      const healthRoute = routes.some((layer: any) => 
-        layer.route && layer.route.path === '/health'
+      const healthRoute = routes.some(
+        (layer: any) => layer.route && layer.route.path === '/health'
       );
-      
+
       expect(healthRoute).toBe(true);
     });
   });
