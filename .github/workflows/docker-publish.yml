@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/uncharted-lands-server
+  IMAGE_NAME: kungraseri/uncharted-lands-server
 
 jobs:
   build-and-push:
