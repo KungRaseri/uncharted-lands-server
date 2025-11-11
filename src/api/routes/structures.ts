@@ -17,6 +17,43 @@ import { logger } from '../../utils/logger.js';
 const router = Router();
 
 /**
+ * Map client structure IDs to database BuildingType enum values
+ * This is a temporary solution until we add all structure types to the database
+ */
+function mapStructureToBuildingType(structureId: string): string | null {
+  const mapping: Record<string, string> = {
+    // Housing
+    'tent': 'HOUSE',
+    'cottage': 'HOUSE',
+    'house': 'HOUSE',
+    'mansion': 'HOUSE',
+    // Production
+    'farm': 'WORKSHOP',
+    'well': 'WORKSHOP',
+    'lumbermill': 'WORKSHOP',
+    'quarry': 'WORKSHOP',
+    'mine': 'WORKSHOP',
+    'windmill': 'WORKSHOP',
+    'solar_panel': 'WORKSHOP',
+    // Storage
+    'warehouse': 'STORAGE',
+    'silo': 'STORAGE',
+    'cellar': 'STORAGE',
+    // Defense
+    'watchtower': 'BARRACKS',
+    'barracks': 'BARRACKS',
+    'wall': 'WALL',
+    'gate': 'WALL',
+    // Utility
+    'market': 'MARKETPLACE',
+    'town_hall': 'TOWN_HALL',
+    'workshop': 'WORKSHOP',
+  };
+  
+  return mapping[structureId] || null;
+}
+
+/**
  * GET /api/structures/:id
  * Get structure details
  */
@@ -68,6 +105,17 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    // Map client structure ID to database building type
+    const dbBuildingType = mapStructureToBuildingType(buildingType);
+    
+    if (!dbBuildingType) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        code: 'INVALID_BUILDING_TYPE',
+        message: `Unknown building type: ${buildingType}`,
+      });
+    }
+
     // Verify settlement exists
     const settlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, settlementId),
@@ -82,7 +130,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     }
 
     // Verify user owns the settlement
-    if (!req.user || settlement.playerProfileId !== req.user.id) {
+    if (!req.user || settlement.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
@@ -108,7 +156,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
           settlementId,
           structureRequirementsId: requirements.id,
           category: 'BUILDING',
-          buildingType,
+          buildingType: dbBuildingType,
           level: 1,
           name: name || `${buildingType} Level 1`,
           description: description || `A ${buildingType.toLowerCase()} for your settlement`,
@@ -121,7 +169,8 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     logger.info('[API] Building created', {
       structureId: newStructure.id,
       settlementId,
-      buildingType,
+      buildingType: dbBuildingType,
+      clientBuildingType: buildingType,
     });
 
     return res.status(201).json(newStructure);
@@ -159,7 +208,7 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
     }
 
     // Verify user owns the settlement
-    if (!req.user || structure.settlement?.playerProfileId !== req.user.id) {
+    if (!req.user || structure.settlement?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
@@ -283,7 +332,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     }
 
     // Verify user owns the settlement
-    if (!req.user || structure.settlement?.playerProfileId !== req.user.id) {
+    if (!req.user || structure.settlement?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',

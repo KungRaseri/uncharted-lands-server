@@ -70,7 +70,11 @@ router.get('/:id', async (req, res) => {
             },
           },
         },
-        structures: true,
+        structures: {
+          with: {
+            modifiers: true,
+          },
+        },
         storage: true,
       },
     });
@@ -78,6 +82,17 @@ router.get('/:id', async (req, res) => {
     if (!settlement) {
       return res.status(404).json({ error: 'Settlement not found' });
     }
+
+    // Ensure structures array exists (Drizzle might omit it if empty)
+    if (!settlement.structures) {
+      settlement.structures = [];
+    }
+
+    // Ensure each structure has a modifiers array
+    settlement.structures = settlement.structures.map((structure: any) => ({
+      ...structure,
+      modifiers: structure.modifiers || []
+    }));
 
     res.json(settlement);
   } catch (error) {

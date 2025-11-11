@@ -223,7 +223,7 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
     }
 
     // Verify user owns the settlement
-    if (!req.user || plot.settlement?.playerProfileId !== req.user.id) {
+    if (!req.user || plot.settlement?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
@@ -355,7 +355,7 @@ router.post('/:id/harvest', authenticate, async (req: Request, res: Response) =>
     }
 
     // Verify user owns the settlement
-    if (!req.user || plot.settlement?.playerProfileId !== req.user.id) {
+    if (!req.user || plot.settlement?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',

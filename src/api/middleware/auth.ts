@@ -19,6 +19,7 @@ declare global {
     interface Request {
       user?: {
         id: string;
+        profileId: string;
         email: string;
         username: string;
         role: AccountRole;
@@ -110,6 +111,7 @@ export const authenticateAdmin = async (
     // Attach user to request
     req.user = {
       id: user.id,
+      profileId: (user.profile && !Array.isArray(user.profile) ? user.profile.id : ''),
       email: user.email,
       username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
       role: user.role,
@@ -158,6 +160,7 @@ export const authenticate = async (
     // Attach user to request (no role check)
     req.user = {
       id: user.id,
+      profileId: (user.profile && !Array.isArray(user.profile) ? user.profile.id : ''),
       email: user.email,
       username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
       role: user.role,
@@ -197,6 +200,7 @@ export const optionalAuth = async (
     if (user) {
       req.user = {
         id: user.id,
+        profileId: (user.profile && !Array.isArray(user.profile) ? user.profile.id : ''),
         email: user.email,
         username: (user.profile && !Array.isArray(user.profile) ? user.profile.username : null) || user.email,
         role: user.role,
