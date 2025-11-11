@@ -8,19 +8,25 @@ import {
   sendUnauthorizedError,
   sendForbiddenError,
 } from '../../../../src/api/utils/responses.js';
+import { logger } from '../../../../src/utils/logger.js';
+
+// Mock logger
+vi.mock('../../../../src/utils/logger.js', () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 
 describe('Response Utilities', () => {
   let mockRes: Partial<Response>;
   let mockJson: any;
   let mockStatus: any;
-  let consoleErrorSpy: any;
 
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
-
-    // Mock console.error
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Create chainable mock
     mockJson = vi.fn().mockReturnThis();
@@ -37,7 +43,7 @@ describe('Response Utilities', () => {
       const error = new Error('Test error');
       sendErrorResponse(mockRes as Response, 400, error, 'TEST_ERROR', 'Test error message');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [TEST_ERROR]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [TEST_ERROR]', error);
       expect(mockStatus).toHaveBeenCalledWith(400);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Test error message',
@@ -49,7 +55,7 @@ describe('Response Utilities', () => {
       const error = new Error('Test error');
       sendErrorResponse(mockRes as Response, 500, error, undefined, 'Error occurred');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [UNKNOWN]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [UNKNOWN]', error);
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Error occurred',
@@ -60,7 +66,7 @@ describe('Response Utilities', () => {
       const error = new Error('Test error');
       sendErrorResponse(mockRes as Response, 400, error, 'ERROR_CODE');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [ERROR_CODE]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [ERROR_CODE]', error);
       expect(mockStatus).toHaveBeenCalledWith(400);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'An error occurred',
@@ -72,7 +78,7 @@ describe('Response Utilities', () => {
       const error = 'String error';
       sendErrorResponse(mockRes as Response, 500, error, 'STRING_ERROR', 'String error message');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [STRING_ERROR]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [STRING_ERROR]', error);
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'String error message',
@@ -86,7 +92,7 @@ describe('Response Utilities', () => {
       const error = new Error('Database error');
       sendServerError(mockRes as Response, error);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [INTERNAL_ERROR]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [INTERNAL_ERROR]', error);
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Internal server error',
@@ -98,7 +104,7 @@ describe('Response Utilities', () => {
       const error = new Error('Custom error');
       sendServerError(mockRes as Response, error, 'Custom server error');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [INTERNAL_ERROR]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [INTERNAL_ERROR]', error);
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Custom server error',
@@ -110,7 +116,7 @@ describe('Response Utilities', () => {
       const error = new Error('Database error');
       sendServerError(mockRes as Response, error, 'Database failed', 'DB_ERROR');
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('API Error [DB_ERROR]:', error);
+      expect(logger.error).toHaveBeenCalledWith('[API] Error [DB_ERROR]', error);
       expect(mockStatus).toHaveBeenCalledWith(500);
       expect(mockJson).toHaveBeenCalledWith({
         error: 'Database failed',
