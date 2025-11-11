@@ -1,6 +1,6 @@
 /**
  * Plot Management API Routes
- * 
+ *
  * Handles plot operations:
  * - Creating/claiming plots within owned tiles
  * - Building extractors on plots

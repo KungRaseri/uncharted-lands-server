@@ -1,6 +1,6 @@
 /**
  * Structure Management API Routes
- * 
+ *
  * Handles settlement building operations:
  * - Building settlement structures (non-extractors)
  * - Upgrading structures
@@ -9,7 +9,13 @@
 
 import { Router, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
-import { db, settlementStructures, structureRequirements, settlements, plots } from '../../db/index.js';
+import {
+  db,
+  settlementStructures,
+  structureRequirements,
+  settlements,
+  plots,
+} from '../../db/index.js';
 import { generateId } from '../../db/queries.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -23,33 +29,33 @@ const router = Router();
 function mapStructureToBuildingType(structureId: string): string | null {
   const mapping: Record<string, string> = {
     // Housing
-    'tent': 'HOUSE',
-    'cottage': 'HOUSE',
-    'house': 'HOUSE',
-    'mansion': 'HOUSE',
+    tent: 'HOUSE',
+    cottage: 'HOUSE',
+    house: 'HOUSE',
+    mansion: 'HOUSE',
     // Production
-    'farm': 'WORKSHOP',
-    'well': 'WORKSHOP',
-    'lumbermill': 'WORKSHOP',
-    'quarry': 'WORKSHOP',
-    'mine': 'WORKSHOP',
-    'windmill': 'WORKSHOP',
-    'solar_panel': 'WORKSHOP',
+    farm: 'WORKSHOP',
+    well: 'WORKSHOP',
+    lumbermill: 'WORKSHOP',
+    quarry: 'WORKSHOP',
+    mine: 'WORKSHOP',
+    windmill: 'WORKSHOP',
+    solar_panel: 'WORKSHOP',
     // Storage
-    'warehouse': 'STORAGE',
-    'silo': 'STORAGE',
-    'cellar': 'STORAGE',
+    warehouse: 'STORAGE',
+    silo: 'STORAGE',
+    cellar: 'STORAGE',
     // Defense
-    'watchtower': 'BARRACKS',
-    'barracks': 'BARRACKS',
-    'wall': 'WALL',
-    'gate': 'WALL',
+    watchtower: 'BARRACKS',
+    barracks: 'BARRACKS',
+    wall: 'WALL',
+    gate: 'WALL',
     // Utility
-    'market': 'MARKETPLACE',
-    'town_hall': 'TOWN_HALL',
-    'workshop': 'WORKSHOP',
+    market: 'MARKETPLACE',
+    town_hall: 'TOWN_HALL',
+    workshop: 'WORKSHOP',
   };
-  
+
   return mapping[structureId] || null;
 }
 
@@ -107,7 +113,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Map client structure ID to database building type
     const dbBuildingType = mapStructureToBuildingType(buildingType);
-    
+
     if (!dbBuildingType) {
       return res.status(400).json({
         error: 'Bad Request',

@@ -135,8 +135,8 @@ export async function generateWorldLayers(
   for (let y = 0; y < elevationChunks.length; y++) {
     for (let x = 0; x < elevationChunks[y].length; x++) {
       regions.push({
-        xCoord: y,  // y index becomes xCoord (row)
-        yCoord: x,  // x index becomes yCoord (column)
+        xCoord: y, // y index becomes xCoord (row)
+        yCoord: x, // x index becomes yCoord (column)
         elevationMap: elevationChunks[y][x],
         precipitationMap: precipitationChunks[y][x],
         temperatureMap: temperatureChunks[y][x],

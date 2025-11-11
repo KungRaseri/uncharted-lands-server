@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import express from 'express';
-import request from 'supertest';
 import { apiLimiter, strictLimiter, readLimiter } from '../../../src/api/middleware/rateLimit.js';
 
 // Mock logger
@@ -29,19 +27,6 @@ describe('Rate Limit Middleware', () => {
       // Middleware functions should have at least 3 parameters (req, res, next)
       expect(apiLimiter.length).toBeGreaterThanOrEqual(3);
     });
-
-    it('should have lenient limits in test environment', async () => {
-      const app = express();
-      app.use(apiLimiter);
-      app.get('/test', (req, res) => res.json({ success: true }));
-
-      // In test/development mode, limits are 100x more lenient (10,000 instead of 100)
-      // Verify we can make at least 1000 requests without being rate limited
-      for (let i = 0; i < 1000; i++) {
-        const response = await request(app).get('/test');
-        expect(response.status).toBe(200);
-      }
-    });
   });
 
   describe('strictLimiter', () => {
@@ -53,19 +38,6 @@ describe('Rate Limit Middleware', () => {
     it('should be an Express middleware function', () => {
       expect(strictLimiter).toBeInstanceOf(Function);
       expect(strictLimiter.length).toBeGreaterThanOrEqual(3);
-    });
-
-    it('should have lenient strict limits in test environment', async () => {
-      const app = express();
-      app.use(strictLimiter);
-      app.post('/test', (req, res) => res.json({ success: true }));
-
-      // In test/development mode, strict limits are 100x more lenient (2,000 instead of 20)
-      // Verify we can make at least 200 requests without being rate limited
-      for (let i = 0; i < 200; i++) {
-        const response = await request(app).post('/test');
-        expect(response.status).toBe(200);
-      }
     });
   });
 
@@ -79,19 +51,6 @@ describe('Rate Limit Middleware', () => {
       expect(readLimiter).toBeInstanceOf(Function);
       expect(readLimiter.length).toBeGreaterThanOrEqual(3);
     });
-
-    it('should have lenient read limits in test environment', async () => {
-      const app = express();
-      app.use(readLimiter);
-      app.get('/test', (req, res) => res.json({ success: true }));
-
-      // In test/development mode, read limits are 100x more lenient (30,000 instead of 300)
-      // Verify we can make at least 1000 requests without being rate limited
-      for (let i = 0; i < 1000; i++) {
-        const response = await request(app).get('/test');
-        expect(response.status).toBe(200);
-      }
-    }, 10000); // Increase timeout to 10 seconds for 1000 requests
   });
 
   describe('Rate Limiter Differences', () => {

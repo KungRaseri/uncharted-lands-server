@@ -101,9 +101,7 @@ describe('Structures API Routes', () => {
         plot: null,
       };
 
-      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(
-        mockStructure as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(mockStructure as any);
 
       const response = await request(app)
         .get('/api/structures/structure-123')
@@ -290,7 +288,10 @@ describe('Structures API Routes', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      const response = await request(app).post('/api/structures/create').send(validRequest).expect(401);
+      const response = await request(app)
+        .post('/api/structures/create')
+        .send(validRequest)
+        .expect(401);
 
       expect(response.body.code).toBe('NO_SESSION');
     });
@@ -313,9 +314,7 @@ describe('Structures API Routes', () => {
         },
       ];
 
-      vi.mocked(db.db.query.settlementStructures.findMany).mockResolvedValue(
-        mockStructures as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findMany).mockResolvedValue(mockStructures as any);
 
       const response = await request(app)
         .get('/api/structures/by-settlement/settlement-123')
@@ -356,9 +355,7 @@ describe('Structures API Routes', () => {
         name: 'House Level 2',
       };
 
-      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(
-        mockStructure as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(mockStructure as any);
       vi.mocked(db.db.update).mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -395,9 +392,7 @@ describe('Structures API Routes', () => {
         },
       };
 
-      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(
-        mockStructure as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(mockStructure as any);
 
       const response = await request(app)
         .post('/api/structures/structure-123/upgrade')
@@ -420,9 +415,7 @@ describe('Structures API Routes', () => {
         },
       };
 
-      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(
-        mockStructure as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(mockStructure as any);
       vi.mocked(db.db.delete).mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
       } as any);
@@ -455,9 +448,7 @@ describe('Structures API Routes', () => {
         },
       };
 
-      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(
-        mockStructure as any
-      );
+      vi.mocked(db.db.query.settlementStructures.findFirst).mockResolvedValue(mockStructure as any);
 
       const response = await request(app)
         .delete('/api/structures/structure-123')

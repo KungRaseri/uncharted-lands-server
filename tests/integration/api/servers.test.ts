@@ -80,9 +80,7 @@ describe('Servers API Routes', () => {
 
   describe('GET /api/servers', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/servers')
-        .expect(401);
+      const response = await request(app).get('/api/servers').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });
@@ -147,9 +145,7 @@ describe('Servers API Routes', () => {
 
   describe('GET /api/servers/:id', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/servers/server-123')
-        .expect(401);
+      const response = await request(app).get('/api/servers/server-123').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });

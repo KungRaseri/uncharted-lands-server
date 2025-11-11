@@ -1,6 +1,6 @@
 /**
  * Game Configuration Types and Constants
- * 
+ *
  * This file defines the shared game configuration that should be consistent
  * between client and server. These can be stored in the database and fetched
  * via API to ensure consistency.
@@ -48,12 +48,7 @@ export const BUILDING_TYPES = [
 
 export type BuildingType = (typeof BUILDING_TYPES)[number];
 
-export const SPECIAL_RESOURCES = [
-  'GEMS',
-  'EXOTIC_WOOD',
-  'MAGICAL_HERBS',
-  'ANCIENT_STONE',
-] as const;
+export const SPECIAL_RESOURCES = ['GEMS', 'EXOTIC_WOOD', 'MAGICAL_HERBS', 'ANCIENT_STONE'] as const;
 
 export type SpecialResource = (typeof SPECIAL_RESOURCES)[number];
 

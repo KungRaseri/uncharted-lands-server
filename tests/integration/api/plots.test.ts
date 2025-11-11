@@ -265,14 +265,12 @@ describe('Plots API Routes', () => {
         },
       };
 
-      mockDb.query.plots.findFirst
-        .mockResolvedValueOnce(mockPlot)
-        .mockResolvedValueOnce({
-          ...mockPlot,
-          structureId: 'new-structure-id',
-          resourceType: 'FOOD',
-          baseProductionRate: 10,
-        });
+      mockDb.query.plots.findFirst.mockResolvedValueOnce(mockPlot).mockResolvedValueOnce({
+        ...mockPlot,
+        structureId: 'new-structure-id',
+        resourceType: 'FOOD',
+        baseProductionRate: 10,
+      });
 
       mockDb.transaction.mockImplementation(async (callback: any) => {
         return callback(mockDb);
@@ -348,9 +346,7 @@ describe('Plots API Routes', () => {
     });
 
     it('should return 400 if extractor cannot extract resource', async () => {
-      const { calculateProductionRate } = await import(
-        '../../../src/utils/resource-production.js'
-      );
+      const { calculateProductionRate } = await import('../../../src/utils/resource-production.js');
       vi.mocked(calculateProductionRate).mockReturnValue(0);
 
       const mockPlot = {

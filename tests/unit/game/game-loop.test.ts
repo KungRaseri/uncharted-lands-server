@@ -342,13 +342,13 @@ describe('Game Loop', () => {
     it('should register all player settlements', async () => {
       const { getPlayerSettlements } = await import('../../../src/db/queries.js');
       const { registerPlayerSettlements } = await import('../../../src/game/game-loop.js');
-      
+
       // Mock getPlayerSettlements to return settlements
       vi.mocked(getPlayerSettlements).mockResolvedValue([
         { id: 'settlement-1', name: 'Test Settlement 1' },
         { id: 'settlement-2', name: 'Test Settlement 2' },
       ] as any);
-      
+
       await registerPlayerSettlements('player-1', 'world-1');
 
       const status = getGameLoopStatus();
@@ -358,10 +358,10 @@ describe('Game Loop', () => {
     it('should handle registering player settlements with no settlements', async () => {
       const { getPlayerSettlements } = await import('../../../src/db/queries.js');
       const { registerPlayerSettlements } = await import('../../../src/game/game-loop.js');
-      
+
       // Mock getPlayerSettlements to return empty array
       vi.mocked(getPlayerSettlements).mockResolvedValue([]);
-      
+
       // Player with no settlements
       await registerPlayerSettlements('player-no-settlements', 'world-1');
 
@@ -371,14 +371,16 @@ describe('Game Loop', () => {
 
     it('should unregister all player settlements', async () => {
       const { getPlayerSettlements } = await import('../../../src/db/queries.js');
-      const { registerPlayerSettlements, unregisterPlayerSettlements } = await import('../../../src/game/game-loop.js');
-      
+      const { registerPlayerSettlements, unregisterPlayerSettlements } = await import(
+        '../../../src/game/game-loop.js'
+      );
+
       // Mock getPlayerSettlements to return settlements
       vi.mocked(getPlayerSettlements).mockResolvedValue([
         { id: 'settlement-1', name: 'Test Settlement 1' },
         { id: 'settlement-2', name: 'Test Settlement 2' },
       ] as any);
-      
+
       // Register settlements for player
       await registerPlayerSettlements('player-1', 'world-1');
       const beforeStatus = getGameLoopStatus();
@@ -394,7 +396,7 @@ describe('Game Loop', () => {
 
     it('should handle unregistering player with no settlements', async () => {
       const { unregisterPlayerSettlements } = await import('../../../src/game/game-loop.js');
-      
+
       // Attempt to unregister player with no settlements
       await unregisterPlayerSettlements('player-no-settlements');
 
@@ -404,19 +406,21 @@ describe('Game Loop', () => {
 
     it('should only unregister settlements for specific player', async () => {
       const { getPlayerSettlements } = await import('../../../src/db/queries.js');
-      const { registerPlayerSettlements, unregisterPlayerSettlements } = await import('../../../src/game/game-loop.js');
-      
+      const { registerPlayerSettlements, unregisterPlayerSettlements } = await import(
+        '../../../src/game/game-loop.js'
+      );
+
       // Mock getPlayerSettlements to return settlements for player-1
       vi.mocked(getPlayerSettlements).mockResolvedValue([
         { id: 'settlement-1', name: 'Test Settlement 1' },
         { id: 'settlement-2', name: 'Test Settlement 2' },
       ] as any);
-      
+
       // Register settlements for player-1
       await registerPlayerSettlements('player-1', 'world-1');
       // Manually register a settlement for player-2
       registerSettlement('manual-settlement', 'player-2', 'world-1');
-      
+
       const beforeStatus = getGameLoopStatus();
       expect(beforeStatus.activeSettlements).toBe(3);
 

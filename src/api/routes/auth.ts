@@ -14,28 +14,28 @@ const BCRYPT_ROUNDS = 10; // Standard bcrypt salt rounds
  * POST /api/auth/register
  * Register a new user account
  * Note: Username is optional and can be set later when joining a world
- * 
+ *
  * Rate limited to prevent user enumeration attacks
  */
 router.post('/register', strictLimiter, async (req, res) => {
   const requestId = createId().slice(0, 8);
-  
+
   try {
     const { email, password, username } = req.body;
 
-    logger.debug('[AUTH] Registration attempt', { 
+    logger.debug('[AUTH] Registration attempt', {
       requestId,
       email: email ? `${email.substring(0, 3)}***` : 'missing',
       hasPassword: !!password,
-      hasUsername: !!username 
+      hasUsername: !!username,
     });
 
     // Validate required fields
     if (!email || !password) {
-      logger.warn('[AUTH] Registration failed - missing required fields', { 
+      logger.warn('[AUTH] Registration failed - missing required fields', {
         requestId,
         hasEmail: !!email,
-        hasPassword: !!password 
+        hasPassword: !!password,
       });
       return res.status(400).json({
         error: 'Email and password are required',
@@ -45,9 +45,9 @@ router.post('/register', strictLimiter, async (req, res) => {
 
     // Validate password length (minimum 16 characters)
     if (password.length < 16) {
-      logger.warn('[AUTH] Registration failed - password too short', { 
+      logger.warn('[AUTH] Registration failed - password too short', {
         requestId,
-        passwordLength: password.length 
+        passwordLength: password.length,
       });
       return res.status(400).json({
         error: 'Password must be at least 16 characters long',
@@ -61,10 +61,10 @@ router.post('/register', strictLimiter, async (req, res) => {
     });
 
     if (existingAccount) {
-      logger.info('[AUTH] Registration failed - email already registered', { 
+      logger.info('[AUTH] Registration failed - email already registered', {
         requestId,
         email: `${email.substring(0, 3)}***`,
-        existingAccountId: existingAccount.id 
+        existingAccountId: existingAccount.id,
       });
       return res.status(400).json({
         error: 'An account with this email already exists',
@@ -101,10 +101,10 @@ router.post('/register', strictLimiter, async (req, res) => {
       picture: '', // Default empty picture
     });
 
-    logger.info('[AUTH] ✓ Account created successfully', { 
+    logger.info('[AUTH] ✓ Account created successfully', {
       requestId,
       accountId,
-      email: `${email.substring(0, 3)}***` 
+      email: `${email.substring(0, 3)}***`,
     });
 
     // Fetch the created account with profile
@@ -121,7 +121,7 @@ router.post('/register', strictLimiter, async (req, res) => {
     });
   } catch (error) {
     logger.error('[AUTH] Registration error', error, { requestId });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to register account',
       code: 'SERVER_ERROR',
     });
@@ -131,19 +131,19 @@ router.post('/register', strictLimiter, async (req, res) => {
 /**
  * POST /api/auth/login
  * Login with email and password
- * 
+ *
  * Rate limited to prevent brute force attacks
  */
 router.post('/login', strictLimiter, async (req, res) => {
   const requestId = createId().slice(0, 8);
-  
+
   try {
     const { email, password } = req.body;
 
-    logger.debug('[AUTH] Login attempt', { 
+    logger.debug('[AUTH] Login attempt', {
       requestId,
       email: email ? `${email.substring(0, 3)}***` : 'missing',
-      hasPassword: !!password 
+      hasPassword: !!password,
     });
 
     if (!email || !password) {
@@ -163,9 +163,9 @@ router.post('/login', strictLimiter, async (req, res) => {
     });
 
     if (!account) {
-      logger.info('[AUTH] Login failed - account not found', { 
+      logger.info('[AUTH] Login failed - account not found', {
         requestId,
-        email: `${email.substring(0, 3)}***` 
+        email: `${email.substring(0, 3)}***`,
       });
       return res.status(401).json({
         error: 'Invalid email or password',
@@ -178,9 +178,9 @@ router.post('/login', strictLimiter, async (req, res) => {
     const passwordMatches = await bcrypt.compare(password, account.passwordHash);
 
     if (!passwordMatches) {
-      logger.info('[AUTH] Login failed - incorrect password', { 
+      logger.info('[AUTH] Login failed - incorrect password', {
         requestId,
-        accountId: account.id 
+        accountId: account.id,
       });
       return res.status(401).json({
         error: 'Invalid email or password',
@@ -199,10 +199,10 @@ router.post('/login', strictLimiter, async (req, res) => {
       })
       .where(eq(accounts.id, account.id));
 
-    logger.info('[AUTH] ✓ Login successful', { 
+    logger.info('[AUTH] ✓ Login successful', {
       requestId,
       accountId: account.id,
-      email: `${email.substring(0, 3)}***` 
+      email: `${email.substring(0, 3)}***`,
     });
 
     res.json({
@@ -214,7 +214,7 @@ router.post('/login', strictLimiter, async (req, res) => {
     });
   } catch (error) {
     logger.error('[AUTH] Login error', error, { requestId });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to login',
       code: 'SERVER_ERROR',
     });
@@ -227,13 +227,13 @@ router.post('/login', strictLimiter, async (req, res) => {
  */
 router.post('/validate', async (req, res) => {
   const requestId = createId().slice(0, 8);
-  
+
   try {
     const { token } = req.body;
 
-    logger.debug('[AUTH] Token validation attempt', { 
+    logger.debug('[AUTH] Token validation attempt', {
       requestId,
-      hasToken: !!token 
+      hasToken: !!token,
     });
 
     if (!token) {
@@ -252,9 +252,9 @@ router.post('/validate', async (req, res) => {
     });
 
     if (!account) {
-      logger.info('[AUTH] Validation failed - invalid token', { 
+      logger.info('[AUTH] Validation failed - invalid token', {
         requestId,
-        token: `${token.substring(0, 8)}***` 
+        token: `${token.substring(0, 8)}***`,
       });
       return res.status(401).json({
         error: 'Invalid token',
@@ -262,9 +262,9 @@ router.post('/validate', async (req, res) => {
       });
     }
 
-    logger.debug('[AUTH] ✓ Token validated', { 
+    logger.debug('[AUTH] ✓ Token validated', {
       requestId,
-      accountId: account.id 
+      accountId: account.id,
     });
 
     res.json({
@@ -273,7 +273,7 @@ router.post('/validate', async (req, res) => {
     });
   } catch (error) {
     logger.error('[AUTH] Validation error', error, { requestId });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to validate token',
       code: 'SERVER_ERROR',
     });

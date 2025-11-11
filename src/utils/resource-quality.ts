@@ -1,6 +1,6 @@
 /**
  * Resource Quality Assignment
- * 
+ *
  * Calculates resource quality values for tiles based on biome match
  * Quality ranges from 0-100 and represents how good a tile is for each resource type
  */
@@ -25,16 +25,19 @@ interface ResourceQuality {
 
 /**
  * Calculate resource quality for a tile based on its biome
- * 
+ *
  * Quality is based on the biome's modifier for each resource:
  * - Base quality = modifier * 10 (maps modifier range ~0-10 to 0-100)
  * - Add random variance ±15 points for natural variation
  * - Clamp to 0-100 range
  */
-export function calculateResourceQuality(biome: Biome, seed: number = Math.random()): ResourceQuality {
+export function calculateResourceQuality(
+  biome: Biome,
+  seed: number = Math.random()
+): ResourceQuality {
   // Use deterministic variance based on seed
-  const variance = () => (Math.sin(seed) * 30 - 15); // ±15 variation
-  
+  const variance = () => Math.sin(seed) * 30 - 15; // ±15 variation
+
   const foodBase = Math.min(100, biome.foodModifier * 10);
   const woodBase = Math.min(100, biome.woodModifier * 10);
   const stoneBase = Math.min(100, biome.stoneModifier * 10);
@@ -58,7 +61,7 @@ export function calculatePlotSlots(biome: Biome): number {
 
 /**
  * Determine if a tile should have a special resource
- * 
+ *
  * Special resources appear on ~2% of appropriate biome tiles:
  * - GEMS: Mountains, Desert (stone/ore rich biomes)
  * - EXOTIC_WOOD: Tropical Rainforest, Temperate Forest

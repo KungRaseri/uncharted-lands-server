@@ -298,8 +298,8 @@ try {
     biomes: {
       created: biomeResult.created,
       updated: biomeResult.updated,
-      total: biomeResult.total
-    }
+      total: biomeResult.total,
+    },
   });
 } catch (error) {
   logger.error('[SEED] ❌ Seeding failed', error);

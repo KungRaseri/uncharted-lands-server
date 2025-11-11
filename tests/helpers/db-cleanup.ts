@@ -1,6 +1,6 @@
 /**
  * Database Cleanup Utilities for Tests
- * 
+ *
  * Provides utilities to clean up test data and ensure tests don't leave
  * orphaned records in the database.
  */
@@ -116,9 +116,13 @@ export class TestDataTracker {
 
       // 1. Structure-related tables
       if (this.structureIds.length > 0) {
-        await db.delete(structureModifiers).where(inArray(structureModifiers.settlementStructureId, this.structureIds));
+        await db
+          .delete(structureModifiers)
+          .where(inArray(structureModifiers.settlementStructureId, this.structureIds));
         // Structure requirements are cascaded when structure is deleted
-        await db.delete(settlementStructures).where(inArray(settlementStructures.id, this.structureIds));
+        await db
+          .delete(settlementStructures)
+          .where(inArray(settlementStructures.id, this.structureIds));
       }
 
       // 2. Settlements
@@ -158,7 +162,9 @@ export class TestDataTracker {
 
       // 9. Profile server data
       if (this.profileIds.length > 0) {
-        await db.delete(profileServerData).where(inArray(profileServerData.profileId, this.profileIds));
+        await db
+          .delete(profileServerData)
+          .where(inArray(profileServerData.profileId, this.profileIds));
       }
 
       // 10. Profiles
@@ -319,13 +325,17 @@ export async function cleanupSettlement(settlementId: string): Promise<void> {
 
   // Delete storage if exists
   if (settlement?.settlementStorageId) {
-    await db.delete(settlementStorage).where(eq(settlementStorage.id, settlement.settlementStorageId));
+    await db
+      .delete(settlementStorage)
+      .where(eq(settlementStorage.id, settlement.settlementStorageId));
   }
 }
 
 export async function cleanupStructure(structureId: string): Promise<void> {
   // Delete modifiers first (requirements are cascaded)
-  await db.delete(structureModifiers).where(eq(structureModifiers.settlementStructureId, structureId));
+  await db
+    .delete(structureModifiers)
+    .where(eq(structureModifiers.settlementStructureId, structureId));
 
   // Delete structure (this will cascade delete requirements)
   await db.delete(settlementStructures).where(eq(settlementStructures.id, structureId));
@@ -334,7 +344,10 @@ export async function cleanupStructure(structureId: string): Promise<void> {
 /**
  * Clean up all test data matching a pattern (e.g., all test servers created with specific naming)
  */
-export async function cleanupByPattern(table: 'servers' | 'worlds' | 'accounts', pattern: string): Promise<void> {
+export async function cleanupByPattern(
+  table: 'servers' | 'worlds' | 'accounts',
+  pattern: string
+): Promise<void> {
   // This is a helper for cleaning up data by name pattern
   // WARNING: Use with caution in tests only
   console.warn(`Cleaning up ${table} matching pattern: ${pattern}`);

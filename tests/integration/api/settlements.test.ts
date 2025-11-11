@@ -126,9 +126,7 @@ describe('Settlements API Routes', () => {
           {
             id: 'structure-1',
             name: 'House',
-            modifiers: [
-              { id: 'mod-1', name: 'Population', value: 10 },
-            ],
+            modifiers: [{ id: 'mod-1', name: 'Population', value: 10 }],
           },
         ],
         storage: {},

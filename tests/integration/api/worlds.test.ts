@@ -83,9 +83,7 @@ describe('Worlds API Routes', () => {
 
   describe('GET /api/worlds', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/worlds')
-        .expect(401);
+      const response = await request(app).get('/api/worlds').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });
@@ -123,9 +121,7 @@ describe('Worlds API Routes', () => {
 
   describe('GET /api/worlds/:id', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app)
-        .get('/api/worlds/world-123')
-        .expect(401);
+      const response = await request(app).get('/api/worlds/world-123').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
     });

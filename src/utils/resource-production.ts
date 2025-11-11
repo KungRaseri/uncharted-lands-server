@@ -1,6 +1,6 @@
 /**
  * Resource Production System
- * 
+ *
  * This implements our hybrid resource system:
  * - Tier 1 (FOOD, WOOD, STONE, ORE): Rate-limited production with quality affecting value
  * - Tier 2 (CLAY, HERBS, PELTS): Quality-based production
@@ -11,33 +11,33 @@
 export const BASE_PRODUCTION_RATES = {
   // Tier 1: Basic resources (rate-limited)
   FOOD: {
-    FARM: 10,          // 10 units/hour base
+    FARM: 10, // 10 units/hour base
   },
   WOOD: {
-    LUMBER_MILL: 8,    // 8 units/hour base
+    LUMBER_MILL: 8, // 8 units/hour base
   },
   STONE: {
-    QUARRY: 6,         // 6 units/hour base
+    QUARRY: 6, // 6 units/hour base
   },
   ORE: {
-    MINE: 4,           // 4 units/hour base
+    MINE: 4, // 4 units/hour base
   },
   // Tier 2: Advanced resources (quality-based)
   CLAY: {
-    QUARRY: 3,         // 3 units/hour base
+    QUARRY: 3, // 3 units/hour base
   },
   HERBS: {
-    HERB_GARDEN: 5,    // 5 units/hour base
+    HERB_GARDEN: 5, // 5 units/hour base
   },
   PELTS: {
-    HUNTERS_LODGE: 4,  // 4 units/hour base
+    HUNTERS_LODGE: 4, // 4 units/hour base
   },
   // Tier 3: Rare resources (special locations only)
   GEMS: {
-    MINE: 1,           // 1 unit/hour base
+    MINE: 1, // 1 unit/hour base
   },
   EXOTIC_WOOD: {
-    LUMBER_MILL: 2,    // 2 units/hour base
+    LUMBER_MILL: 2, // 2 units/hour base
   },
 } as const;
 
@@ -59,7 +59,7 @@ export const BIOME_EFFICIENCY: Record<string, Record<string, number>> = {
     HERBS: 1,
     PELTS: 1.5,
   },
-  'Grassland': {
+  Grassland: {
     FOOD: 1.8,
     WOOD: 0.5,
     STONE: 0.7,
@@ -67,7 +67,7 @@ export const BIOME_EFFICIENCY: Record<string, Record<string, number>> = {
     HERBS: 1.3,
     PELTS: 1,
   },
-  'Desert': {
+  Desert: {
     FOOD: 0.3,
     WOOD: 0.2,
     STONE: 1.5,
@@ -75,7 +75,7 @@ export const BIOME_EFFICIENCY: Record<string, Record<string, number>> = {
     HERBS: 0.5,
     PELTS: 0.4,
   },
-  'Mountains': {
+  Mountains: {
     FOOD: 0.4,
     WOOD: 0.6,
     STONE: 2,
@@ -83,7 +83,7 @@ export const BIOME_EFFICIENCY: Record<string, Record<string, number>> = {
     HERBS: 0.8,
     PELTS: 1.3,
   },
-  'Tundra': {
+  Tundra: {
     FOOD: 0.5,
     WOOD: 0.4,
     STONE: 1,
@@ -91,7 +91,7 @@ export const BIOME_EFFICIENCY: Record<string, Record<string, number>> = {
     HERBS: 0.3,
     PELTS: 2,
   },
-  'Savanna': {
+  Savanna: {
     FOOD: 1.3,
     WOOD: 0.8,
     STONE: 0.9,
@@ -117,9 +117,9 @@ export function getStructureLevelMultiplier(level: number): number {
 
 /**
  * Calculate the production rate for a plot
- * 
+ *
  * Formula: baseRate × biomeEfficiency × structureLevel
- * 
+ *
  * Quality affects VALUE when trading/using, not production rate (for Tier 1 resources)
  */
 export function calculateProductionRate(params: {
@@ -152,7 +152,7 @@ export function calculateProductionRate(params: {
 
 /**
  * Calculate accumulated resources since last harvest
- * 
+ *
  * @param productionRate - Units per hour
  * @param lastHarvested - Timestamp of last harvest (or null for new plots)
  * @returns Number of resources accumulated
@@ -186,7 +186,7 @@ export function calculateAccumulatedResources(
 
 /**
  * Calculate resource quality multiplier for trading/using
- * 
+ *
  * Quality ranges from 0-100:
  * - 0-20: Very Poor (0.5x value)
  * - 21-40: Poor (0.75x value)
@@ -215,14 +215,11 @@ export function getQualityRating(quality: number): string {
 
 /**
  * Calculate how many plots a tile can support based on biome
- * 
+ *
  * This uses the biome's plotsMin and plotsMax to determine base slots,
  * then applies terrain modifiers
  */
-export function calculatePlotSlots(biome: {
-  plotsMin: number;
-  plotsMax: number;
-}): number {
+export function calculatePlotSlots(biome: { plotsMin: number; plotsMax: number }): number {
   const baseSlots = Math.floor((biome.plotsMin + biome.plotsMax) / 2);
   return Math.max(4, Math.min(9, baseSlots)); // Clamp between 4-9
 }

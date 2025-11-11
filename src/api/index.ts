@@ -23,7 +23,7 @@ const router = Router();
 // Request logging middleware
 router.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
-  
+
   // Log request
   logger.debug('[API] → Request', {
     method: req.method,
@@ -36,7 +36,7 @@ router.use((req: Request, res: Response, next: NextFunction) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     const level = res.statusCode >= 400 ? 'warn' : 'debug';
-    
+
     logger[level]('[API] ← Response', {
       method: req.method,
       path: req.path,

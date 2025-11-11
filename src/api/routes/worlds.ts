@@ -64,7 +64,10 @@ router.get('/:id', authenticate, async (req, res) => {
           with: {
             tiles: {
               // Order tiles by their coordinates (x=row, y=column) to match creation order
-              orderBy: (tilesTable: typeof tiles, { asc }: any) => [asc(tilesTable.xCoord), asc(tilesTable.yCoord)],
+              orderBy: (tilesTable: typeof tiles, { asc }: any) => [
+                asc(tilesTable.xCoord),
+                asc(tilesTable.yCoord),
+              ],
               with: {
                 biome: true,
                 plots: {
@@ -114,7 +117,7 @@ function calculateWorldStatistics(regions: any[]) {
 
   for (const region of regions) {
     const tiles = region.tiles || [];
-    
+
     // If region has tile records, count them
     if (tiles.length > 0) {
       for (const tile of tiles) {
