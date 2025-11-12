@@ -584,6 +584,15 @@ async function generateWorldInBackground(
   try {
     logger.info(`[BACKGROUND] Starting generation for world ${worldId}`);
 
+    // Transform options to ensure scale is a function
+    const transformOptions = (opts: any) => ({
+      amplitude: opts.amplitude || 1,
+      persistence: opts.persistence || 0.5,
+      frequency: opts.frequency || 0.05,
+      octaves: opts.octaves || 8,
+      scale: typeof opts.scale === 'function' ? opts.scale : (x: number) => x * (opts.scale || 1),
+    });
+
     // Call createWorld with the existing worldId
     await createWorld({
       serverId,
@@ -592,9 +601,9 @@ async function generateWorldInBackground(
       width: settings.width,
       height: settings.height,
       seed: settings.seed,
-      elevationOptions: settings.elevationOptions,
-      precipitationOptions: settings.precipitationOptions,
-      temperatureOptions: settings.temperatureOptions,
+      elevationOptions: transformOptions(settings.elevationOptions),
+      precipitationOptions: transformOptions(settings.precipitationOptions),
+      temperatureOptions: transformOptions(settings.temperatureOptions),
     });
 
     // Update world status to 'ready'
