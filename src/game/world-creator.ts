@@ -28,6 +28,7 @@ import { generateId, getAllBiomes, findBiome } from '../db/queries.js';
 export interface WorldCreationOptions {
   serverId: string | null;
   worldName: string;
+  worldId?: string; // Optional: if provided, use this ID instead of generating a new one
   width: number;
   height: number;
   seed: number;
@@ -81,8 +82,8 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
 
   logger.info('[WORLD CREATE] Loaded biomes', { biomeCount: biomes.length });
 
-  // Step 3: Create world record
-  const worldId = generateId();
+  // Step 3: Create or use existing world record
+  const worldId = options.worldId || generateId();
   const worldRecord = {
     id: worldId,
     name: options.worldName,
@@ -217,8 +218,10 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
   logger.info('[WORLD CREATE] Saving to database...');
 
   await db.transaction(async (tx) => {
-    // Insert world
-    await tx.insert(worlds).values(worldRecord);
+    // Insert world (only if worldId was not provided - meaning it's a new world)
+    if (!options.worldId) {
+      await tx.insert(worlds).values(worldRecord);
+    }
 
     // Insert regions in batches
     const regionBatchSize = 100;

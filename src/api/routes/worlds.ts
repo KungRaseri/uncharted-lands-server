@@ -219,10 +219,27 @@ router.post('/', authenticateAdmin, async (req, res) => {
         dimensions: `${width}x${height}`,
       });
 
+      // First, create the world record with 'generating' status
+      const [newWorld] = await db
+        .insert(worlds)
+        .values({
+          id: createId(),
+          name,
+          serverId,
+          elevationSettings: elevationSettings || {},
+          precipitationSettings: precipitationSettings || {},
+          temperatureSettings: temperatureSettings || {},
+          status: 'generating',
+        })
+        .returning();
+
+      logger.info(`[API] Created world record: ${newWorld.id} - ${newWorld.name}`);
+
       try {
         const result = await createWorld({
           serverId,
           worldName: name,
+          worldId: newWorld.id, // Pass the existing world ID
           width,
           height,
           seed: elevationSeed || Date.now(),
@@ -249,7 +266,13 @@ router.post('/', authenticateAdmin, async (req, res) => {
           },
         });
 
-        logger.info(`[API] World creation complete`, {
+        // Update world status to 'ready'
+        await db
+          .update(worlds)
+          .set({ status: 'ready', updatedAt: new Date() })
+          .where(eq(worlds.id, newWorld.id));
+
+        logger.info(`[API] World generation complete`, {
           worldId: result.worldId,
           regions: result.regionCount,
           tiles: result.tileCount,
@@ -257,14 +280,20 @@ router.post('/', authenticateAdmin, async (req, res) => {
           duration: `${(result.duration / 1000).toFixed(2)}s`,
         });
 
-        // Fetch the created world to return
+        // Fetch the updated world to return
         const createdWorld = await db.query.worlds.findFirst({
           where: eq(worlds.id, result.worldId),
         });
 
         return res.status(201).json(createdWorld);
       } catch (error) {
-        logger.error(`[API] Failed to generate world`, { error });
+        // Update world status to 'failed' on error
+        await db
+          .update(worlds)
+          .set({ status: 'failed', updatedAt: new Date() })
+          .where(eq(worlds.id, newWorld.id));
+
+        logger.error(`[API] Failed to generate world`, { worldId: newWorld.id, error });
         return sendServerError(res, error, 'Failed to generate world data', 'GENERATION_FAILED');
       }
     }
