@@ -384,6 +384,7 @@ router.post('/', authenticateAdmin, async (req, res) => {
         elevationSettings: elevationSettings || {},
         precipitationSettings: precipitationSettings || {},
         temperatureSettings: temperatureSettings || {},
+        status: 'pending', // Set to pending when not generating immediately
       })
       .returning();
 
@@ -485,5 +486,141 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     sendServerError(res, error, 'Failed to delete world', 'DELETE_FAILED');
   }
 });
+
+/**
+ * POST /api/worlds/:id/generate
+ * Start async world generation for an existing world record
+ * Updates world status and triggers background generation
+ */
+router.post('/:id/generate', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { width, height, seed, elevationOptions, precipitationOptions, temperatureOptions } =
+      req.body;
+
+    // Validate required fields
+    if (
+      !width ||
+      !height ||
+      !seed ||
+      !elevationOptions ||
+      !precipitationOptions ||
+      !temperatureOptions
+    ) {
+      return sendBadRequestError(res, 'Missing required generation settings');
+    }
+
+    // Check if world exists
+    const existing = await db.query.worlds.findFirst({
+      where: eq(worlds.id, id),
+    });
+
+    if (!existing) {
+      return sendNotFoundError(res, 'World not found');
+    }
+
+    // Update world status to 'generating'
+    await db
+      .update(worlds)
+      .set({
+        status: 'generating',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, id));
+
+    logger.info(`[API] Starting generation for world: ${id} - ${existing.name}`);
+
+    // Start async generation (don't await - fire and forget)
+    // This runs in the background and updates status when complete
+    generateWorldInBackground(id, existing.name, existing.serverId, {
+      width,
+      height,
+      seed,
+      elevationOptions,
+      precipitationOptions,
+      temperatureOptions,
+    }).catch((error) => {
+      logger.error(`[API] Background generation failed for world ${id}:`, error);
+      // Update status to failed
+      db.update(worlds)
+        .set({
+          status: 'failed',
+          updatedAt: new Date(),
+        })
+        .where(eq(worlds.id, id))
+        .catch((updateError) => {
+          logger.error(`[API] Failed to update world status to failed:`, updateError);
+        });
+    });
+
+    // Return immediately - client will poll for status
+    res.json({
+      success: true,
+      message: 'World generation started',
+      status: 'generating',
+    });
+  } catch (error) {
+    sendServerError(res, error, 'Failed to start world generation', 'GENERATE_FAILED');
+  }
+});
+
+/**
+ * Background world generation process
+ * Runs asynchronously and updates world status when complete
+ */
+async function generateWorldInBackground(
+  worldId: string,
+  worldName: string,
+  serverId: string | null,
+  settings: {
+    width: number;
+    height: number;
+    seed: number;
+    elevationOptions: any;
+    precipitationOptions: any;
+    temperatureOptions: any;
+  }
+) {
+  try {
+    logger.info(`[BACKGROUND] Starting generation for world ${worldId}`);
+
+    // Call createWorld with the existing worldId
+    await createWorld({
+      serverId,
+      worldName,
+      worldId, // Pass existing ID so it doesn't create a new world record
+      width: settings.width,
+      height: settings.height,
+      seed: settings.seed,
+      elevationOptions: settings.elevationOptions,
+      precipitationOptions: settings.precipitationOptions,
+      temperatureOptions: settings.temperatureOptions,
+    });
+
+    // Update world status to 'ready'
+    await db
+      .update(worlds)
+      .set({
+        status: 'ready',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, worldId));
+
+    logger.info(`[BACKGROUND] Successfully generated world ${worldId}`);
+  } catch (error) {
+    logger.error(`[BACKGROUND] Generation failed for world ${worldId}:`, error);
+
+    // Update world status to 'failed'
+    await db
+      .update(worlds)
+      .set({
+        status: 'failed',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, worldId));
+
+    throw error; // Re-throw so the caller's catch block can log it
+  }
+}
 
 export default router;
