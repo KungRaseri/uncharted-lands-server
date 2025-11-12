@@ -56,9 +56,22 @@ router.post('/register', strictLimiter, async (req, res) => {
     }
 
     // Check if account already exists
-    const existingAccount = await db.query.accounts.findFirst({
-      where: eq(accounts.email, email),
-    });
+    let existingAccount;
+    try {
+      existingAccount = await db.query.accounts.findFirst({
+        where: eq(accounts.email, email),
+      });
+    } catch (dbError) {
+      logger.error('[AUTH] Database query failed while checking existing account', {
+        requestId,
+        error: dbError,
+        email: `${email.substring(0, 3)}***`,
+      });
+      return res.status(500).json({
+        error: 'Database error. Please try again later.',
+        code: 'DATABASE_ERROR',
+      });
+    }
 
     if (existingAccount) {
       logger.info('[AUTH] Registration failed - email already registered', {
@@ -83,23 +96,35 @@ router.post('/register', strictLimiter, async (req, res) => {
     logger.debug('[AUTH] Creating new account', { requestId, accountId });
 
     // Create account
-    await db.insert(accounts).values({
-      id: accountId,
-      email,
-      passwordHash, // Store the bcrypt hash
-      userAuthToken,
-      role: 'MEMBER',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    try {
+      await db.insert(accounts).values({
+        id: accountId,
+        email,
+        passwordHash, // Store the bcrypt hash
+        userAuthToken,
+        role: 'MEMBER',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
 
-    // Create profile with username (use email as default if not provided)
-    await db.insert(profiles).values({
-      id: createId(),
-      accountId,
-      username: username || email, // Default to email if no username provided
-      picture: '', // Default empty picture
-    });
+      // Create profile with username (use email as default if not provided)
+      await db.insert(profiles).values({
+        id: createId(),
+        accountId,
+        username: username || email, // Default to email if no username provided
+        picture: '', // Default empty picture
+      });
+    } catch (dbError) {
+      logger.error('[AUTH] Database error during account creation', {
+        requestId,
+        error: dbError,
+        accountId,
+      });
+      return res.status(500).json({
+        error: 'Failed to create account. Please try again later.',
+        code: 'DATABASE_ERROR',
+      });
+    }
 
     logger.info('[AUTH] ✓ Account created successfully', {
       requestId,
