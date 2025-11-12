@@ -19,7 +19,7 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "prepare": "husky",
+    "prepare": "node -e \"try { require('fs').statSync('.git') && require('child_process').execSync('husky', {stdio:'inherit'}) } catch (e) {}\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:run": "tsx scripts/migrate.ts",
