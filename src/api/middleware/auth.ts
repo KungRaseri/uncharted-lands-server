@@ -9,6 +9,7 @@ import { db } from '../../db/index.js';
 import { accounts } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../../utils/logger.js';
+import { setUserContext } from '../../utils/sentry.js';
 
 // Type alias for account roles
 type AccountRole = 'MEMBER' | 'SUPPORT' | 'ADMINISTRATOR';
@@ -123,6 +124,13 @@ export const authenticateAdmin = async (
       role: user.role,
     };
 
+    // Set Sentry user context for error tracking
+    setUserContext({
+      id: user.id,
+      email: user.email,
+      username: req.user.username,
+    });
+
     reqLogger.info(`[API AUTH] ✓ Admin authenticated`, { email: user.email, userId: user.id });
     next();
   } catch (error) {
@@ -176,6 +184,13 @@ export const authenticate = async (
       role: user.role,
     };
 
+    // Set Sentry user context for error tracking
+    setUserContext({
+      id: user.id,
+      email: user.email,
+      username: req.user.username,
+    });
+
     reqLogger.info(`[API AUTH] ✓ User authenticated`, { email: user.email, userId: user.id });
     next();
   } catch (error) {
@@ -218,6 +233,14 @@ export const optionalAuth = async (
           user.email,
         role: user.role,
       };
+      
+      // Set Sentry user context for error tracking
+      setUserContext({
+        id: user.id,
+        email: user.email,
+        username: req.user.username,
+      });
+      
       logger.info(`[API AUTH] Optional auth: ${user.email} (${user.role})`);
     }
 

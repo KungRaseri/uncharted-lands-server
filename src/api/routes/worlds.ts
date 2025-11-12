@@ -12,6 +12,7 @@ import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
 import { createWorld } from '../../game/world-creator.js';
+import { startSpan } from '../../utils/sentry.js';
 
 const router = Router();
 
@@ -55,27 +56,37 @@ router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const world = await db.query.worlds.findFirst({
-      where: eq(worlds.id, id),
-      with: {
-        server: true,
-        regions: {
-          orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
+    // Use Sentry span for database query performance tracking
+    const world = await startSpan(
+      {
+        op: 'db.query',
+        name: 'Find World with Details',
+        attributes: { worldId: id },
+      },
+      async (span) => {
+        const result = await db.query.worlds.findFirst({
+          where: eq(worlds.id, id),
           with: {
-            tiles: {
-              // Order tiles by their coordinates (x=row, y=column) to match creation order
-              orderBy: (tilesTable: typeof tiles, { asc }: any) => [
-                asc(tilesTable.xCoord),
-                asc(tilesTable.yCoord),
-              ],
+            server: true,
+            regions: {
+              orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
               with: {
-                biome: true,
-                plots: {
+                tiles: {
+                  // Order tiles by their coordinates (x=row, y=column) to match creation order
+                  orderBy: (tilesTable: typeof tiles, { asc }: any) => [
+                    asc(tilesTable.xCoord),
+                    asc(tilesTable.yCoord),
+                  ],
                   with: {
-                    settlement: {
-                      columns: {
-                        id: true,
-                        name: true,
+                    biome: true,
+                    plots: {
+                      with: {
+                        settlement: {
+                          columns: {
+                            id: true,
+                            name: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -83,9 +94,15 @@ router.get('/:id', authenticate, async (req, res) => {
               },
             },
           },
-        },
-      },
-    });
+        });
+
+        if (result) {
+          span?.setAttribute('regions', result.regions?.length || 0);
+        }
+
+        return result;
+      }
+    );
 
     if (!world) {
       return sendNotFoundError(res, 'World not found');
@@ -255,35 +272,58 @@ router.post('/', authenticateAdmin, async (req, res) => {
       try {
         reqLogger.startTimer(`world-generation-${newWorld.id}`);
 
-        const result = await createWorld({
-          serverId,
-          worldName: name,
-          worldId: newWorld.id, // Pass the existing world ID
-          width,
-          height,
-          seed: elevationSeed || Date.now(),
-          elevationOptions: {
-            amplitude: elevationSettings?.amplitude || 1,
-            persistence: elevationSettings?.persistence || 0.5,
-            frequency: elevationSettings?.frequency || 0.05,
-            octaves: elevationSettings?.octaves || 8,
-            scale: (x: number) => x * (elevationSettings?.scale || 1),
+        // Use Sentry span for performance monitoring
+        const result = await startSpan(
+          {
+            op: 'world.generation',
+            name: `Generate World: ${name}`,
+            attributes: {
+              worldId: newWorld.id,
+              worldName: name,
+              width,
+              height,
+              totalSize: width * height,
+            },
           },
-          precipitationOptions: {
-            amplitude: precipitationSettings?.amplitude || 1,
-            persistence: precipitationSettings?.persistence || 0.5,
-            frequency: precipitationSettings?.frequency || 0.05,
-            octaves: precipitationSettings?.octaves || 8,
-            scale: (x: number) => x * (precipitationSettings?.scale || 1),
-          },
-          temperatureOptions: {
-            amplitude: temperatureSettings?.amplitude || 1,
-            persistence: temperatureSettings?.persistence || 0.5,
-            frequency: temperatureSettings?.frequency || 0.05,
-            octaves: temperatureSettings?.octaves || 8,
-            scale: (x: number) => x * (temperatureSettings?.scale || 1),
-          },
-        });
+          async (span) => {
+            const result = await createWorld({
+              serverId,
+              worldName: name,
+              worldId: newWorld.id, // Pass the existing world ID
+              width,
+              height,
+              seed: elevationSeed || Date.now(),
+              elevationOptions: {
+                amplitude: elevationSettings?.amplitude || 1,
+                persistence: elevationSettings?.persistence || 0.5,
+                frequency: elevationSettings?.frequency || 0.05,
+                octaves: elevationSettings?.octaves || 8,
+                scale: (x: number) => x * (elevationSettings?.scale || 1),
+              },
+              precipitationOptions: {
+                amplitude: precipitationSettings?.amplitude || 1,
+                persistence: precipitationSettings?.persistence || 0.5,
+                frequency: precipitationSettings?.frequency || 0.05,
+                octaves: precipitationSettings?.octaves || 8,
+                scale: (x: number) => x * (precipitationSettings?.scale || 1),
+              },
+              temperatureOptions: {
+                amplitude: temperatureSettings?.amplitude || 1,
+                persistence: temperatureSettings?.persistence || 0.5,
+                frequency: temperatureSettings?.frequency || 0.05,
+                octaves: temperatureSettings?.octaves || 8,
+                scale: (x: number) => x * (temperatureSettings?.scale || 1),
+              },
+            });
+
+            // Add metrics to span
+            span?.setAttribute('regions', result.regionCount);
+            span?.setAttribute('tiles', result.tileCount);
+            span?.setAttribute('plots', result.plotCount);
+
+            return result;
+          }
+        );
 
         const generationDuration = reqLogger.endTimer(`world-generation-${newWorld.id}`, {
           worldId: newWorld.id,

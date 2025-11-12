@@ -2,7 +2,10 @@
  * Logger Utility
  *
  * Centralized logging with different levels, structured output, and request tracing
+ * Integrates with Sentry for error tracking
  */
+
+import { captureException, captureMessage, addBreadcrumb as sentryBreadcrumb, isSentryEnabled } from './sentry.js';
 
 export enum LogLevel {
   DEBUG = 0,
@@ -135,6 +138,25 @@ class Logger {
       }
 
       console.error(this.format('ERROR', message, errorContext));
+
+      // Send to Sentry in production or if explicitly enabled
+      if (this.isProd) {
+        try {
+          const { captureException, addBreadcrumb } = require('./sentry.js');
+          
+          // Add breadcrumb for context
+          addBreadcrumb(message, 'error', context);
+          
+          // Capture exception
+          if (error instanceof Error) {
+            captureException(error, context);
+          } else if (error) {
+            captureException(new Error(message), { ...context, originalError: error });
+          }
+        } catch (e) {
+          // Ignore sentry errors
+        }
+      }
     }
   }
 

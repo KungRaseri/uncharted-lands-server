@@ -4,11 +4,16 @@
  * Real-time multiplayer game server using Socket.IO
  */
 
+// Initialize Sentry FIRST (before any other imports)
+import { initSentry } from './utils/sentry.js';
+initSentry();
+
 import { Server } from 'socket.io';
 import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+import { expressErrorHandler } from '@sentry/node';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -59,6 +64,9 @@ app.use('/api', apiLimiter);
 
 // REST API routes
 app.use('/api', apiRouter);
+
+// Sentry error handler (must be after routes but before other error handlers)
+app.use(expressErrorHandler());
 
 // Error logging middleware (logs all errors)
 app.use(errorLogger);
@@ -157,7 +165,8 @@ io.on('connection', (socket) => {
     logger.info('[SOCKET] ✗ Client disconnected', {
       socketId: socket.id,
       reason,
-      duration: `${(duration / 1000).toFixed(2)}s`,
+      durationMs: duration,
+      durationFormatted: `${(duration / 1000).toFixed(2)}s`,
       playerId: socket.data.playerId || 'unauthenticated',
     });
   });
