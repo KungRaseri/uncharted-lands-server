@@ -26,6 +26,7 @@ import { closeDatabase, isDatabaseConnected } from './db/index.js';
 import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop.js';
 import apiRouter from './api/index.js';
 import { apiLimiter } from './api/middleware/rateLimit.js';
+import { requestLogger, errorLogger } from './api/middleware/request-logger.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,11 +51,17 @@ app.use(
 app.use(express.json()); // Default limit is sufficient for settings
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging middleware (adds request ID and logs all requests)
+app.use(requestLogger);
+
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
 
 // REST API routes
 app.use('/api', apiRouter);
+
+// Error logging middleware (logs all errors)
+app.use(errorLogger);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

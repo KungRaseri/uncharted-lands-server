@@ -189,6 +189,9 @@ function processTile(tile: any) {
  * }
  */
 router.post('/', authenticateAdmin, async (req, res) => {
+  const reqLogger = req.logger || logger;
+  const startTime = Date.now();
+
   try {
     const {
       name,
@@ -206,17 +209,27 @@ router.post('/', authenticateAdmin, async (req, res) => {
       elevationSeed,
     } = req.body;
 
+    reqLogger.info('[WORLD CREATE] Request received', {
+      userId: req.user?.id,
+      name,
+      serverId,
+      generate,
+      dimensions: generate ? `${width}x${height}` : 'n/a',
+    });
+
     // Validation
     if (!name || !serverId) {
+      reqLogger.warn('[WORLD CREATE] Missing required fields', { name: !!name, serverId: !!serverId });
       return sendBadRequestError(res, 'Missing required fields: name and serverId');
     }
 
     // Server-side generation mode (FULL world with tiles and plots)
     if (generate && width && height) {
-      logger.info(`[API] Generating complete world server-side`, {
+      reqLogger.info(`[WORLD CREATE] Starting server-side generation`, {
         name,
         serverId,
         dimensions: `${width}x${height}`,
+        estimatedTime: `${Math.round((width * height) / 100)}s`,
       });
 
       // First, create the world record with 'generating' status
@@ -233,9 +246,15 @@ router.post('/', authenticateAdmin, async (req, res) => {
         })
         .returning();
 
-      logger.info(`[API] Created world record: ${newWorld.id} - ${newWorld.name}`);
+      reqLogger.info(`[WORLD CREATE] World record created`, { 
+        worldId: newWorld.id, 
+        name: newWorld.name,
+        status: 'generating',
+      });
 
       try {
+        reqLogger.startTimer(`world-generation-${newWorld.id}`);
+
         const result = await createWorld({
           serverId,
           worldName: name,
@@ -266,18 +285,27 @@ router.post('/', authenticateAdmin, async (req, res) => {
           },
         });
 
+        const generationDuration = reqLogger.endTimer(`world-generation-${newWorld.id}`, {
+          worldId: newWorld.id,
+          regions: result.regionCount,
+          tiles: result.tileCount,
+          plots: result.plotCount,
+        });
+
         // Update world status to 'ready'
         await db
           .update(worlds)
           .set({ status: 'ready', updatedAt: new Date() })
           .where(eq(worlds.id, newWorld.id));
 
-        logger.info(`[API] World generation complete`, {
+        reqLogger.info(`[WORLD CREATE] Generation complete`, {
           worldId: result.worldId,
+          status: 'ready',
           regions: result.regionCount,
           tiles: result.tileCount,
           plots: result.plotCount,
-          duration: `${(result.duration / 1000).toFixed(2)}s`,
+          duration: generationDuration,
+          totalDuration: Date.now() - startTime,
         });
 
         // Fetch the updated world to return
@@ -287,13 +315,18 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
         return res.status(201).json(createdWorld);
       } catch (error) {
+        reqLogger.error('[WORLD CREATE] Generation failed', error, { 
+          worldId: newWorld.id,
+          name: newWorld.name,
+          dimensions: `${width}x${height}`,
+        });
+
         // Update world status to 'failed' on error
         await db
           .update(worlds)
           .set({ status: 'failed', updatedAt: new Date() })
           .where(eq(worlds.id, newWorld.id));
 
-        logger.error(`[API] Failed to generate world`, { worldId: newWorld.id, error });
         return sendServerError(res, error, 'Failed to generate world data', 'GENERATION_FAILED');
       }
     }
