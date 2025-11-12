@@ -123,6 +123,7 @@ export const worlds = pgTable(
     elevationSettings: json('elevationSettings').notNull(),
     precipitationSettings: json('precipitationSettings').notNull(),
     temperatureSettings: json('temperatureSettings').notNull(),
+    status: text('status').notNull().default('generating'), // 'generating', 'ready', 'failed'
     serverId: text('serverId')
       .notNull()
       .references(() => servers.id, { onDelete: 'cascade' }),
