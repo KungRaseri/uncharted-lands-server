@@ -29,6 +29,7 @@ const queryClient = postgres(process.env.DATABASE_URL, {
   max: 10, // Connection pool size
   idle_timeout: 20,
   connect_timeout: 10,
+  prepare: false, // Disable prepared statements for better compatibility with connection poolers
   onnotice: () => {}, // Suppress notices
   onparameter: () => {}, // Suppress parameter changes
   debug:
