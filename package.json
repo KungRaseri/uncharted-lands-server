@@ -19,12 +19,20 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
+    "prepare": "husky",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:run": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "prettier --write",
+      "eslint --fix",
+      "tsc --noEmit"
+    ]
   },
   "keywords": [
     "websocket",
@@ -62,6 +70,8 @@
     "@vitest/coverage-v8": "^4.0.7",
     "drizzle-kit": "^0.31.6",
     "eslint": "^9.18.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
     "prettier": "^3.4.2",
     "supertest": "^7.1.4",
     "tsx": "^4.19.2",
