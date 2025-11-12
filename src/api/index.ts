@@ -41,7 +41,8 @@ router.use((req: Request, res: Response, next: NextFunction) => {
       method: req.method,
       path: req.path,
       status: res.statusCode,
-      duration: `${duration}ms`,
+      durationMs: duration,
+      durationFormatted: `${duration}ms`,
     });
   });
 

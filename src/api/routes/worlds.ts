@@ -236,7 +236,10 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
     // Validation
     if (!name || !serverId) {
-      reqLogger.warn('[WORLD CREATE] Missing required fields', { name: !!name, serverId: !!serverId });
+      reqLogger.warn('[WORLD CREATE] Missing required fields', {
+        name: !!name,
+        serverId: !!serverId,
+      });
       return sendBadRequestError(res, 'Missing required fields: name and serverId');
     }
 
@@ -263,8 +266,8 @@ router.post('/', authenticateAdmin, async (req, res) => {
         })
         .returning();
 
-      reqLogger.info(`[WORLD CREATE] World record created`, { 
-        worldId: newWorld.id, 
+      reqLogger.info(`[WORLD CREATE] World record created`, {
+        worldId: newWorld.id,
         name: newWorld.name,
         status: 'generating',
       });
@@ -355,7 +358,7 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
         return res.status(201).json(createdWorld);
       } catch (error) {
-        reqLogger.error('[WORLD CREATE] Generation failed', error, { 
+        reqLogger.error('[WORLD CREATE] Generation failed', error, {
           worldId: newWorld.id,
           name: newWorld.name,
           dimensions: `${width}x${height}`,

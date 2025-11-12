@@ -5,8 +5,6 @@
  * Integrates with Sentry for error tracking
  */
 
-import { captureException, captureMessage, addBreadcrumb as sentryBreadcrumb, isSentryEnabled } from './sentry.js';
-
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -76,7 +74,7 @@ class Logger {
     if (context && Object.keys(context).length > 0) {
       // Extract special fields for inline display
       const { requestId, userId, duration, statusCode, ...rest } = context;
-      
+
       const inline: string[] = [];
       if (requestId) inline.push(`req=${requestId}`);
       if (userId) inline.push(`user=${userId}`);
@@ -84,7 +82,7 @@ class Logger {
       if (duration !== undefined) inline.push(`${duration}ms`);
 
       const inlineStr = inline.length > 0 ? ` [${inline.join(' ')}]` : '';
-      
+
       // Add remaining context as JSON if present
       const hasRest = Object.keys(rest).length > 0;
       contextStr = inlineStr + (hasRest ? ` ${JSON.stringify(rest)}` : '');
@@ -143,24 +141,22 @@ class Logger {
       if (this.isProd) {
         try {
           const { captureException, addBreadcrumb } = require('./sentry.js');
-          
+
           // Add breadcrumb for context
           addBreadcrumb(message, 'error', context);
-          
+
           // Capture exception
           if (error instanceof Error) {
             captureException(error, context);
           } else if (error) {
             captureException(new Error(message), { ...context, originalError: error });
           }
-        } catch (e) {
-          // Ignore sentry errors
+        } catch {
+          // Ignore sentry errors to prevent logging infinite loops
         }
       }
     }
-  }
-
-  /**
+  } /**
    * Start a performance timer
    */
   startTimer(label: string): void {
@@ -194,7 +190,13 @@ class Logger {
   /**
    * Log HTTP response
    */
-  httpResponse(method: string, path: string, statusCode: number, duration: number, context?: LogContext): void {
+  httpResponse(
+    method: string,
+    path: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext
+  ): void {
     const emoji = statusCode >= 500 ? '❌' : statusCode >= 400 ? '⚠️' : '✓';
     this.info(`${emoji} ${method} ${path}`, { ...context, statusCode, duration });
   }
@@ -271,7 +273,13 @@ class ChildLogger {
     this.parent.httpRequest(method, path, this.mergeContext(context));
   }
 
-  httpResponse(method: string, path: string, statusCode: number, duration: number, context?: LogContext): void {
+  httpResponse(
+    method: string,
+    path: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext
+  ): void {
     this.parent.httpResponse(method, path, statusCode, duration, this.mergeContext(context));
   }
 }

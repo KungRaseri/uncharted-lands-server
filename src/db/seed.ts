@@ -263,7 +263,8 @@ async function seedBiomes() {
 
       if (existing) {
         // Update existing biome (preserve existing ID)
-        const { id, ...biomeDataWithoutId } = biome;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _id, ...biomeDataWithoutId } = biome;
         await db.update(biomes).set(biomeDataWithoutId).where(eq(biomes.name, biome.name));
 
         logger.info(`[SEED] Updated biome: ${biome.name} [ID: ${existing.id}]`);

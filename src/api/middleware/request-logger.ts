@@ -51,7 +51,7 @@ function getUserContext(req: Request): { userId?: string; userEmail?: string } {
 
 /**
  * Request logging middleware
- * 
+ *
  * Adds:
  * - Unique request ID
  * - Request start time
@@ -111,12 +111,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
 /**
  * Error logging middleware (should be added after routes)
  */
-export const errorLogger = (
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const errorLogger = (err: Error, req: Request, res: Response, next: NextFunction): void => {
   const duration = Date.now() - (req.startTime || Date.now());
   const userContext = getUserContext(req);
 

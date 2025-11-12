@@ -95,16 +95,18 @@ export const authenticateAdmin = async (
     const user = await validateSessionToken(sessionToken);
 
     if (!user) {
-      reqLogger.warn('[API AUTH] Invalid session token', { sessionToken: sessionToken.substring(0, 8) + '...' });
+      reqLogger.warn('[API AUTH] Invalid session token', {
+        sessionToken: sessionToken.substring(0, 8) + '...',
+      });
       sendUnauthorizedResponse(res, 'INVALID_SESSION', 'Invalid or expired session');
       return;
     }
 
     // Check if user has ADMINISTRATOR role
     if (user.role !== 'ADMINISTRATOR') {
-      reqLogger.warn(`[API AUTH] User attempted admin access without permissions`, { 
-        email: user.email, 
-        role: user.role 
+      reqLogger.warn(`[API AUTH] User attempted admin access without permissions`, {
+        email: user.email,
+        role: user.role,
       });
       res.status(403).json({
         error: 'Forbidden',
@@ -169,7 +171,9 @@ export const authenticate = async (
     const user = await validateSessionToken(sessionToken);
 
     if (!user) {
-      reqLogger.warn('[API AUTH] Invalid session token', { sessionToken: sessionToken.substring(0, 8) + '...' });
+      reqLogger.warn('[API AUTH] Invalid session token', {
+        sessionToken: sessionToken.substring(0, 8) + '...',
+      });
       sendUnauthorizedResponse(res, 'INVALID_SESSION', 'Invalid or expired session');
       return;
     }
@@ -233,14 +237,14 @@ export const optionalAuth = async (
           user.email,
         role: user.role,
       };
-      
+
       // Set Sentry user context for error tracking
       setUserContext({
         id: user.id,
         email: user.email,
         username: req.user.username,
       });
-      
+
       logger.info(`[API AUTH] Optional auth: ${user.email} (${user.role})`);
     }
 

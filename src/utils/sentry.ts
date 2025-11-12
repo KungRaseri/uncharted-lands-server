@@ -1,6 +1,6 @@
 /**
  * Sentry Configuration for Server
- * 
+ *
  * Error tracking, performance monitoring, profiling, and structured logging
  */
 
@@ -45,13 +45,13 @@ export function initSentry(): void {
     integrations: [
       // Profiling
       nodeProfilingIntegration(),
-      
+
       // HTTP integration (automatic breadcrumbs)
       Sentry.httpIntegration(),
-      
+
       // Express integration (automatic instrumentation)
       Sentry.expressIntegration(),
-      
+
       // Console logging integration - send console.log, console.warn, console.error to Sentry
       Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
     ],
@@ -61,12 +61,12 @@ export function initSentry(): void {
       // Rate limit errors
       'Too Many Requests',
       'RATE_LIMIT_EXCEEDED',
-      
+
       // Client disconnects
       'ECONNRESET',
       'EPIPE',
       'ECANCELED',
-      
+
       // Authentication errors (expected)
       'NO_SESSION',
       'INVALID_SESSION',
@@ -74,7 +74,7 @@ export function initSentry(): void {
     ],
 
     // Before send hook - add custom context
-    beforeSend(event, hint) {
+    beforeSend(event, _hint) {
       // Add custom tags
       if (event.request) {
         event.tags = {
@@ -96,7 +96,7 @@ export function initSentry(): void {
     },
 
     // Breadcrumb filtering
-    beforeBreadcrumb(breadcrumb, hint) {
+    beforeBreadcrumb(breadcrumb, _hint) {
       // Don't send HTTP breadcrumbs for health checks
       if (breadcrumb.category === 'http' && breadcrumb.data?.url?.includes('/health')) {
         return null;
@@ -137,7 +137,11 @@ export function captureException(error: unknown, context?: Record<string, unknow
 /**
  * Capture message with context
  */
-export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, unknown>): string {
+export function captureMessage(
+  message: string,
+  level: Sentry.SeverityLevel = 'info',
+  context?: Record<string, unknown>
+): string {
   if (!isSentryEnabled()) {
     return '';
   }
@@ -177,7 +181,11 @@ export function clearUserContext(): void {
 /**
  * Add breadcrumb
  */
-export function addBreadcrumb(message: string, category: string, data?: Record<string, unknown>): void {
+export function addBreadcrumb(
+  message: string,
+  category: string,
+  data?: Record<string, unknown>
+): void {
   if (!isSentryEnabled()) {
     return;
   }
@@ -194,7 +202,7 @@ export function addBreadcrumb(message: string, category: string, data?: Record<s
 /**
  * Start a span for performance monitoring
  * Use this to measure meaningful actions like API calls, database queries, etc.
- * 
+ *
  * @example
  * ```typescript
  * const result = await startSpan(
