@@ -262,8 +262,9 @@ async function seedBiomes() {
       });
 
       if (existing) {
-        // Update existing biome
-        await db.update(biomes).set(biome).where(eq(biomes.name, biome.name));
+        // Update existing biome (preserve existing ID)
+        const { id, ...biomeDataWithoutId } = biome;
+        await db.update(biomes).set(biomeDataWithoutId).where(eq(biomes.name, biome.name));
 
         logger.info(`[SEED] Updated biome: ${biome.name} [ID: ${existing.id}]`);
         updated++;
