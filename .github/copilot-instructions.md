@@ -51,6 +51,24 @@ This file provides context and guidelines for GitHub Copilot when working on the
 
 ---
 
+## 📚 Game Design Documentation
+
+**All game design documentation is centralized in the client docs wiki.**
+
+- **📖 [Design Docs Quick Start](../../client/docs/game-design/DESIGN_DOCS_README.md)** - Start here! Explains how to use all design docs
+- **📚 [Game Design Document (GDD)](../../client/docs/game-design/GAME_DESIGN_DOCUMENT.md)** - Complete specifications for all game systems
+- **📊 [Implementation Tracker](../../client/docs/game-design/GDD_IMPLEMENTATION_TRACKER.md)** - Current status of all features (✅/🚧/📋)
+- **🔧 [Feature Spec Template](../../client/docs/templates/FEATURE_SPEC_TEMPLATE.md)** - Template for implementing new features
+
+**When implementing server-side game features:**
+1. Check GDD for game mechanics and formulas
+2. Review Implementation Tracker for current status
+3. Refer to feature spec in `client/docs/features/[feature-name].md`
+4. Implement Socket.IO events and game logic following patterns below
+5. Update tracker when complete
+
+---
+
 ## Documentation Policy
 
 **⚠️ CRITICAL: ALL project documentation MUST be placed in the `docs/` directory.**
