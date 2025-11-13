@@ -12,6 +12,8 @@ import {
   updateSettlementStorage,
   getSettlementWithDetails,
   getSettlementStructures,
+  getSettlementPopulation,
+  updateSettlementPopulation,
 } from '../db/queries.js';
 import { calculateProduction, addResources, subtractResources } from './resource-calculator.js';
 import {
@@ -20,6 +22,13 @@ import {
   hasResourcesForPopulation,
   type Structure,
 } from './consumption-calculator.js';
+import {
+  calculatePopulationState,
+  applyPopulationGrowth,
+  calculateImmigrationAmount,
+  calculateEmigrationAmount,
+  getPopulationSummary,
+} from './population-calculator.js';
 import {
   calculateStorageCapacity,
   clampToCapacity,
@@ -294,9 +303,160 @@ async function processSettlement(
       population,
       finalResources,
     });
+
+    // Process population growth every 10 minutes (36,000 ticks at 60Hz)
+    if (currentTick % 36000 === 0) {
+      await processPopulation(
+        settlement.settlementId,
+        settlement.worldId,
+        structures,
+        currentResources,
+        io
+      );
+    }
   } catch (error) {
     logger.error('[GAME LOOP] Error processing settlement:', error, {
       settlementId: settlement.settlementId,
+    });
+  }
+}
+
+/**
+ * Process population growth for a single settlement
+ */
+async function processPopulation(
+  settlementId: string,
+  worldId: string,
+  structures: Structure[],
+  resources: { food: number; water: number; wood: number; stone: number; ore: number },
+  io: SocketIOServer
+): Promise<void> {
+  try {
+    // Get current population data
+    const popData = await getSettlementPopulation(settlementId);
+
+    // Calculate current population state
+    const popState = calculatePopulationState(
+      popData.currentPopulation,
+      structures,
+      resources,
+      popData.lastGrowthTick.getTime()
+    );
+
+    // Apply natural growth
+    const timeSinceLastUpdate = Date.now() - popData.lastGrowthTick.getTime();
+    const newPopulation = applyPopulationGrowth(
+      popData.currentPopulation,
+      popState.growthRate,
+      timeSinceLastUpdate
+    );
+
+    // Check for immigration event (if happy enough)
+    let immigrantCount = 0;
+    if (Math.random() < popState.immigrationChance && newPopulation < popState.capacity) {
+      immigrantCount = calculateImmigrationAmount();
+
+      // Emit settler arrived event
+      io.to(`world:${worldId}`).emit('settler-arrived', {
+        settlementId,
+        population: newPopulation + immigrantCount,
+        immigrantCount,
+        happiness: Math.floor(popState.happiness),
+        timestamp: Date.now(),
+      });
+
+      logger.info('[GAME LOOP] Settlers arrived at settlement', {
+        settlementId,
+        immigrantCount,
+        newTotal: newPopulation + immigrantCount,
+      });
+    }
+
+    // Check for emigration event (if unhappy)
+    let emigrantCount = 0;
+    if (Math.random() < popState.emigrationChance && newPopulation > 1) {
+      emigrantCount = calculateEmigrationAmount(newPopulation);
+
+      // Emit population warning event
+      io.to(`world:${worldId}`).emit('population-warning', {
+        settlementId,
+        population: newPopulation - emigrantCount,
+        happiness: Math.floor(popState.happiness),
+        warning: 'emigration_risk',
+        message: `${emigrantCount} settlers left due to low happiness`,
+        timestamp: Date.now(),
+      });
+
+      logger.warn('[GAME LOOP] Settlers emigrated from settlement', {
+        settlementId,
+        emigrantCount,
+        newTotal: newPopulation - emigrantCount,
+        happiness: popState.happiness,
+      });
+    }
+
+    // Calculate final population
+    const finalPopulation = Math.max(
+      1,
+      Math.min(popState.capacity, newPopulation + immigrantCount - emigrantCount)
+    );
+
+    // Update database only if population changed
+    if (finalPopulation !== popData.currentPopulation || popState.happiness !== popData.happiness) {
+      await updateSettlementPopulation(settlementId, {
+        currentPopulation: finalPopulation,
+        happiness: Math.floor(popState.happiness),
+        lastGrowthTick: new Date(),
+      });
+
+      // Emit population growth event
+      if (finalPopulation !== popData.currentPopulation) {
+        io.to(`world:${worldId}`).emit('population-growth', {
+          settlementId,
+          oldPopulation: popData.currentPopulation,
+          newPopulation: finalPopulation,
+          happiness: Math.floor(popState.happiness),
+          growthRate: popState.growthRate,
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    // Emit population state update
+    const summary = getPopulationSummary(popState);
+    io.to(`world:${worldId}`).emit('population-state', {
+      settlementId,
+      current: finalPopulation,
+      capacity: popState.capacity,
+      happiness: summary.happiness,
+      happinessDescription: summary.happinessDescription,
+      growthRate: popState.growthRate,
+      status: summary.status,
+      timestamp: Date.now(),
+    });
+
+    // Warn if happiness is critically low
+    if (popState.happiness < 35 && popState.emigrationChance > 0) {
+      io.to(`world:${worldId}`).emit('population-warning', {
+        settlementId,
+        population: finalPopulation,
+        happiness: Math.floor(popState.happiness),
+        warning: 'low_happiness',
+        message: 'Settlement happiness is critically low! Settlers may leave.',
+        timestamp: Date.now(),
+      });
+    }
+
+    logger.debug('[GAME LOOP] Population processed', {
+      settlementId,
+      oldPop: popData.currentPopulation,
+      newPop: finalPopulation,
+      happiness: popState.happiness,
+      growthRate: popState.growthRate,
+    });
+  } catch (error) {
+    logger.error('[GAME LOOP] Error processing population:', error, {
+      settlementId,
     });
   }
 }

@@ -268,6 +268,20 @@ export const settlementStorage = pgTable('SettlementStorage', {
   ore: integer('ore').notNull(),
 });
 
+export const settlementPopulation = pgTable('SettlementPopulation', {
+  id: text('id').primaryKey(),
+  settlementId: text('settlementId')
+    .notNull()
+    .unique()
+    // @ts-expect-error - Circular reference
+    .references(() => settlements.id, { onDelete: 'cascade' }),
+  currentPopulation: integer('currentPopulation').notNull().default(10),
+  happiness: integer('happiness').notNull().default(50),
+  lastGrowthTick: timestamp('lastGrowthTick', { mode: 'date' }).defaultNow().notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
 // @ts-expect-error - Circular reference with plots is expected and works at runtime
 export const settlements = pgTable(
   'Settlement',

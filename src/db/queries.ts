@@ -13,6 +13,7 @@ import {
   profiles,
   settlements,
   settlementStorage,
+  settlementPopulation,
   settlementStructures,
   structureRequirements,
   structureModifiers,
@@ -270,6 +271,73 @@ export async function findBiome(precipitation: number, temperature: number) {
 
   // Return random matching biome for variety
   return filteredBiomes[Math.floor(Math.random() * filteredBiomes.length)];
+}
+
+// ===========================
+// POPULATION
+// ===========================
+
+/**
+ * Get or create population data for a settlement
+ */
+export async function getSettlementPopulation(settlementId: string) {
+  try {
+    const [population] = await db
+      .select()
+      .from(settlementPopulation)
+      .where(eq(settlementPopulation.settlementId, settlementId))
+      .limit(1);
+
+    // Create default population entry if none exists
+    if (!population) {
+      const newId = generateId();
+      const [created] = await db
+        .insert(settlementPopulation)
+        .values({
+          id: newId,
+          settlementId,
+          currentPopulation: 10,
+          happiness: 50,
+          lastGrowthTick: new Date(),
+        })
+        .returning();
+
+      return created;
+    }
+
+    return population;
+  } catch (error) {
+    logger.error('[DB] Failed to get settlement population', error, { settlementId });
+    throw error;
+  }
+}
+
+/**
+ * Update settlement population
+ */
+export async function updateSettlementPopulation(
+  settlementId: string,
+  updates: {
+    currentPopulation?: number;
+    happiness?: number;
+    lastGrowthTick?: Date;
+  }
+) {
+  try {
+    const [updated] = await db
+      .update(settlementPopulation)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(settlementPopulation.settlementId, settlementId))
+      .returning();
+
+    return updated;
+  } catch (error) {
+    logger.error('[DB] Failed to update settlement population', error, { settlementId, updates });
+    throw error;
+  }
 }
 
 // ===========================
