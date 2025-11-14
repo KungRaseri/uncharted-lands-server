@@ -9,6 +9,7 @@ projects:
       name: uncharted-lands-server
       runtime: node
       repo: https://github.com/KungRaseri/uncharted-lands-server
+      branch: main
       plan: starter
       envVars:
       - key: DATABASE_URL
