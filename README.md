@@ -403,7 +403,7 @@ const stats = getStats();
 ## 📖 Documentation
 
 - **[GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki)** - Complete documentation hub
-- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/Game-Design-Document)** - Complete game specifications
+- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Monolith)** - Complete game specifications
 - **[Implementation Tracker](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Implementation-Tracker)** - Feature status
 - **[Server Architecture](https://github.com/KungRaseri/uncharted-lands/wiki/Server-Architecture)** - Server design details
 - **[WebSocket API](https://github.com/KungRaseri/uncharted-lands/wiki/WebSocket-API)** - Socket.IO event reference
@@ -442,7 +442,7 @@ const stats = getStats();
 
 ## 📚 Resources
 
-- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/Game-Design-Document)** - Complete game specifications
+- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Monolith)** - Complete game specifications
 - **[GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki)** - All documentation
 - [Socket.IO Documentation](https://socket.io/docs/v4/)
 - [Drizzle ORM Documentation](https://orm.drizzle.team/docs/overview)
