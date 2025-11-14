@@ -1,8 +1,12 @@
+previews:
+  generation: automatic
 services:
   - type: web
     name: uncharted-lands-server
     runtime: node
-    plan: free
+    plan: starter
+    previews:
+      plan: free
     region: oregon
     buildCommand: npm install && npm run build
     preDeployCommand: npm run db:migrate:run
