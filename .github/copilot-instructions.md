@@ -55,17 +55,59 @@ This file provides context and guidelines for GitHub Copilot when working on the
 
 **All game design documentation is centralized in the client docs wiki.**
 
-- **📖 [Design Docs Quick Start](../../client/docs/game-design/DESIGN_DOCS_README.md)** - Start here! Explains how to use all design docs
-- **📚 [Game Design Document (GDD)](../../client/docs/game-design/GAME_DESIGN_DOCUMENT.md)** - Complete specifications for all game systems
-- **📊 [Implementation Tracker](../../client/docs/game-design/GDD_IMPLEMENTATION_TRACKER.md)** - Current status of all features (✅/🚧/📋)
-- **🔧 [Feature Spec Template](../../client/docs/templates/FEATURE_SPEC_TEMPLATE.md)** - Template for implementing new features
+- **🏠 [GDD Home](../../client/docs/game-design/GDD-HOME.md)** - Design docs overview and quick navigation
+- **📖 [Design Docs Quick Start](../../client/docs/game-design/GDD-Quick-Start.md)** - Start here! Explains how to use all design docs
+- **📚 [Game Design Document (GDD)](../../client/docs/game-design/GDD-Monolith.md)** - Complete specifications for all game systems
+- **📊 [Implementation Tracker](../../client/docs/game-design/GDD-Implementation-Tracker.md)** - Current status of all features (✅/🚧/📋)
+- **� [Table of Contents](../../client/docs/game-design/GDD-Table-of-Contents.md)** - Complete design document index
+- **�🔧 [Feature Spec Template](../../client/docs/templates/Feature-Spec-Template.md)** - Template for implementing new features
 
 **When implementing server-side game features:**
-1. Check GDD for game mechanics and formulas
-2. Review Implementation Tracker for current status
-3. Refer to feature spec in `client/docs/features/[feature-name].md`
-4. Implement Socket.IO events and game logic following patterns below
-5. Update tracker when complete
+1. **Check GDD Monolith** for game mechanics, formulas, and balance values
+2. **Review Implementation Tracker** for current status and missing backend pieces
+3. **Refer to feature spec** in `client/docs/features/[feature-name].md` for technical details
+4. **Implement** Socket.IO events and game logic following patterns below
+5. **Update tracker** when complete (mark server-side portion as ✅)
+
+**Key GDD Sections for Server Development:**
+- **Core Systems** (Resources, Population, Settlements) - For game loop calculations
+- **Technical Architecture** - For Socket.IO event design
+- **Content & Balance** - For production rates, formulas, and balance values
+- **Detailed Features** - For specific feature implementations
+
+### 🎯 When to Reference the GDD
+
+**Game Logic Implementation:**
+- Resource production calculations → GDD 3.1 + GDD 6 (formulas and balance values)
+- Population growth formulas → GDD 3.3 (happiness, housing, consumption rates)
+- Structure costs/requirements → GDD 3.2 + GDD 6 (building costs and prerequisites)
+- Disaster damage calculations → GDD 4.5 (severity formulas and effects)
+- Tech tree unlocks → GDD 4.2 (research requirements and bonuses)
+
+**Socket.IO Event Design:**
+- Event naming conventions → GDD 5.2 (Technical Architecture)
+- Data structures for events → GDD appendices (type definitions)
+- Broadcasting patterns → GDD 5.2 (room-based multiplayer)
+- Authentication flow → GDD 5.3 (Security Architecture)
+
+**Database Schema:**
+- Table relationships → GDD 5.1 (Database Architecture)
+- Required fields → GDD feature sections (data requirements)
+- Validation rules → GDD 6 (balance constraints)
+- Migration planning → Check Implementation Tracker for schema changes
+
+**Game Balance:**
+- Production rates → GDD 6.1 (Resource Balance)
+- Building costs → GDD 6.2 (Structure Balance)
+- Population limits → GDD 6.3 (Population Balance)
+- Disaster severity → GDD 6.5 (Disaster Balance)
+
+**Common Server Questions Answered by GDD:**
+- "What's the resource production formula?" → GDD 3.1 + 6.1
+- "How does happiness affect population?" → GDD 3.3
+- "What triggers a disaster?" → GDD 4.5 (frequency, conditions, warnings)
+- "What Socket.IO events are defined?" → GDD 5.2 + Implementation Tracker
+- "What's the game loop tick rate?" → GDD 5.2 (60Hz/second)
 
 ---
 
@@ -737,6 +779,8 @@ Invoke-WebRequest -Uri http://localhost:3001/health
 
 ### ✅ DO
 
+- **Reference the GDD first** before implementing any game feature
+- Use GDD for formulas, balance values, and game mechanics
 - Use ES modules (import/export)
 - Type all function parameters and return values
 - Use Socket.IO event acknowledgments for responses
@@ -752,6 +796,8 @@ Invoke-WebRequest -Uri http://localhost:3001/health
 
 ### ❌ DON'T
 
+- **Don't implement game features without checking the GDD first**
+- Don't hardcode balance values (use GDD specifications)
 - Don't use CommonJS (require/module.exports)
 - Don't use `any` type without good reason
 - Don't ignore Socket.IO errors
