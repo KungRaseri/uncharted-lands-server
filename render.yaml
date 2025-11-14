@@ -1,27 +1,34 @@
-previews:
-  generation: automatic
-services:
-  - type: web
-    name: uncharted-lands-server
-    runtime: node
-    plan: starter
-    previews:
-      plan: free
-    region: oregon
-    buildCommand: npm install && npm run build
-    preDeployCommand: npm run db:migrate:run
-    startCommand: node dist/index.js
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        sync: false
-      - key: HOST
-        value: 0.0.0.0
-      - key: CORS_ORIGINS
-        sync: false
+# Exported from Render on 2025-11-14T21:10:53Z
+version: "1"
+projects:
+- name: Uncharted Lands
+  environments:
+  - name: Production
+    services:
+    - type: web
+      name: uncharted-lands-server
+      runtime: node
+      repo: https://github.com/KungRaseri/uncharted-lands-server
+      plan: starter
+      envVars:
       - key: DATABASE_URL
         sync: false
-      - key: ADMIN_TOKEN
+      - key: NODE_ENV
         sync: false
-    healthCheckPath: /health
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: HOST
+        sync: false
+      - key: PORT
+        sync: false
+      region: oregon
+      buildCommand: npm install && tsc
+      startCommand: node dist/index.js
+      preDeployCommand: npm run db:migrate:run && npm run db:seed
+      healthCheckPath: /health
+      autoDeployTrigger: commit
+      rootDir: .
