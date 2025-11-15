@@ -25,6 +25,7 @@ import {
   updateSettlementStorage,
   getPlayerSettlements,
   createStructure,
+  getSettlementStructures,
 } from '../db/queries.js';
 import {
   calculateTimedProduction,
@@ -560,10 +561,29 @@ async function handleCollectResources(
       return callback ? callback(errorResponse) : undefined;
     }
 
+    // Fetch settlement structures to get extractors
+    const structureData = await getSettlementStructures(data.settlementId);
+
+    // Filter for extractor structures
+    const extractors = structureData
+      .filter((s) => s.structureDef?.category === 'EXTRACTOR')
+      .map((s) => ({
+        ...s.structure,
+        category: s.structureDef?.category || '',
+        extractorType: s.structureDef?.extractorType || '',
+      }));
+
     // Calculate production since last update
     // Using updatedAt as last collection time
     const lastCollectionTime = settlementData.settlement.updatedAt?.getTime() || Date.now();
-    const production = calculateTimedProduction(plot, lastCollectionTime);
+    const biomeName = settlementData.biome?.name;
+    const production = calculateTimedProduction(
+      plot,
+      extractors,
+      lastCollectionTime,
+      Date.now(),
+      biomeName
+    );
 
     // Add production to current storage
     const newResources = addResources(
