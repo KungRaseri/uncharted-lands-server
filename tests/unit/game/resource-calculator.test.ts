@@ -31,7 +31,71 @@ describe('resource-calculator', () => {
     ore: 10,
   };
 
-  const emptyResources: Resources = {
+// Mock extractors for BLOCKER 2 - extractors are REQUIRED for production
+// Each extractor produces its corresponding resource from the plot
+const mockExtractors = [
+  {
+    id: 'extractor-farm',
+    structureId: 'structure-farm', // Required by SettlementStructure
+    settlementId: 'settlement-1',
+    plotId: 'plot-1',
+    level: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    // StructureWithInfo extensions
+    category: 'EXTRACTOR' as const,
+    buildingType: null,
+    extractorType: 'FARM',
+  },
+  {
+    id: 'extractor-well',
+    structureId: 'structure-well',
+    settlementId: 'settlement-1',
+    plotId: 'plot-1',
+    level: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    category: 'EXTRACTOR' as const,
+    buildingType: null,
+    extractorType: 'WELL',
+  },
+  {
+    id: 'extractor-lumber',
+    structureId: 'structure-lumber',
+    settlementId: 'settlement-1',
+    plotId: 'plot-1',
+    level: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    category: 'EXTRACTOR' as const,
+    buildingType: null,
+    extractorType: 'LUMBER_MILL',
+  },
+  {
+    id: 'extractor-quarry',
+    structureId: 'structure-quarry',
+    settlementId: 'settlement-1',
+    plotId: 'plot-1',
+    level: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    category: 'EXTRACTOR' as const,
+    buildingType: null,
+    extractorType: 'QUARRY',
+  },
+  {
+    id: 'extractor-mine',
+    structureId: 'structure-mine',
+    settlementId: 'settlement-1',
+    plotId: 'plot-1',
+    level: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    category: 'EXTRACTOR' as const,
+    buildingType: null,
+    extractorType: 'MINE',
+  },
+];  const emptyResources: Resources = {
     food: 0,
     water: 0,
     wood: 0,
@@ -41,7 +105,7 @@ describe('resource-calculator', () => {
 
   describe('calculateProduction', () => {
     it('should calculate production for 1 tick with BASE_RATE_PER_TICK', () => {
-      const production = calculateProduction(mockPlot, 1);
+      const production = calculateProduction(mockPlot, mockExtractors, 1);
 
       // BASE_RATE_PER_TICK is 0.01, so each resource should be resourceValue * 0.01
       expect(production.food).toBe(mockPlot.food * 0.01);
@@ -53,7 +117,7 @@ describe('resource-calculator', () => {
 
     it('should scale production with tick count', () => {
       const tickCount = 60; // 1 second
-      const production = calculateProduction(mockPlot, tickCount);
+      const production = calculateProduction(mockPlot, mockExtractors, tickCount);
 
       // 60 ticks * 0.01 = 0.6 per resource point
       expect(production.food).toBe(mockPlot.food * 0.01 * tickCount);
@@ -62,7 +126,7 @@ describe('resource-calculator', () => {
 
     it('should handle plots with zero resources', () => {
       const zeroPlot = { ...mockPlot, food: 0, water: 0, wood: 0, stone: 0, ore: 0 };
-      const production = calculateProduction(zeroPlot, 1);
+      const production = calculateProduction(zeroPlot, [], 1);
 
       expect(production.food).toBe(0);
       expect(production.water).toBe(0);
@@ -77,7 +141,7 @@ describe('resource-calculator', () => {
       const lastCollection = Date.now() - 1000; // 1 second ago
       const currentTime = Date.now();
 
-      const production = calculateTimedProduction(mockPlot, lastCollection, currentTime);
+      const production = calculateTimedProduction(mockPlot, mockExtractors, lastCollection, currentTime);
 
       // In 1 second (60 ticks), each resource should produce resourceValue * 0.01 * 60
       // Use 0 decimal places for comparison due to timing precision
@@ -87,7 +151,7 @@ describe('resource-calculator', () => {
 
     it('should handle zero elapsed time', () => {
       const currentTime = Date.now();
-      const production = calculateTimedProduction(mockPlot, currentTime, currentTime);
+      const production = calculateTimedProduction(mockPlot, [], currentTime, currentTime);
 
       expect(production.food).toBe(0);
       expect(production.water).toBe(0);
@@ -97,7 +161,7 @@ describe('resource-calculator', () => {
       const lastCollection = Date.now() - 5000; // 5 seconds ago
       const currentTime = Date.now();
 
-      const production = calculateTimedProduction(mockPlot, lastCollection, currentTime);
+      const production = calculateTimedProduction(mockPlot, mockExtractors, lastCollection, currentTime);
 
       // In 5 seconds (300 ticks)
       expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * 300, 1);
@@ -252,7 +316,7 @@ describe('resource-calculator', () => {
 
   describe('calculateNetProduction', () => {
     it('should calculate positive net production', () => {
-      const net = calculateNetProduction(mockPlot, 0, 0, 60); // 1 second, no consumption
+      const net = calculateNetProduction(mockPlot, mockExtractors, 0, 0, 60); // 1 second, no consumption
 
       // Production: resourceValue * 0.01 * 60
       expect(net.food).toBe(mockPlot.food * 0.01 * 60);
@@ -260,7 +324,7 @@ describe('resource-calculator', () => {
     });
 
     it('should calculate net production with consumption', () => {
-      const net = calculateNetProduction(mockPlot, 10, 5, 60);
+      const net = calculateNetProduction(mockPlot, mockExtractors, 10, 5, 60);
 
       const expectedFoodConsumption = 10 * 0.005 * 60; // 3
       const expectedFoodProduction = mockPlot.food * 0.01 * 60; // 6
@@ -270,7 +334,7 @@ describe('resource-calculator', () => {
 
     it('should handle negative net production when consumption exceeds production', () => {
       const poorPlot = { ...mockPlot, food: 1, water: 1 }; // Very low production
-      const net = calculateNetProduction(poorPlot, 100, 0, 60); // Large population
+      const net = calculateNetProduction(poorPlot, [], 100, 0, 60); // Large population
 
       expect(net.food).toBeLessThan(0);
       expect(net.water).toBeLessThan(0);
