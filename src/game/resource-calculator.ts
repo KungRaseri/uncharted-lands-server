@@ -4,7 +4,8 @@
  * Calculates resource production rates and consumption for settlements
  */
 
-import type { Plot } from '../db/schema.js';
+import type { Plot, SettlementStructure } from '../db/schema.js';
+import { getBiomeEfficiency } from '../config/biome-config.js';
 
 /**
  * Resource types in the game
@@ -23,41 +24,130 @@ export interface Resources {
 export interface ProductionRates extends Resources {}
 
 /**
- * Calculate base production rates for a settlement based on its plot
+ * Extended structure info with category and type information
+ * (Requires joining settlementStructures with structures table)
+ */
+export interface StructureWithInfo extends SettlementStructure {
+  category?: 'EXTRACTOR' | 'BUILDING' | null;
+  extractorType?: string | null;
+  buildingType?: string | null;
+}
+
+/**
+ * Extractor type to resource mapping
+ */
+const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
+  FARM: 'food',
+  WELL: 'water',
+  LUMBER_MILL: 'wood',
+  QUARRY: 'stone',
+  MINE: 'ore',
+  FISHING_DOCK: 'food', // Alternative food source
+  HUNTERS_LODGE: 'food', // Alternative food source
+  HERB_GARDEN: 'food', // Special resource (treated as food for now)
+};
+
+/**
+ * Calculate base production rates for a settlement based on its plot and extractors
+ *
+ * GDD Formula: Production = BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount
  *
  * @param plot - The plot where the settlement is located
+ * @param extractors - Extractor structures on this plot (must include category and extractorType)
  * @param tickCount - Number of ticks elapsed (for time-based calculation)
+ * @param biomeName - Name of the biome (for efficiency multiplier)
  * @returns Production rates per resource type
  */
-export function calculateProduction(plot: Plot, tickCount: number = 1): Resources {
+export function calculateProduction(
+  plot: Plot,
+  extractors: StructureWithInfo[],
+  tickCount: number = 1,
+  biomeName?: string | null
+): Resources {
+  // CRITICAL: No extractors = NO production (GDD requirement)
+  if (!extractors || extractors.length === 0) {
+    return {
+      food: 0,
+      water: 0,
+      wood: 0,
+      stone: 0,
+      ore: 0,
+    };
+  }
+
   // Base production per tick (60 ticks = 1 second)
-  // These values are per-resource-point per tick
   const BASE_RATE_PER_TICK = 0.01; // 0.01 resource per resource point per tick
 
-  // Calculate production for the number of ticks elapsed
-  const multiplier = BASE_RATE_PER_TICK * tickCount;
+  // Get biome efficiency multipliers
+  const biomeEfficiency = getBiomeEfficiency(biomeName);
 
-  return {
-    food: plot.food * multiplier,
-    water: plot.water * multiplier,
-    wood: plot.wood * multiplier,
-    stone: plot.stone * multiplier,
-    ore: plot.ore * multiplier,
+  // Initialize production for all resources
+  const production: Resources = {
+    food: 0,
+    water: 0,
+    wood: 0,
+    stone: 0,
+    ore: 0,
   };
+
+  // Calculate production from each extractor
+  for (const extractor of extractors) {
+    // Skip if not an extractor or missing extractorType
+    if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
+      continue;
+    }
+
+    // Determine which resource this extractor produces
+    const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
+    if (!resourceType) {
+      continue; // Skip if not a recognized extractor
+    }
+
+    // Get plot's resource value for this type (legacy field names)
+    const plotResourceValue = plot[resourceType] || 0;
+
+    // Get quality multiplier (plot.qualityMultiplier or default to 1)
+    const quality = plot.qualityMultiplier || 1;
+
+    // Get structure level multiplier (level 1 = 1.0, level 2 = 1.2, level 3 = 1.4, etc.)
+    const structureLevel = extractor.level || 1;
+    const levelMultiplier = 1 + (structureLevel - 1) * 0.2;
+
+    // Get biome efficiency for this resource
+    const resourceBiomeEfficiency = biomeEfficiency[resourceType];
+
+    // Apply GDD formula: BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount
+    const resourceProduction =
+      BASE_RATE_PER_TICK *
+      plotResourceValue *
+      quality *
+      resourceBiomeEfficiency *
+      levelMultiplier *
+      tickCount;
+
+    // Add to total production for this resource
+    production[resourceType] += resourceProduction;
+  }
+
+  return production;
 }
 
 /**
  * Calculate time-based production since last collection
  *
  * @param plot - The plot where the settlement is located
+ * @param extractors - Extractor structures on this plot (must include category and extractorType)
  * @param lastCollectionTime - Timestamp of last collection (in milliseconds)
  * @param currentTime - Current timestamp (in milliseconds)
+ * @param biomeName - Name of the biome (for efficiency multiplier)
  * @returns Total resources produced since last collection
  */
 export function calculateTimedProduction(
   plot: Plot,
+  extractors: StructureWithInfo[],
   lastCollectionTime: number,
-  currentTime: number = Date.now()
+  currentTime: number = Date.now(),
+  biomeName?: string | null
 ): Resources {
   // Calculate elapsed time in milliseconds
   const elapsedMs = currentTime - lastCollectionTime;
@@ -66,7 +156,7 @@ export function calculateTimedProduction(
   const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
 
   // Calculate production for elapsed ticks
-  return calculateProduction(plot, ticksElapsed);
+  return calculateProduction(plot, extractors, ticksElapsed, biomeName);
 }
 
 /**
@@ -170,18 +260,22 @@ export function calculateConsumption(
  * Calculate net production (production - consumption)
  *
  * @param plot - The plot where the settlement is located
+ * @param extractors - Extractor structures on this plot (must include category and extractorType)
  * @param populationCount - Number of people in settlement
  * @param structureCount - Number of structures
  * @param tickCount - Number of ticks elapsed
+ * @param biomeName - Name of the biome (for efficiency multiplier)
  * @returns Net resources (can be negative if consumption exceeds production)
  */
 export function calculateNetProduction(
   plot: Plot,
+  extractors: StructureWithInfo[],
   populationCount: number = 0,
   structureCount: number = 0,
-  tickCount: number = 1
+  tickCount: number = 1,
+  biomeName?: string | null
 ): Resources {
-  const production = calculateProduction(plot, tickCount);
+  const production = calculateProduction(plot, extractors, tickCount, biomeName);
   const consumption = calculateConsumption(populationCount, structureCount);
 
   return {
@@ -191,6 +285,66 @@ export function calculateNetProduction(
     stone: production.stone - consumption.stone * tickCount,
     ore: production.ore - consumption.ore * tickCount,
   };
+}
+
+// ===========================
+// HELPER FUNCTIONS
+// ===========================
+
+/**
+ * Check if a structure is an extractor
+ *
+ * @param structure - Structure to check (with category and extractorType fields)
+ * @returns True if the structure is an extractor
+ */
+export function isExtractor(structure: StructureWithInfo): boolean {
+  return structure.category === 'EXTRACTOR' && !!structure.extractorType;
+}
+
+/**
+ * Get the average level of extractors
+ *
+ * Useful for calculating overall production efficiency
+ *
+ * @param extractors - Array of extractor structures
+ * @returns Average level, or 0 if no extractors
+ */
+export function getAverageLevel(extractors: StructureWithInfo[]): number {
+  if (extractors.length === 0) return 0;
+
+  const totalLevel = extractors.reduce((sum, extractor) => sum + extractor.level, 0);
+  return totalLevel / extractors.length;
+}
+
+/**
+ * Get the maximum level among extractors
+ *
+ * Useful for determining the highest tier of production available
+ *
+ * @param extractors - Array of extractor structures
+ * @returns Maximum level, or 0 if no extractors
+ */
+export function getMaxLevel(extractors: StructureWithInfo[]): number {
+  if (extractors.length === 0) return 0;
+
+  return Math.max(...extractors.map((extractor) => extractor.level));
+}
+
+/**
+ * Get extractors for a specific resource type
+ *
+ * @param extractors - Array of extractor structures
+ * @param resourceType - Type of resource to filter by
+ * @returns Array of extractors that produce the specified resource
+ */
+export function getExtractorsByResource(
+  extractors: StructureWithInfo[],
+  resourceType: keyof Resources
+): StructureWithInfo[] {
+  return extractors.filter((extractor) => {
+    if (!extractor.extractorType) return false;
+    return EXTRACTOR_RESOURCE_MAP[extractor.extractorType] === resourceType;
+  });
 }
 
 /**

@@ -73,6 +73,7 @@ export function registerEventHandlers(socket: Socket): void {
 async function handleAuthenticate(
   socket: Socket,
   data: AuthenticateData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -258,6 +259,7 @@ async function handleGameStateRequest(socket: Socket, data: GameStateRequest): P
 async function handleBuildStructure(
   socket: Socket,
   data: BuildStructureData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -487,6 +489,7 @@ async function handleBuildStructure(
 async function handleCollectResources(
   socket: Socket,
   data: CollectResourcesData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -910,30 +913,36 @@ async function handleRequestRegion(
         temperatureMap: region.temperatureMap,
         tiles:
           data.includeTiles && 'tiles' in region && Array.isArray(region.tiles)
-            ? region.tiles.map((t: any) => ({
-                id: t.id,
-                biomeId: t.biomeId,
-                regionId: t.regionId,
-                elevation: t.elevation,
-                temperature: t.temperature,
-                precipitation: t.precipitation,
-                type: t.type,
-                plots:
-                  'plots' in t && Array.isArray(t.plots)
-                    ? t.plots.map((p: any) => ({
-                        id: p.id,
-                        tileId: p.tileId,
-                        area: p.area,
-                        solar: p.solar,
-                        wind: p.wind,
-                        food: p.food,
-                        water: p.water,
-                        wood: p.wood,
-                        stone: p.stone,
-                        ore: p.ore,
-                      }))
-                    : undefined,
-              }))
+            ? region.tiles.map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (t: any) => ({
+                  id: t.id,
+                  biomeId: t.biomeId,
+                  regionId: t.regionId,
+                  elevation: t.elevation,
+                  temperature: t.temperature,
+                  precipitation: t.precipitation,
+                  type: t.type,
+                  plots:
+                    'plots' in t && Array.isArray(t.plots)
+                      ? t.plots.map(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (p: any) => ({
+                            id: p.id,
+                            tileId: p.tileId,
+                            area: p.area,
+                            solar: p.solar,
+                            wind: p.wind,
+                            food: p.food,
+                            water: p.water,
+                            wood: p.wood,
+                            stone: p.stone,
+                            ore: p.ore,
+                          })
+                        )
+                      : undefined,
+                })
+              )
             : undefined,
       },
       timestamp: Date.now(),

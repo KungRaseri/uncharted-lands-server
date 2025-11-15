@@ -8,8 +8,10 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { createId } from '@paralleldrive/cuid2';
 
 // ===========================
 // ENUMS
@@ -38,6 +40,7 @@ export const resourceTypeEnum = pgEnum('ResourceType', [
 export const structureCategoryEnum = pgEnum('StructureCategory', ['EXTRACTOR', 'BUILDING']);
 export const extractorTypeEnum = pgEnum('ExtractorType', [
   'FARM',
+  'WELL',
   'LUMBER_MILL',
   'QUARRY',
   'MINE',
@@ -58,6 +61,33 @@ export const buildingTypeEnum = pgEnum('BuildingType', [
 // ===========================
 // TABLES
 // ===========================
+
+// Master structure definitions table
+export const structures = pgTable('Structure', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: structureCategoryEnum('category').notNull(),
+  extractorType: extractorTypeEnum('extractorType'),
+  buildingType: buildingTypeEnum('buildingType'),
+  maxLevel: integer('maxLevel').notNull().default(10),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// Master resource definitions table
+export const resources = pgTable('Resource', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: text('category').notNull(), // 'BASE', 'SPECIAL'
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 export const accounts = pgTable('Account', {
   id: text('id').primaryKey(),
@@ -309,39 +339,67 @@ export const settlements = pgTable(
   })
 );
 
-export const structureRequirements = pgTable('StructureRequirements', {
-  id: text('id').primaryKey(),
-  area: integer('area').notNull().default(1),
-  solar: integer('solar').notNull().default(1),
-  wind: integer('wind').notNull().default(1),
-  food: integer('food').notNull().default(1),
-  water: integer('water').notNull().default(1),
-  wood: integer('wood').notNull().default(1),
-  stone: integer('stone').notNull().default(1),
-  ore: integer('ore').notNull().default(1),
-});
+// Normalized structure costs table
+export const structureRequirements = pgTable(
+  'StructureRequirement',
+  {
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'cascade' }),
+    resourceId: text('resourceId')
+      .notNull()
+      .references(() => resources.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.structureId, table.resourceId] }),
+    structureIdx: index('StructureRequirement_structureId_idx').on(table.structureId),
+    resourceIdx: index('StructureRequirement_resourceId_idx').on(table.resourceId),
+  })
+);
+
+// Structure prerequisites table - Option B1 (two nullable columns with FK constraints)
+export const structurePrerequisites = pgTable(
+  'StructurePrerequisite',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'cascade' }),
+    // ONE of these per row (not both) - enforced by CHECK constraint
+    requiredStructureId: text('requiredStructureId').references(() => structures.id, {
+      onDelete: 'cascade',
+    }),
+    requiredResearchId: text('requiredResearchId'), // FK to research table when it exists
+    requiredLevel: integer('requiredLevel').notNull().default(1),
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => ({
+    structureIdx: index('StructurePrerequisite_structureId_idx').on(table.structureId),
+    requiredStructureIdx: index('StructurePrerequisite_requiredStructureId_idx').on(
+      table.requiredStructureId
+    ),
+  })
+);
 
 // @ts-expect-error - Circular reference with settlements and plots is expected and works at runtime
 export const settlementStructures = pgTable('SettlementStructure', {
   id: text('id').primaryKey(),
-  structureRequirementsId: text('structureRequirementsId')
+  structureId: text('structureId')
     .notNull()
-    .unique()
-    .references(() => structureRequirements.id, { onDelete: 'cascade' }),
+    .references(() => structures.id, { onDelete: 'restrict' }),
   settlementId: text('settlementId')
     .notNull()
     // @ts-expect-error - Circular reference
     .references(() => settlements.id, { onDelete: 'cascade' }),
-  // Structure classification
-  category: structureCategoryEnum('category').notNull().default('BUILDING'),
-  extractorType: extractorTypeEnum('extractorType'),
-  buildingType: buildingTypeEnum('buildingType'),
   level: integer('level').notNull().default(1),
   // Plot linkage for extractors
   // @ts-expect-error - Circular reference
   plotId: text('plotId').references(() => plots.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description').notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
 export const structureModifiers = pgTable('StructureModifier', {
@@ -357,6 +415,17 @@ export const structureModifiers = pgTable('StructureModifier', {
 // ===========================
 // RELATIONS
 // ===========================
+
+export const structuresRelations = relations(structures, ({ many }) => ({
+  requirements: many(structureRequirements),
+  prerequisites: many(structurePrerequisites, { relationName: 'structurePrerequisites' }),
+  requiredBy: many(structurePrerequisites, { relationName: 'requiredStructure' }),
+  instances: many(settlementStructures),
+}));
+
+export const resourcesRelations = relations(resources, ({ many }) => ({
+  requirements: many(structureRequirements),
+}));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   profile: one(profiles, {
@@ -468,16 +537,33 @@ export const settlementsRelations = relations(settlements, ({ one, many }) => ({
 }));
 
 export const structureRequirementsRelations = relations(structureRequirements, ({ one }) => ({
-  settlementStructure: one(settlementStructures, {
-    fields: [structureRequirements.id],
-    references: [settlementStructures.structureRequirementsId],
+  structure: one(structures, {
+    fields: [structureRequirements.structureId],
+    references: [structures.id],
+  }),
+  resource: one(resources, {
+    fields: [structureRequirements.resourceId],
+    references: [resources.id],
+  }),
+}));
+
+export const structurePrerequisitesRelations = relations(structurePrerequisites, ({ one }) => ({
+  structure: one(structures, {
+    fields: [structurePrerequisites.structureId],
+    references: [structures.id],
+    relationName: 'structurePrerequisites',
+  }),
+  requiredStructure: one(structures, {
+    fields: [structurePrerequisites.requiredStructureId],
+    references: [structures.id],
+    relationName: 'requiredStructure',
   }),
 }));
 
 export const settlementStructuresRelations = relations(settlementStructures, ({ one, many }) => ({
-  buildRequirements: one(structureRequirements, {
-    fields: [settlementStructures.structureRequirementsId],
-    references: [structureRequirements.id],
+  structure: one(structures, {
+    fields: [settlementStructures.structureId],
+    references: [structures.id],
   }),
   settlement: one(settlements, {
     fields: [settlementStructures.settlementId],
@@ -500,6 +586,18 @@ export const structureModifiersRelations = relations(structureModifiers, ({ one 
 // ===========================
 // TYPE EXPORTS
 // ===========================
+
+export type Structure = typeof structures.$inferSelect;
+export type NewStructure = typeof structures.$inferInsert;
+
+export type Resource = typeof resources.$inferSelect;
+export type NewResource = typeof resources.$inferInsert;
+
+export type StructureRequirement = typeof structureRequirements.$inferSelect;
+export type NewStructureRequirement = typeof structureRequirements.$inferInsert;
+
+export type StructurePrerequisite = typeof structurePrerequisites.$inferSelect;
+export type NewStructurePrerequisite = typeof structurePrerequisites.$inferInsert;
 
 export type Account = typeof accounts.$inferSelect;
 export type NewAccount = typeof accounts.$inferInsert;
@@ -533,9 +631,6 @@ export type NewSettlementStorage = typeof settlementStorage.$inferInsert;
 
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;
-
-export type StructureRequirements = typeof structureRequirements.$inferSelect;
-export type NewStructureRequirements = typeof structureRequirements.$inferInsert;
 
 export type SettlementStructure = typeof settlementStructures.$inferSelect;
 export type NewSettlementStructure = typeof settlementStructures.$inferInsert;

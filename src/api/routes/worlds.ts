@@ -73,6 +73,7 @@ router.get('/:id', authenticate, async (req, res) => {
               with: {
                 tiles: {
                   // Order tiles by their coordinates (x=row, y=column) to match creation order
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   orderBy: (tilesTable: typeof tiles, { asc }: any) => [
                     asc(tilesTable.xCoord),
                     asc(tilesTable.yCoord),
@@ -127,6 +128,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * Helper function to calculate world statistics
  * Extracted to reduce cognitive complexity
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function calculateWorldStatistics(regions: any[]) {
   let landTilesCount = 0;
   let oceanTilesCount = 0;
@@ -176,6 +178,7 @@ function calculateWorldStatistics(regions: any[]) {
 /**
  * Helper function to process a single tile
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function processTile(tile: any) {
   const landTiles = tile.type === 'LAND' ? 1 : 0;
   const oceanTiles = tile.type === 'OCEAN' ? 1 : 0;
@@ -576,8 +579,11 @@ async function generateWorldInBackground(
     width: number;
     height: number;
     seed: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     elevationOptions: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     precipitationOptions: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     temperatureOptions: any;
   }
 ) {
@@ -585,6 +591,7 @@ async function generateWorldInBackground(
     logger.info(`[BACKGROUND] Starting generation for world ${worldId}`);
 
     // Transform options to ensure scale is a function
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const transformOptions = (opts: any) => ({
       amplitude: opts.amplitude || 1,
       persistence: opts.persistence || 0.5,

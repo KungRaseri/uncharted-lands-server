@@ -15,6 +15,7 @@ import {
   settlementStorage,
   settlementPopulation,
   settlementStructures,
+  structures,
   structureRequirements,
   structureModifiers,
   servers,
@@ -104,10 +105,13 @@ export async function getSettlementWithDetails(settlementId: string) {
       settlement: settlements,
       storage: settlementStorage,
       plot: plots,
+      biome: biomes,
     })
     .from(settlements)
     .leftJoin(settlementStorage, eq(settlements.settlementStorageId, settlementStorage.id))
     .leftJoin(plots, eq(settlements.plotId, plots.id))
+    .leftJoin(tiles, eq(plots.tileId, tiles.id))
+    .leftJoin(biomes, eq(tiles.biomeId, biomes.id))
     .where(eq(settlements.id, settlementId))
     .limit(1);
 
@@ -346,15 +350,18 @@ export async function updateSettlementPopulation(
 
 /**
  * Get settlement structures with their requirements and modifiers
+ * Now includes the structure definition (category, extractorType, buildingType)
  */
 export async function getSettlementStructures(settlementId: string) {
   return await db
     .select({
       structure: settlementStructures,
+      structureDef: structures, // Actual structure definition with category/type info
       requirements: structureRequirements,
       modifiers: structureModifiers,
     })
     .from(settlementStructures)
+    .leftJoin(structures, eq(settlementStructures.structureId, structures.id))
     .leftJoin(
       structureRequirements,
       eq(settlementStructures.structureRequirementsId, structureRequirements.id)

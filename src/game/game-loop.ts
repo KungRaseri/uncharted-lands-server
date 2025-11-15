@@ -174,7 +174,7 @@ async function processSettlement(
       return;
     }
 
-    const { storage, plot } = settlementData;
+    const { storage, plot, biome } = settlementData;
 
     // Fetch settlement structures for consumption/storage calculations
     const structureData = await getSettlementStructures(settlement.settlementId);
@@ -196,11 +196,23 @@ async function processSettlement(
           index === self.findIndex((s) => s.name === struct.name)
       );
 
+    // Filter extractors on this specific plot (BLOCKER 2 FIX)
+    const extractors = structureData
+      .filter(
+        (row) => row.structure.plotId === plot.id && row.structureDef?.category === 'EXTRACTOR'
+      )
+      .map((row) => ({
+        ...row.structure,
+        category: row.structureDef?.category,
+        extractorType: row.structureDef?.extractorType,
+        buildingType: row.structureDef?.buildingType,
+      }));
+
     // Calculate ticks since last update
     const ticksSinceUpdate = currentTick - settlement.lastUpdateTick;
 
-    // Calculate production for those ticks
-    const production = calculateProduction(plot, ticksSinceUpdate);
+    // Calculate production for those ticks (GDD formula now applied with biome efficiency)
+    const production = calculateProduction(plot, extractors, ticksSinceUpdate, biome?.name);
 
     // Calculate consumption for those ticks
     const population = calculatePopulation(structures);

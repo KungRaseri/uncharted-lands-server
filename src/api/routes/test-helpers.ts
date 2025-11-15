@@ -5,7 +5,7 @@
  * They provide dangerous operations like deleting users for test cleanup
  */
 
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { db, accounts, profiles } from '../../db/index.js';
 import { eq, like, desc } from 'drizzle-orm';
 import { logger } from '../../utils/logger.js';
@@ -23,7 +23,7 @@ if (!isTestEnvironment) {
 /**
  * Middleware to ensure test routes only work in test/dev
  */
-const requireTestEnvironment = (req: any, res: any, next: any) => {
+const requireTestEnvironment = (req: Request, res: Response, next: NextFunction) => {
   if (!isTestEnvironment) {
     return res.status(403).json({
       error: 'Test helper routes are only available in test/development environments',
