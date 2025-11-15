@@ -134,7 +134,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     }
 
     // Check if position is already taken
-    const positionTaken = tile.plots?.some((p: any) => p.position === position);
+    const positionTaken = tile.plots?.some((p) => p.position === position);
     if (positionTaken) {
       return res.status(400).json({
         error: 'Bad Request',

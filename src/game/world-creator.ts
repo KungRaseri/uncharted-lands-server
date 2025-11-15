@@ -252,7 +252,8 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
     plotCount: plotRecords.length,
-    duration: `${(duration / 1000).toFixed(2)}s`,
+    durationMs: duration,
+    durationFormatted: `${(duration / 1000).toFixed(2)}s`,
   });
 
   return {

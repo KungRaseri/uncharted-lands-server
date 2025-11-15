@@ -4,11 +4,16 @@
  * Real-time multiplayer game server using Socket.IO
  */
 
+// Initialize Sentry FIRST (before any other imports)
+import { initSentry } from './utils/sentry.js';
+initSentry();
+
 import { Server } from 'socket.io';
 import http from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+import { expressErrorHandler } from '@sentry/node';
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -26,6 +31,7 @@ import { closeDatabase, isDatabaseConnected } from './db/index.js';
 import { startGameLoop, stopGameLoop, getGameLoopStatus } from './game/game-loop.js';
 import apiRouter from './api/index.js';
 import { apiLimiter } from './api/middleware/rateLimit.js';
+import { requestLogger, errorLogger } from './api/middleware/request-logger.js';
 
 // Load environment variables
 dotenv.config();
@@ -50,11 +56,20 @@ app.use(
 app.use(express.json()); // Default limit is sufficient for settings
 app.use(express.urlencoded({ extended: true }));
 
+// Request logging middleware (adds request ID and logs all requests)
+app.use(requestLogger);
+
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
 
 // REST API routes
 app.use('/api', apiRouter);
+
+// Sentry error handler (must be after routes but before other error handlers)
+app.use(expressErrorHandler());
+
+// Error logging middleware (logs all errors)
+app.use(errorLogger);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -150,7 +165,8 @@ io.on('connection', (socket) => {
     logger.info('[SOCKET] ✗ Client disconnected', {
       socketId: socket.id,
       reason,
-      duration: `${(duration / 1000).toFixed(2)}s`,
+      durationMs: duration,
+      durationFormatted: `${(duration / 1000).toFixed(2)}s`,
       playerId: socket.data.playerId || 'unauthenticated',
     });
   });

@@ -159,7 +159,7 @@ describe('Auth API Routes', () => {
         })
         .expect(500);
 
-      expect(response.body.error).toBe('Failed to register account');
+      expect(response.body.error).toBe('Database error. Please try again later.');
     });
   });
 

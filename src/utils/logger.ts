@@ -1,7 +1,8 @@
 /**
  * Logger Utility
  *
- * Centralized logging with different levels and structured output
+ * Centralized logging with different levels, structured output, and request tracing
+ * Integrates with Sentry for error tracking
  */
 
 export enum LogLevel {
@@ -13,15 +14,27 @@ export enum LogLevel {
 
 interface LogContext {
   [key: string]: unknown;
+  requestId?: string;
+  userId?: string;
+  duration?: number;
+  statusCode?: number;
+}
+
+interface PerformanceTimer {
+  start: number;
+  label: string;
 }
 
 class Logger {
   private readonly minLevel: LogLevel;
+  private readonly timers: Map<string, PerformanceTimer> = new Map();
+  private readonly isProd: boolean;
 
   constructor() {
     // Set log level from environment or default to INFO
     const envLevel = process.env.LOG_LEVEL?.toUpperCase();
     this.minLevel = LogLevel[envLevel as keyof typeof LogLevel] ?? LogLevel.INFO;
+    this.isProd = process.env.NODE_ENV === 'production';
   }
 
   /**
@@ -32,20 +45,54 @@ class Logger {
   }
 
   /**
-   * Format log message with context
+   * Color codes for console output (disabled in production)
    */
-  private format(level: string, message: string, context?: LogContext): string {
-    const parts = [`[${this.timestamp()}]`, `[${level}]`, message];
+  private colorize(level: string, text: string): string {
+    if (this.isProd) return text;
 
-    if (context && Object.keys(context).length > 0) {
-      parts.push(JSON.stringify(context));
-    }
+    const colors = {
+      DEBUG: '\x1b[36m', // Cyan
+      INFO: '\x1b[32m', // Green
+      WARN: '\x1b[33m', // Yellow
+      ERROR: '\x1b[31m', // Red
+      RESET: '\x1b[0m',
+    };
 
-    return parts.join(' ');
+    const color = colors[level as keyof typeof colors] || colors.RESET;
+    return `${color}${text}${colors.RESET}`;
   }
 
   /**
-   * Log debug messages
+   * Format log message with context
+   */
+  private format(level: string, message: string, context?: LogContext): string {
+    const timestamp = this.timestamp();
+    const coloredLevel = this.colorize(level, level.padEnd(5));
+
+    // Build context string
+    let contextStr = '';
+    if (context && Object.keys(context).length > 0) {
+      // Extract special fields for inline display
+      const { requestId, userId, duration, statusCode, ...rest } = context;
+
+      const inline: string[] = [];
+      if (requestId) inline.push(`req=${requestId}`);
+      if (userId) inline.push(`user=${userId}`);
+      if (statusCode) inline.push(`status=${statusCode}`);
+      if (duration !== undefined) inline.push(`${duration}ms`);
+
+      const inlineStr = inline.length > 0 ? ` [${inline.join(' ')}]` : '';
+
+      // Add remaining context as JSON if present
+      const hasRest = Object.keys(rest).length > 0;
+      contextStr = inlineStr + (hasRest ? ` ${JSON.stringify(rest)}` : '');
+    }
+
+    return `[${timestamp}] [${coloredLevel}] ${message}${contextStr}`;
+  }
+
+  /**
+   * Log debug messages (verbose, for development)
    */
   debug(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.DEBUG) {
@@ -54,7 +101,7 @@ class Logger {
   }
 
   /**
-   * Log info messages
+   * Log info messages (normal operations)
    */
   info(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.INFO) {
@@ -63,7 +110,7 @@ class Logger {
   }
 
   /**
-   * Log warning messages
+   * Log warning messages (potential issues)
    */
   warn(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.WARN) {
@@ -72,23 +119,168 @@ class Logger {
   }
 
   /**
-   * Log error messages
+   * Log error messages with stack traces
    */
   error(message: string, error?: unknown, context?: LogContext): void {
     if (this.minLevel <= LogLevel.ERROR) {
-      const errorContext = {
-        ...context,
-        error:
-          error instanceof Error
-            ? {
-                name: error.name,
-                message: error.message,
-                stack: error.stack,
-              }
-            : error,
-      };
+      const errorContext: LogContext = { ...context };
+
+      if (error instanceof Error) {
+        errorContext.error = {
+          name: error.name,
+          message: error.message,
+          stack: this.isProd ? undefined : error.stack?.split('\n').slice(0, 5).join('\n'),
+        };
+      } else if (error) {
+        errorContext.error = error;
+      }
+
       console.error(this.format('ERROR', message, errorContext));
+
+      // Send to Sentry in production or if explicitly enabled
+      if (this.isProd) {
+        try {
+          const { captureException, addBreadcrumb } = require('./sentry.js');
+
+          // Add breadcrumb for context
+          addBreadcrumb(message, 'error', context);
+
+          // Capture exception
+          if (error instanceof Error) {
+            captureException(error, context);
+          } else if (error) {
+            captureException(new Error(message), { ...context, originalError: error });
+          }
+        } catch {
+          // Ignore sentry errors to prevent logging infinite loops
+        }
+      }
     }
+  } /**
+   * Start a performance timer
+   */
+  startTimer(label: string): void {
+    this.timers.set(label, { start: Date.now(), label });
+  }
+
+  /**
+   * End a performance timer and log duration
+   */
+  endTimer(label: string, context?: LogContext): number {
+    const timer = this.timers.get(label);
+    if (!timer) {
+      this.warn(`Timer "${label}" not found`);
+      return 0;
+    }
+
+    const duration = Date.now() - timer.start;
+    this.timers.delete(label);
+
+    this.info(`⏱️ ${label}`, { ...context, duration });
+    return duration;
+  }
+
+  /**
+   * Log HTTP request
+   */
+  httpRequest(method: string, path: string, context?: LogContext): void {
+    this.info(`➜ ${method} ${path}`, context);
+  }
+
+  /**
+   * Log HTTP response
+   */
+  httpResponse(
+    method: string,
+    path: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext
+  ): void {
+    const emoji = statusCode >= 500 ? '❌' : statusCode >= 400 ? '⚠️' : '✓';
+    this.info(`${emoji} ${method} ${path}`, { ...context, statusCode, duration });
+  }
+
+  /**
+   * Log database operation
+   */
+  dbQuery(operation: string, table: string, context?: LogContext): void {
+    this.debug(`🗄️ DB ${operation} ${table}`, context);
+  }
+
+  /**
+   * Log WebSocket event
+   */
+  wsEvent(event: string, context?: LogContext): void {
+    this.debug(`🔌 WS ${event}`, context);
+  }
+
+  /**
+   * Log authentication event
+   */
+  authEvent(event: string, success: boolean, context?: LogContext): void {
+    const emoji = success ? '🔓' : '🔒';
+    const level = success ? 'info' : 'warn';
+    this[level](`${emoji} AUTH ${event}`, context);
+  }
+
+  /**
+   * Create a child logger with default context (e.g., requestId)
+   */
+  child(defaultContext: LogContext): ChildLogger {
+    return new ChildLogger(this, defaultContext);
+  }
+}
+
+/**
+ * Child logger that includes default context in all logs
+ */
+class ChildLogger {
+  constructor(
+    private parent: Logger,
+    private defaultContext: LogContext
+  ) {}
+
+  private mergeContext(context?: LogContext): LogContext {
+    return { ...this.defaultContext, ...context };
+  }
+
+  debug(message: string, context?: LogContext): void {
+    this.parent.debug(message, this.mergeContext(context));
+  }
+
+  info(message: string, context?: LogContext): void {
+    this.parent.info(message, this.mergeContext(context));
+  }
+
+  warn(message: string, context?: LogContext): void {
+    this.parent.warn(message, this.mergeContext(context));
+  }
+
+  error(message: string, error?: unknown, context?: LogContext): void {
+    this.parent.error(message, error, this.mergeContext(context));
+  }
+
+  startTimer(label: string): void {
+    this.parent.startTimer(label);
+  }
+
+  endTimer(label: string, context?: LogContext): number {
+    return this.parent.endTimer(label, this.mergeContext(context));
+  }
+
+  httpRequest(method: string, path: string, context?: LogContext): void {
+    this.parent.httpRequest(method, path, this.mergeContext(context));
+  }
+
+  httpResponse(
+    method: string,
+    path: string,
+    statusCode: number,
+    duration: number,
+    context?: LogContext
+  ): void {
+    this.parent.httpResponse(method, path, statusCode, duration, this.mergeContext(context));
   }
 }
 

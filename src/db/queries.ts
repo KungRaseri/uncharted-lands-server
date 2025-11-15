@@ -13,7 +13,9 @@ import {
   profiles,
   settlements,
   settlementStorage,
+  settlementPopulation,
   settlementStructures,
+  structures,
   structureRequirements,
   structureModifiers,
   servers,
@@ -103,10 +105,13 @@ export async function getSettlementWithDetails(settlementId: string) {
       settlement: settlements,
       storage: settlementStorage,
       plot: plots,
+      biome: biomes,
     })
     .from(settlements)
     .leftJoin(settlementStorage, eq(settlements.settlementStorageId, settlementStorage.id))
     .leftJoin(plots, eq(settlements.plotId, plots.id))
+    .leftJoin(tiles, eq(plots.tileId, tiles.id))
+    .leftJoin(biomes, eq(tiles.biomeId, biomes.id))
     .where(eq(settlements.id, settlementId))
     .limit(1);
 
@@ -273,20 +278,90 @@ export async function findBiome(precipitation: number, temperature: number) {
 }
 
 // ===========================
+// POPULATION
+// ===========================
+
+/**
+ * Get or create population data for a settlement
+ */
+export async function getSettlementPopulation(settlementId: string) {
+  try {
+    const [population] = await db
+      .select()
+      .from(settlementPopulation)
+      .where(eq(settlementPopulation.settlementId, settlementId))
+      .limit(1);
+
+    // Create default population entry if none exists
+    if (!population) {
+      const newId = generateId();
+      const [created] = await db
+        .insert(settlementPopulation)
+        .values({
+          id: newId,
+          settlementId,
+          currentPopulation: 10,
+          happiness: 50,
+          lastGrowthTick: new Date(),
+        })
+        .returning();
+
+      return created;
+    }
+
+    return population;
+  } catch (error) {
+    logger.error('[DB] Failed to get settlement population', error, { settlementId });
+    throw error;
+  }
+}
+
+/**
+ * Update settlement population
+ */
+export async function updateSettlementPopulation(
+  settlementId: string,
+  updates: {
+    currentPopulation?: number;
+    happiness?: number;
+    lastGrowthTick?: Date;
+  }
+) {
+  try {
+    const [updated] = await db
+      .update(settlementPopulation)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(settlementPopulation.settlementId, settlementId))
+      .returning();
+
+    return updated;
+  } catch (error) {
+    logger.error('[DB] Failed to update settlement population', error, { settlementId, updates });
+    throw error;
+  }
+}
+
+// ===========================
 // STRUCTURES
 // ===========================
 
 /**
  * Get settlement structures with their requirements and modifiers
+ * Now includes the structure definition (category, extractorType, buildingType)
  */
 export async function getSettlementStructures(settlementId: string) {
   return await db
     .select({
       structure: settlementStructures,
+      structureDef: structures, // Actual structure definition with category/type info
       requirements: structureRequirements,
       modifiers: structureModifiers,
     })
     .from(settlementStructures)
+    .leftJoin(structures, eq(settlementStructures.structureId, structures.id))
     .leftJoin(
       structureRequirements,
       eq(settlementStructures.structureRequirementsId, structureRequirements.id)

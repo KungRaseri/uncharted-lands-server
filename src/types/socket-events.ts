@@ -44,6 +44,10 @@ export interface ServerToClientEvents {
   'resource-waste': (data: ResourceWasteData) => void;
   'storage-warning': (data: StorageWarningData) => void;
   'resource-shortage': (data: ResourceShortageData) => void;
+  'population-growth': (data: PopulationGrowthData) => void;
+  'population-warning': (data: PopulationWarningData) => void;
+  'settler-arrived': (data: SettlerArrivedData) => void;
+  'population-state': (data: PopulationStateData) => void;
   'player-joined': (data: PlayerEventData) => void;
   'player-left': (data: PlayerEventData) => void;
   error: (data: ErrorData) => void;
@@ -230,6 +234,44 @@ export interface ResourceShortageData {
   settlementId: string;
   population: number;
   resources: ResourceAmounts;
+  timestamp: number;
+}
+
+// Population Growth
+export interface PopulationGrowthData {
+  settlementId: string;
+  oldPopulation: number;
+  newPopulation: number;
+  happiness: number;
+  growthRate: number;
+  timestamp: number;
+}
+
+export interface PopulationWarningData {
+  settlementId: string;
+  population: number;
+  happiness: number;
+  warning: 'low_happiness' | 'emigration_risk' | 'no_housing';
+  message: string;
+  timestamp: number;
+}
+
+export interface SettlerArrivedData {
+  settlementId: string;
+  population: number;
+  immigrantCount: number;
+  happiness: number;
+  timestamp: number;
+}
+
+export interface PopulationStateData {
+  settlementId: string;
+  current: number;
+  capacity: number;
+  happiness: number;
+  happinessDescription: string;
+  growthRate: number;
+  status: 'Growing' | 'Stable' | 'Declining';
   timestamp: number;
 }
 

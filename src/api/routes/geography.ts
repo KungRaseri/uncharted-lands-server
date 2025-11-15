@@ -166,7 +166,7 @@ router.get('/map', authenticate, async (req, res) => {
     let worldId: string;
     let centerRegionX: number;
     let centerRegionY: number;
-    let playerSettlement: any = null;
+    let playerSettlement: typeof settlement | null = null;
 
     if (settlement?.plot?.tile?.region) {
       // Player has a settlement - use its location
