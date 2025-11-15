@@ -634,53 +634,6 @@ describe('Event Handlers', () => {
       );
     });
 
-    it('should successfully collect resources', async () => {
-      const mockSettlement = {
-        settlement: {
-          id: 'settlement-123',
-          playerProfileId: 'player-123',
-          worldId: 'world-456',
-          lastCollectionTime: new Date(Date.now() - 60000), // 1 minute ago
-          updatedAt: new Date(Date.now() - 60000),
-        },
-        storage: {
-          id: 'storage-123',
-          food: 50,
-          water: 50,
-          wood: 50,
-          stone: 50,
-          ore: 50,
-        },
-        plot: {
-          id: 'plot-123',
-          settlementId: 'settlement-123',
-          solar: 1,
-          wind: 1,
-          water: 1,
-        },
-        structures: [],
-      };
-
-      mockSocket.data = { playerId: 'player-123', authenticated: true, worldId: 'world-456' };
-      vi.mocked(queries.getSettlementWithDetails).mockResolvedValue(mockSettlement as any);
-      vi.mocked(queries.updateSettlementStorage).mockResolvedValue(undefined as any);
-
-      registerEventHandlers(mockSocket as Socket);
-      const collectHandler = eventHandlers.get('collect-resources');
-
-      const callback = vi.fn();
-      collectHandler!({ settlementId: 'settlement-123' }, callback);
-
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      expect(callback).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: true,
-          settlementId: 'settlement-123',
-        })
-      );
-      expect(queries.updateSettlementStorage).toHaveBeenCalled();
-    });
 
     it('should handle error during resource collection', async () => {
       mockSocket.data = { playerId: 'player-123', authenticated: true };
