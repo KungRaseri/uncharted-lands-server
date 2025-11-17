@@ -14,6 +14,7 @@ Complete game design documentation is available on the [GitHub Wiki](https://git
 - **🔧 [Feature Spec Template](https://github.com/KungRaseri/uncharted-lands/wiki/Feature-Spec-Template)** - Template for new feature implementations
 
 **When implementing server-side features:**
+
 1. Check the GDD for game mechanics, formulas, and Socket.IO event specifications
 2. Review the Implementation Tracker for current status and missing implementations
 3. Refer to feature spec in `../client/docs/features/[feature-name].md`
@@ -60,10 +61,10 @@ The server uses **strongly-typed Socket.IO** for type safety:
 ```typescript
 // All events are typed
 const io = new Server<
-  ClientToServerEvents,    // Events client can send
-  ServerToClientEvents,    // Events server can send
-  InterServerEvents,       // Events between server instances
-  SocketData              // Data attached to each socket
+  ClientToServerEvents, // Events client can send
+  ServerToClientEvents, // Events server can send
+  InterServerEvents, // Events between server instances
+  SocketData // Data attached to each socket
 >(httpServer, options);
 ```
 
@@ -84,6 +85,7 @@ Client ← Socket.IO ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
 ### Event Handlers
 
 Organized in `events/handlers.ts`:
+
 - `authenticate` - Player authentication
 - `join-world` / `leave-world` - World management
 - `request-game-state` - State synchronization
@@ -290,7 +292,7 @@ const socket = io('http://localhost:3001');
 
 socket.on('connected', (data) => {
   console.log('Connected:', data);
-  
+
   socket.emit('authenticate', { playerId: 'test123' }, (response) => {
     console.log('Auth response:', response);
   });
@@ -330,6 +332,7 @@ GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -343,6 +346,7 @@ Response:
 ### Logging
 
 Structured logs with levels:
+
 - `DEBUG` - Detailed debugging info
 - `INFO` - General information
 - `WARN` - Warnings (non-critical)
@@ -366,6 +370,7 @@ const stats = getStats();
 ## 🚧 TODO
 
 ### Phase 1: Foundation (Current)
+
 - ✅ Socket.IO setup with TypeScript
 - ✅ Event handlers
 - ✅ Middleware (auth, logging, errors)
@@ -373,6 +378,7 @@ const stats = getStats();
 - ✅ Graceful shutdown
 
 ### Phase 2: Game Loop
+
 - ✅ Implemented 60Hz game loop
 - ✅ Resource production/consumption
 - ✅ Settlement processing
@@ -380,6 +386,7 @@ const stats = getStats();
 - ✅ State management
 
 ### Phase 3: Database Integration
+
 - ✅ Drizzle ORM setup
 - ✅ Complete schema (14 tables)
 - ✅ Query helpers library
@@ -387,12 +394,14 @@ const stats = getStats();
 - ⏳ Transaction handling optimization
 
 ### Phase 4: Caching
+
 - ⏳ Redis integration
 - ⏳ State caching
 - ⏳ Session management
 - ⏳ Pub/sub for multi-server
 
 ### Phase 5: Production
+
 - ⏳ JWT authentication
 - ⏳ Rate limiting
 - ⏳ Monitoring/metrics
@@ -451,4 +460,4 @@ const stats = getStats();
 
 ---
 
-*For more documentation, see the [GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki) and [Server Docs](./docs/)*
+_For more documentation, see the [GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki) and [Server Docs](./docs/)_

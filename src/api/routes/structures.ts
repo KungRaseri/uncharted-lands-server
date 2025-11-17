@@ -15,10 +15,12 @@ import {
   structureRequirements,
   settlements,
   plots,
+  worlds,
 } from '../../db/index.js';
-import { generateId } from '../../db/queries.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import type { WorldTemplateType } from '../../types/world-templates.js';
+import { createId } from '@paralleldrive/cuid2';
 
 const router = Router();
 
@@ -150,7 +152,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       const [requirements] = await tx
         .insert(structureRequirements)
         .values({
-          id: generateId(),
+          id: createId(),
         })
         .returning();
 
@@ -158,7 +160,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       const [building] = await tx
         .insert(settlementStructures)
         .values({
-          id: generateId(),
+          id: createId(),
           settlementId,
           structureRequirementsId: requirements.id,
           category: 'BUILDING',
@@ -250,11 +252,22 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
 
       if (plot?.resourceType && structure.extractorType) {
         const { calculateProductionRate } = await import('../../utils/resource-production.js');
+
+        // Phase 1D: Load world template for production multiplier
+        const { getWorldTemplateConfig } = await import('../../types/world-templates.js');
+        const world = await db.query.worlds.findFirst({
+          where: eq(worlds.id, structure.settlement.worldId),
+        });
+        const worldTemplate = getWorldTemplateConfig(
+          (world?.worldTemplateType as WorldTemplateType) || 'STANDARD'
+        );
+
         const newProductionRate = calculateProductionRate({
           resourceType: plot.resourceType,
           extractorType: structure.extractorType,
           biomeName: plot.tile?.biome?.name || '',
           structureLevel: nextLevel,
+          worldTemplateMultiplier: worldTemplate.productionMultiplier,
         });
 
         await db

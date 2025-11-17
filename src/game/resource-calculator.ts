@@ -50,19 +50,21 @@ const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
 /**
  * Calculate base production rates for a settlement based on its plot and extractors
  *
- * GDD Formula: Production = BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount
+ * GDD Formula: Production = BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount × WorldTemplateMultiplier
  *
  * @param plot - The plot where the settlement is located
  * @param extractors - Extractor structures on this plot (must include category and extractorType)
  * @param tickCount - Number of ticks elapsed (for time-based calculation)
  * @param biomeName - Name of the biome (for efficiency multiplier)
+ * @param worldTemplateMultiplier - World template production multiplier (Phase 1D)
  * @returns Production rates per resource type
  */
 export function calculateProduction(
   plot: Plot,
   extractors: StructureWithInfo[],
   tickCount: number = 1,
-  biomeName?: string | null
+  biomeName?: string | null,
+  worldTemplateMultiplier: number = 1
 ): Resources {
   // CRITICAL: No extractors = NO production (GDD requirement)
   if (!extractors || extractors.length === 0) {
@@ -116,14 +118,15 @@ export function calculateProduction(
     // Get biome efficiency for this resource
     const resourceBiomeEfficiency = biomeEfficiency[resourceType];
 
-    // Apply GDD formula: BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount
+    // Apply GDD formula: BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount × WorldTemplateMultiplier
     const resourceProduction =
       BASE_RATE_PER_TICK *
       plotResourceValue *
       quality *
       resourceBiomeEfficiency *
       levelMultiplier *
-      tickCount;
+      tickCount *
+      worldTemplateMultiplier;
 
     // Add to total production for this resource
     production[resourceType] += resourceProduction;
@@ -140,6 +143,7 @@ export function calculateProduction(
  * @param lastCollectionTime - Timestamp of last collection (in milliseconds)
  * @param currentTime - Current timestamp (in milliseconds)
  * @param biomeName - Name of the biome (for efficiency multiplier)
+ * @param worldTemplateMultiplier - World template production multiplier (Phase 1D)
  * @returns Total resources produced since last collection
  */
 export function calculateTimedProduction(
@@ -147,7 +151,8 @@ export function calculateTimedProduction(
   extractors: StructureWithInfo[],
   lastCollectionTime: number,
   currentTime: number = Date.now(),
-  biomeName?: string | null
+  biomeName?: string | null,
+  worldTemplateMultiplier: number = 1
 ): Resources {
   // Calculate elapsed time in milliseconds
   const elapsedMs = currentTime - lastCollectionTime;
@@ -156,7 +161,7 @@ export function calculateTimedProduction(
   const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
 
   // Calculate production for elapsed ticks
-  return calculateProduction(plot, extractors, ticksElapsed, biomeName);
+  return calculateProduction(plot, extractors, ticksElapsed, biomeName, worldTemplateMultiplier);
 }
 
 /**

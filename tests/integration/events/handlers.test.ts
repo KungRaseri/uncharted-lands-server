@@ -634,7 +634,6 @@ describe('Event Handlers', () => {
       );
     });
 
-
     it('should handle error during resource collection', async () => {
       mockSocket.data = { playerId: 'player-123', authenticated: true };
       vi.mocked(queries.getSettlementWithDetails).mockRejectedValue(new Error('DB Error'));

@@ -52,10 +52,6 @@ vi.mock('../../../src/utils/logger.js', () => ({
   },
 }));
 
-vi.mock('../../../src/db/queries.js', () => ({
-  generateId: () => generateTestId('test'),
-}));
-
 vi.mock('../../../src/api/middleware/auth.js', () => ({
   authenticate: (req: any, res: any, next: any) => {
     if (req.headers.authorization === 'Bearer valid-token') {

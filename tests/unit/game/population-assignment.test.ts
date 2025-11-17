@@ -1,8 +1,8 @@
 /**
  * Unit Tests: Population Assignment System
- * 
+ *
  * Tests auto-assignment algorithm, bonus calculations, and helper functions.
- * 
+ *
  * Phase 1D: Population Assignment System
  */
 
@@ -145,7 +145,7 @@ describe('autoAssignPopulation', () => {
 
       const herbStaffing = getStaffingRequirement('EXTRACTOR', 'HERB_GARDEN');
       const herbAssigned = result.assignments.get('herb')!;
-      
+
       // Herb should get optional workers first (highest bonus)
       expect(herbAssigned).toBeGreaterThan(herbStaffing.required);
     });
@@ -228,9 +228,7 @@ describe('autoAssignPopulation', () => {
     });
 
     test('should handle single structure scenario', () => {
-      const structures: StructureWithType[] = [
-        createMockStructure('farm', 'EXTRACTOR', 'FARM'),
-      ];
+      const structures: StructureWithType[] = [createMockStructure('farm', 'EXTRACTOR', 'FARM')];
 
       const result = autoAssignPopulation(5, structures);
 
@@ -255,7 +253,7 @@ describe('autoAssignPopulation', () => {
 describe('calculateStaffingBonus', () => {
   test('should return 1 (no bonus) when assigned less than required', () => {
     const staffing = getStaffingRequirement('EXTRACTOR', 'FARM');
-    
+
     const bonus = calculateStaffingBonus(1, staffing); // Assigned 1, requires 2
 
     expect(bonus).toBe(1);
@@ -263,7 +261,7 @@ describe('calculateStaffingBonus', () => {
 
   test('should return 1 (no bonus) when assigned equals required', () => {
     const staffing = getStaffingRequirement('EXTRACTOR', 'FARM');
-    
+
     const bonus = calculateStaffingBonus(2, staffing); // Assigned 2, requires 2
 
     expect(bonus).toBe(1);
@@ -271,7 +269,7 @@ describe('calculateStaffingBonus', () => {
 
   test('should calculate linear bonus per worker above required', () => {
     const staffing = getStaffingRequirement('EXTRACTOR', 'FARM'); // +0.1 per worker
-    
+
     const bonus = calculateStaffingBonus(4, staffing); // Assigned 4, requires 2 → 2 extra
 
     expect(bonus).toBe(1.2); // 1 + (2 × 0.1)
@@ -279,7 +277,7 @@ describe('calculateStaffingBonus', () => {
 
   test('should cap bonus at max optional workers', () => {
     const staffing = getStaffingRequirement('EXTRACTOR', 'FARM'); // Max 5 (2+3)
-    
+
     const bonus = calculateStaffingBonus(5, staffing); // Fully staffed
 
     expect(bonus).toBe(1.3); // 1 + (3 × 0.1)
@@ -287,7 +285,7 @@ describe('calculateStaffingBonus', () => {
 
   test('should handle structures with no bonus (HOUSE)', () => {
     const staffing = getStaffingRequirement('BUILDING', 'HOUSE');
-    
+
     const bonus = calculateStaffingBonus(0, staffing); // HOUSE requires 0
 
     expect(bonus).toBe(1);
@@ -295,7 +293,7 @@ describe('calculateStaffingBonus', () => {
 
   test('should calculate HERB_GARDEN bonus correctly (+12%)', () => {
     const staffing = getStaffingRequirement('EXTRACTOR', 'HERB_GARDEN'); // +0.12 per worker
-    
+
     const bonus = calculateStaffingBonus(2, staffing); // Assigned 2, requires 1 → 1 extra
 
     expect(bonus).toBe(1.12); // 1 + (1 × 0.12)

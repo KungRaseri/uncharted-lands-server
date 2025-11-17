@@ -23,6 +23,7 @@ import {
   hasResourcesForPopulation,
   type Structure,
 } from './consumption-calculator.js';
+import { getWorldTemplateConfig, type WorldTemplateType } from '../types/world-templates.js';
 import {
   calculatePopulationState,
   applyPopulationGrowth,
@@ -182,7 +183,13 @@ async function processSettlement(
       return;
     }
 
-    const { storage, plot, biome } = settlementData;
+    const { storage, plot, biome, world } = settlementData;
+    const worldTemplateType = world?.worldTemplateType || 'STANDARD';
+
+    // Get template config and extract multipliers (Phase 1D)
+    const templateConfig = getWorldTemplateConfig(worldTemplateType as WorldTemplateType);
+    const consumptionMultiplier = templateConfig.consumptionMultiplier;
+    const productionMultiplier = templateConfig.productionMultiplier;
 
     // Fetch settlement structures for consumption/storage calculations
     const structureData = await getSettlementStructures(settlement.settlementId);
@@ -259,8 +266,14 @@ async function processSettlement(
     // Calculate ticks since last update
     const ticksSinceUpdate = currentTick - settlement.lastUpdateTick;
 
-    // Calculate base production for those ticks (GDD formula now applied with biome efficiency)
-    const baseProduction = calculateProduction(plot, extractors, ticksSinceUpdate, biome?.name);
+    // Calculate base production for those ticks (GDD formula now applied with biome efficiency and world template multiplier)
+    const baseProduction = calculateProduction(
+      plot,
+      extractors,
+      ticksSinceUpdate,
+      biome?.name,
+      productionMultiplier
+    );
 
     // Apply staffing bonuses to extractor production
     // Map extractors to their bonuses and apply them
@@ -286,7 +299,12 @@ async function processSettlement(
     // Calculate consumption for those ticks (population + structure maintenance)
     const population = calculatePopulation(structures);
     const structureCount = structures.length;
-    const consumption = calculateConsumption(population, structureCount, ticksSinceUpdate);
+    const consumption = calculateConsumption(
+      population,
+      structureCount,
+      ticksSinceUpdate,
+      consumptionMultiplier
+    );
 
     // Calculate net resource changes (production - consumption)
     const netProduction = subtractResources(production, consumption);

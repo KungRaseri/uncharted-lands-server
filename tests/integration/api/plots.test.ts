@@ -38,10 +38,6 @@ vi.mock('../../../src/db/index.js', () => ({
   settlementStorage: {},
 }));
 
-vi.mock('../../../src/db/queries.js', () => ({
-  generateId: vi.fn(() => `test-id-${Math.random().toString(36).substring(7)}`),
-}));
-
 vi.mock('../../../src/utils/resource-production.js', () => ({
   calculateProductionRate: vi.fn(() => 10),
   calculateAccumulatedResources: vi.fn(() => 50),

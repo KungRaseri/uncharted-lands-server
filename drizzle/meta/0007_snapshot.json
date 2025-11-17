@@ -62,16 +62,12 @@
         "Account_email_unique": {
           "name": "Account_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "Account_userAuthToken_unique": {
           "name": "Account_userAuthToken_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "userAuthToken"
-          ]
+          "columns": ["userAuthToken"]
         }
       },
       "policies": {},
@@ -203,9 +199,7 @@
         "Biome_name_unique": {
           "name": "Biome_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -389,12 +383,8 @@
           "name": "Plot_tileId_Tile_id_fk",
           "tableFrom": "Plot",
           "tableTo": "Tile",
-          "columnsFrom": [
-            "tileId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tileId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -402,12 +392,8 @@
           "name": "Plot_structureId_SettlementStructure_id_fk",
           "tableFrom": "Plot",
           "tableTo": "SettlementStructure",
-          "columnsFrom": [
-            "structureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["structureId"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -415,12 +401,8 @@
           "name": "Plot_settlementId_Settlement_id_fk",
           "tableFrom": "Plot",
           "tableTo": "Settlement",
-          "columnsFrom": [
-            "settlementId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -506,12 +488,8 @@
           "name": "ProfileServerData_profileId_Profile_id_fk",
           "tableFrom": "ProfileServerData",
           "tableTo": "Profile",
-          "columnsFrom": [
-            "profileId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profileId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -519,12 +497,8 @@
           "name": "ProfileServerData_serverId_Server_id_fk",
           "tableFrom": "ProfileServerData",
           "tableTo": "Server",
-          "columnsFrom": [
-            "serverId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["serverId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -570,12 +544,8 @@
           "name": "Profile_accountId_Account_id_fk",
           "tableFrom": "Profile",
           "tableTo": "Account",
-          "columnsFrom": [
-            "accountId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["accountId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -585,16 +555,12 @@
         "Profile_username_unique": {
           "name": "Profile_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         },
         "Profile_accountId_unique": {
           "name": "Profile_accountId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "accountId"
-          ]
+          "columns": ["accountId"]
         }
       },
       "policies": {},
@@ -732,12 +698,8 @@
           "name": "Region_worldId_World_id_fk",
           "tableFrom": "Region",
           "tableTo": "World",
-          "columnsFrom": [
-            "worldId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["worldId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -881,9 +843,7 @@
         "Server_name_unique": {
           "name": "Server_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
+          "columns": ["name"]
         }
       },
       "policies": {},
@@ -948,12 +908,8 @@
           "name": "SettlementPopulation_settlementId_Settlement_id_fk",
           "tableFrom": "SettlementPopulation",
           "tableTo": "Settlement",
-          "columnsFrom": [
-            "settlementId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -963,9 +919,7 @@
         "SettlementPopulation_settlementId_unique": {
           "name": "SettlementPopulation_settlementId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "settlementId"
-          ]
+          "columns": ["settlementId"]
         }
       },
       "policies": {},
@@ -1084,12 +1038,8 @@
           "name": "SettlementStructure_structureId_Structure_id_fk",
           "tableFrom": "SettlementStructure",
           "tableTo": "Structure",
-          "columnsFrom": [
-            "structureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["structureId"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1097,12 +1047,8 @@
           "name": "SettlementStructure_settlementId_Settlement_id_fk",
           "tableFrom": "SettlementStructure",
           "tableTo": "Settlement",
-          "columnsFrom": [
-            "settlementId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1110,12 +1056,8 @@
           "name": "SettlementStructure_plotId_Plot_id_fk",
           "tableFrom": "SettlementStructure",
           "tableTo": "Plot",
-          "columnsFrom": [
-            "plotId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plotId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1213,12 +1155,8 @@
           "name": "Settlement_plotId_Plot_id_fk",
           "tableFrom": "Settlement",
           "tableTo": "Plot",
-          "columnsFrom": [
-            "plotId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plotId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1226,12 +1164,8 @@
           "name": "Settlement_playerProfileId_Profile_id_fk",
           "tableFrom": "Settlement",
           "tableTo": "Profile",
-          "columnsFrom": [
-            "playerProfileId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["playerProfileId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1239,12 +1173,8 @@
           "name": "Settlement_settlementStorageId_SettlementStorage_id_fk",
           "tableFrom": "Settlement",
           "tableTo": "SettlementStorage",
-          "columnsFrom": [
-            "settlementStorageId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementStorageId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1254,16 +1184,12 @@
         "Settlement_plotId_unique": {
           "name": "Settlement_plotId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "plotId"
-          ]
+          "columns": ["plotId"]
         },
         "Settlement_settlementStorageId_unique": {
           "name": "Settlement_settlementStorageId_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "settlementStorageId"
-          ]
+          "columns": ["settlementStorageId"]
         }
       },
       "policies": {},
@@ -1311,12 +1237,8 @@
           "name": "StructureModifier_settlementStructureId_SettlementStructure_id_fk",
           "tableFrom": "StructureModifier",
           "tableTo": "SettlementStructure",
-          "columnsFrom": [
-            "settlementStructureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementStructureId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1407,12 +1329,8 @@
           "name": "StructurePrerequisite_structureId_Structure_id_fk",
           "tableFrom": "StructurePrerequisite",
           "tableTo": "Structure",
-          "columnsFrom": [
-            "structureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["structureId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1420,12 +1338,8 @@
           "name": "StructurePrerequisite_requiredStructureId_Structure_id_fk",
           "tableFrom": "StructurePrerequisite",
           "tableTo": "Structure",
-          "columnsFrom": [
-            "requiredStructureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requiredStructureId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1496,12 +1410,8 @@
           "name": "StructureRequirement_structureId_Structure_id_fk",
           "tableFrom": "StructureRequirement",
           "tableTo": "Structure",
-          "columnsFrom": [
-            "structureId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["structureId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1509,12 +1419,8 @@
           "name": "StructureRequirement_resourceId_Resource_id_fk",
           "tableFrom": "StructureRequirement",
           "tableTo": "Resource",
-          "columnsFrom": [
-            "resourceId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resourceId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1522,10 +1428,7 @@
       "compositePrimaryKeys": {
         "StructureRequirement_structureId_resourceId_pk": {
           "name": "StructureRequirement_structureId_resourceId_pk",
-          "columns": [
-            "structureId",
-            "resourceId"
-          ]
+          "columns": ["structureId", "resourceId"]
         }
       },
       "uniqueConstraints": {},
@@ -1804,12 +1707,8 @@
           "name": "Tile_biomeId_Biome_id_fk",
           "tableFrom": "Tile",
           "tableTo": "Biome",
-          "columnsFrom": [
-            "biomeId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["biomeId"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1817,12 +1716,8 @@
           "name": "Tile_regionId_Region_id_fk",
           "tableFrom": "Tile",
           "tableTo": "Region",
-          "columnsFrom": [
-            "regionId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["regionId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1830,12 +1725,8 @@
           "name": "Tile_settlementId_Settlement_id_fk",
           "tableFrom": "Tile",
           "tableTo": "Settlement",
-          "columnsFrom": [
-            "settlementId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["settlementId"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1936,12 +1827,8 @@
           "name": "World_serverId_Server_id_fk",
           "tableFrom": "World",
           "tableTo": "Server",
-          "columnsFrom": [
-            "serverId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["serverId"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1957,24 +1844,12 @@
     "public.AccountRole": {
       "name": "AccountRole",
       "schema": "public",
-      "values": [
-        "MEMBER",
-        "SUPPORT",
-        "ADMINISTRATOR"
-      ]
+      "values": ["MEMBER", "SUPPORT", "ADMINISTRATOR"]
     },
     "public.BuildingType": {
       "name": "BuildingType",
       "schema": "public",
-      "values": [
-        "HOUSE",
-        "STORAGE",
-        "BARRACKS",
-        "WORKSHOP",
-        "MARKETPLACE",
-        "TOWN_HALL",
-        "WALL"
-      ]
+      "values": ["HOUSE", "STORAGE", "BARRACKS", "WORKSHOP", "MARKETPLACE", "TOWN_HALL", "WALL"]
     },
     "public.ExtractorType": {
       "name": "ExtractorType",
@@ -1993,52 +1868,27 @@
     "public.ResourceType": {
       "name": "ResourceType",
       "schema": "public",
-      "values": [
-        "FOOD",
-        "WOOD",
-        "STONE",
-        "ORE",
-        "CLAY",
-        "HERBS",
-        "PELTS",
-        "GEMS",
-        "EXOTIC_WOOD"
-      ]
+      "values": ["FOOD", "WOOD", "STONE", "ORE", "CLAY", "HERBS", "PELTS", "GEMS", "EXOTIC_WOOD"]
     },
     "public.ServerStatus": {
       "name": "ServerStatus",
       "schema": "public",
-      "values": [
-        "OFFLINE",
-        "MAINTENANCE",
-        "ONLINE"
-      ]
+      "values": ["OFFLINE", "MAINTENANCE", "ONLINE"]
     },
     "public.SpecialResource": {
       "name": "SpecialResource",
       "schema": "public",
-      "values": [
-        "GEMS",
-        "EXOTIC_WOOD",
-        "MAGICAL_HERBS",
-        "ANCIENT_STONE"
-      ]
+      "values": ["GEMS", "EXOTIC_WOOD", "MAGICAL_HERBS", "ANCIENT_STONE"]
     },
     "public.StructureCategory": {
       "name": "StructureCategory",
       "schema": "public",
-      "values": [
-        "EXTRACTOR",
-        "BUILDING"
-      ]
+      "values": ["EXTRACTOR", "BUILDING"]
     },
     "public.TileType": {
       "name": "TileType",
       "schema": "public",
-      "values": [
-        "OCEAN",
-        "LAND"
-      ]
+      "values": ["OCEAN", "LAND"]
     }
   },
   "schemas": {},

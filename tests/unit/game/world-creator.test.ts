@@ -8,6 +8,7 @@ import * as worldGenerator from '../../../src/game/world-generator.js';
 import * as resourceGenerator from '../../../src/game/resource-generator.js';
 import * as dbModule from '../../../src/db/index.js';
 import * as queries from '../../../src/db/queries.js';
+import { createId } from '@paralleldrive/cuid2';
 
 // Mock dependencies
 vi.mock('../../../src/utils/logger.js', () => ({
@@ -17,6 +18,11 @@ vi.mock('../../../src/utils/logger.js', () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+}));
+
+// Mock createId to return predictable test IDs
+vi.mock('@paralleldrive/cuid2', () => ({
+  createId: vi.fn(() => 'test-id'),
 }));
 
 vi.mock('../../../src/game/world-generator');
@@ -108,8 +114,6 @@ describe('World Creator', () => {
       stoneModifier: 1,
       oreModifier: 1,
     });
-
-    vi.mocked(queries.generateId).mockReturnValue('test-id');
 
     vi.mocked(resourceGenerator.determinePlotsTotal).mockReturnValue(3);
     vi.mocked(resourceGenerator.generatePlotResources).mockReturnValue({
@@ -512,12 +516,12 @@ describe('World Creator', () => {
 
     it('should generate unique IDs for all records', async () => {
       let idCounter = 0;
-      vi.mocked(queries.generateId).mockImplementation(() => `id-${idCounter++}`);
+      vi.mocked(createId).mockImplementation(() => `id-${idCounter++}`);
 
       await createWorld(defaultOptions);
 
       // Should generate IDs for: 1 world + 1 region + 4 tiles + 12 plots = 18 IDs
-      expect(queries.generateId).toHaveBeenCalled();
+      expect(createId).toHaveBeenCalled();
       expect(idCounter).toBeGreaterThan(0);
     });
 

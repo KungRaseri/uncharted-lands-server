@@ -31,71 +31,72 @@ describe('resource-calculator', () => {
     ore: 10,
   };
 
-// Mock extractors for BLOCKER 2 - extractors are REQUIRED for production
-// Each extractor produces its corresponding resource from the plot
-const mockExtractors = [
-  {
-    id: 'extractor-farm',
-    structureId: 'structure-farm', // Required by SettlementStructure
-    settlementId: 'settlement-1',
-    plotId: 'plot-1',
-    level: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    // StructureWithInfo extensions
-    category: 'EXTRACTOR' as const,
-    buildingType: null,
-    extractorType: 'FARM',
-  },
-  {
-    id: 'extractor-well',
-    structureId: 'structure-well',
-    settlementId: 'settlement-1',
-    plotId: 'plot-1',
-    level: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    category: 'EXTRACTOR' as const,
-    buildingType: null,
-    extractorType: 'WELL',
-  },
-  {
-    id: 'extractor-lumber',
-    structureId: 'structure-lumber',
-    settlementId: 'settlement-1',
-    plotId: 'plot-1',
-    level: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    category: 'EXTRACTOR' as const,
-    buildingType: null,
-    extractorType: 'LUMBER_MILL',
-  },
-  {
-    id: 'extractor-quarry',
-    structureId: 'structure-quarry',
-    settlementId: 'settlement-1',
-    plotId: 'plot-1',
-    level: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    category: 'EXTRACTOR' as const,
-    buildingType: null,
-    extractorType: 'QUARRY',
-  },
-  {
-    id: 'extractor-mine',
-    structureId: 'structure-mine',
-    settlementId: 'settlement-1',
-    plotId: 'plot-1',
-    level: 1,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    category: 'EXTRACTOR' as const,
-    buildingType: null,
-    extractorType: 'MINE',
-  },
-];  const emptyResources: Resources = {
+  // Mock extractors for BLOCKER 2 - extractors are REQUIRED for production
+  // Each extractor produces its corresponding resource from the plot
+  const mockExtractors = [
+    {
+      id: 'extractor-farm',
+      structureId: 'structure-farm', // Required by SettlementStructure
+      settlementId: 'settlement-1',
+      plotId: 'plot-1',
+      level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // StructureWithInfo extensions
+      category: 'EXTRACTOR' as const,
+      buildingType: null,
+      extractorType: 'FARM',
+    },
+    {
+      id: 'extractor-well',
+      structureId: 'structure-well',
+      settlementId: 'settlement-1',
+      plotId: 'plot-1',
+      level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      category: 'EXTRACTOR' as const,
+      buildingType: null,
+      extractorType: 'WELL',
+    },
+    {
+      id: 'extractor-lumber',
+      structureId: 'structure-lumber',
+      settlementId: 'settlement-1',
+      plotId: 'plot-1',
+      level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      category: 'EXTRACTOR' as const,
+      buildingType: null,
+      extractorType: 'LUMBER_MILL',
+    },
+    {
+      id: 'extractor-quarry',
+      structureId: 'structure-quarry',
+      settlementId: 'settlement-1',
+      plotId: 'plot-1',
+      level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      category: 'EXTRACTOR' as const,
+      buildingType: null,
+      extractorType: 'QUARRY',
+    },
+    {
+      id: 'extractor-mine',
+      structureId: 'structure-mine',
+      settlementId: 'settlement-1',
+      plotId: 'plot-1',
+      level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      category: 'EXTRACTOR' as const,
+      buildingType: null,
+      extractorType: 'MINE',
+    },
+  ];
+  const emptyResources: Resources = {
     food: 0,
     water: 0,
     wood: 0,
@@ -141,7 +142,12 @@ const mockExtractors = [
       const lastCollection = Date.now() - 1000; // 1 second ago
       const currentTime = Date.now();
 
-      const production = calculateTimedProduction(mockPlot, mockExtractors, lastCollection, currentTime);
+      const production = calculateTimedProduction(
+        mockPlot,
+        mockExtractors,
+        lastCollection,
+        currentTime
+      );
 
       // In 1 second (60 ticks), each resource should produce resourceValue * 0.01 * 60
       // Use 0 decimal places for comparison due to timing precision
@@ -161,7 +167,12 @@ const mockExtractors = [
       const lastCollection = Date.now() - 5000; // 5 seconds ago
       const currentTime = Date.now();
 
-      const production = calculateTimedProduction(mockPlot, mockExtractors, lastCollection, currentTime);
+      const production = calculateTimedProduction(
+        mockPlot,
+        mockExtractors,
+        lastCollection,
+        currentTime
+      );
 
       // In 5 seconds (300 ticks)
       expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * 300, 1);

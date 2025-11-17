@@ -340,22 +340,6 @@ describe('Database Queries', () => {
   });
 
   describe('Query Helper Functions', () => {
-    describe('generateId', () => {
-      it('should generate a valid CUID', async () => {
-        const { generateId } = await import('../../../src/db/queries');
-        const id = generateId();
-        expect(typeof id).toBe('string');
-        expect(id.length).toBeGreaterThan(10);
-      });
-
-      it('should generate unique IDs', async () => {
-        const { generateId } = await import('../../../src/db/queries');
-        const id1 = generateId();
-        const id2 = generateId();
-        expect(id1).not.toBe(id2);
-      });
-    });
-
     describe('getAllBiomes', () => {
       it('should get all biomes', async () => {
         const { getAllBiomes } = await import('../../../src/db/queries');
@@ -1153,8 +1137,8 @@ describe('Database Queries', () => {
           expect(structures).toBeDefined();
           expect(Array.isArray(structures)).toBe(true);
           expect(structures.length).toBeGreaterThan(0);
-          
-          const foundStructure = structures.find(s => s.structure?.id === structureId);
+
+          const foundStructure = structures.find((s) => s.structure?.id === structureId);
           expect(foundStructure).toBeDefined();
           expect(foundStructure?.structureDef?.category).toBe('BUILDING');
           expect(foundStructure?.structureDef?.buildingType).toBe('HOUSE');
@@ -1164,7 +1148,6 @@ describe('Database Queries', () => {
           await db.delete(settlementStructures).where(eq(settlementStructures.id, structureId));
         }
       });
-
     });
   });
 });

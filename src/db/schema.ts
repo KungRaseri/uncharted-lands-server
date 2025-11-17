@@ -8,10 +8,28 @@ import {
   pgEnum,
   uniqueIndex,
   index,
-  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
+
+// ===========================
+// TYPES
+// ===========================
+
+export interface WorldTemplateConfig {
+  magicLevel?: 'NONE' | 'LOW' | 'HIGH';
+  difficulty?: 'CASUAL' | 'NORMAL' | 'HARDCORE' | 'EXTREME';
+  resourceAbundance?: 'SCARCE' | 'NORMAL' | 'ABUNDANT';
+  depletionEnabled?: boolean;
+  depletionRate?: number;
+  disasterFrequency?: 'RARE' | 'NORMAL' | 'FREQUENT';
+  disasterSeverity?: 'MILD' | 'NORMAL' | 'CATASTROPHIC';
+  specialResourcesEnabled?: boolean;
+  npcSettlementsEnabled?: boolean;
+  productionMultiplier?: number;
+  consumptionMultiplier?: number;
+  populationGrowthRate?: number;
+}
 
 // ===========================
 // ENUMS
@@ -154,6 +172,8 @@ export const worlds = pgTable(
     precipitationSettings: json('precipitationSettings').notNull(),
     temperatureSettings: json('temperatureSettings').notNull(),
     status: text('status').notNull().default('generating'), // 'generating', 'ready', 'failed'
+    worldTemplateType: text('worldTemplateType').notNull().default('STANDARD'),
+    worldTemplateConfig: json('worldTemplateConfig').$type<WorldTemplateConfig>(),
     serverId: text('serverId')
       .notNull()
       .references(() => servers.id, { onDelete: 'cascade' }),
@@ -274,8 +294,7 @@ export const plots = pgTable(
     wood: integer('wood').notNull().default(1),
     stone: integer('stone').notNull().default(1),
     ore: integer('ore').notNull().default(1),
-    // Links to structures and settlements
-    // @ts-expect-error - Circular reference
+    // @ts-expect-error - Circular reference with settlementStructures is expected and works at runtime
     structureId: text('structureId').references(() => settlementStructures.id, {
       onDelete: 'set null',
     }),
@@ -303,7 +322,6 @@ export const settlementPopulation = pgTable('SettlementPopulation', {
   settlementId: text('settlementId')
     .notNull()
     .unique()
-    // @ts-expect-error - Circular reference
     .references(() => settlements.id, { onDelete: 'cascade' }),
   currentPopulation: integer('currentPopulation').notNull().default(10),
   happiness: integer('happiness').notNull().default(50),
@@ -343,6 +361,7 @@ export const settlements = pgTable(
 export const structureRequirements = pgTable(
   'StructureRequirement',
   {
+    id: text('id').primaryKey(),
     structureId: text('structureId')
       .notNull()
       .references(() => structures.id, { onDelete: 'cascade' }),
@@ -352,7 +371,6 @@ export const structureRequirements = pgTable(
     quantity: integer('quantity').notNull(),
   },
   (table) => ({
-    pk: primaryKey({ columns: [table.structureId, table.resourceId] }),
     structureIdx: index('StructureRequirement_structureId_idx').on(table.structureId),
     resourceIdx: index('StructureRequirement_resourceId_idx').on(table.resourceId),
   })
@@ -384,7 +402,7 @@ export const structurePrerequisites = pgTable(
   })
 );
 
-// @ts-expect-error - Circular reference with settlements and plots is expected and works at runtime
+// @ts-expect-error - Circular reference with plots is expected and works at runtime
 export const settlementStructures = pgTable('SettlementStructure', {
   id: text('id').primaryKey(),
   structureId: text('structureId')
@@ -392,11 +410,10 @@ export const settlementStructures = pgTable('SettlementStructure', {
     .references(() => structures.id, { onDelete: 'restrict' }),
   settlementId: text('settlementId')
     .notNull()
-    // @ts-expect-error - Circular reference
     .references(() => settlements.id, { onDelete: 'cascade' }),
   level: integer('level').notNull().default(1),
   // Plot linkage for extractors
-  // @ts-expect-error - Circular reference
+  // @ts-expect-error - Circular reference with plots
   plotId: text('plotId').references(() => plots.id, { onDelete: 'cascade' }),
   // Population assignment for structure staffing
   populationAssigned: integer('populationAssigned').notNull().default(0),

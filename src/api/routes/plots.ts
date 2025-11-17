@@ -17,14 +17,16 @@ import {
   settlementStructures,
   structureRequirements,
   settlementStorage,
+  worlds,
 } from '../../db/index.js';
-import { generateId } from '../../db/queries.js';
 import {
   calculateProductionRate,
   calculateAccumulatedResources,
 } from '../../utils/resource-production.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import type { WorldTemplateType } from '../../types/world-templates.js';
+import { createId } from '@paralleldrive/cuid2';
 
 const router = Router();
 
@@ -147,7 +149,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     const [newPlot] = await db
       .insert(plots)
       .values({
-        id: generateId(),
+        id: createId(),
         tileId,
         settlementId,
         position,
@@ -231,12 +233,22 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
       });
     }
 
+    // Phase 1D: Load world template for production multiplier
+    const { getWorldTemplateConfig } = await import('../../types/world-templates.js');
+    const world = await db.query.worlds.findFirst({
+      where: eq(worlds.id, plot.settlement?.worldId || ''),
+    });
+    const worldTemplate = getWorldTemplateConfig(
+      (world?.worldTemplateType as WorldTemplateType) || 'STANDARD'
+    );
+
     // Calculate production rate
     const productionRate = calculateProductionRate({
       resourceType,
       extractorType,
       biomeName: plot.tile?.biome?.name || '',
       structureLevel: 1,
+      worldTemplateMultiplier: worldTemplate.productionMultiplier,
     });
 
     if (productionRate === 0) {
@@ -266,7 +278,7 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
       const [requirements] = await tx
         .insert(structureRequirements)
         .values({
-          id: generateId(),
+          id: createId(),
         })
         .returning();
 
@@ -274,7 +286,7 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
-          id: generateId(),
+          id: createId(),
           settlementId: plot.settlementId!,
           structureRequirementsId: requirements.id,
           category: 'EXTRACTOR',

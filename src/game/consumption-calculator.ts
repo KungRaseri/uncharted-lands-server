@@ -95,33 +95,39 @@ export function calculatePopulation(structures: Structure[], _currentPopulation?
 /**
  * Calculate resource consumption per tick for a settlement
  *
+ * Formula: baseConsumption × worldTemplateMultiplier
+ *
  * @param population Current population count
  * @param structureCount Total number of structures in settlement
  * @param tickCount Number of ticks to calculate for (default: 1)
+ * @param worldTemplateMultiplier Consumption modifier from world template (default: 1, Phase 1D)
  * @returns Resource consumption amounts
  */
 export function calculateConsumption(
   population: number,
   structureCount: number = 0,
-  tickCount: number = 1
+  tickCount: number = 1,
+  worldTemplateMultiplier: number = 1
 ): Resources {
-  const foodConsumption = population * CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * tickCount;
-  const waterConsumption = population * CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * tickCount;
+  // Calculate base consumption rates
+  const baseFoodConsumption = population * CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * tickCount;
+  const baseWaterConsumption = population * CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * tickCount;
 
   // Structure maintenance costs (GDD Section 4.6.2)
-  const woodMaintenance =
+  const baseWoodMaintenance =
     structureCount * CONSUMPTION_RATES.WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
-  const stoneMaintenance =
+  const baseStoneMaintenance =
     structureCount * CONSUMPTION_RATES.STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
-  const oreMaintenance =
+  const baseOreMaintenance =
     structureCount * CONSUMPTION_RATES.ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
 
+  // Apply world template multiplier (Phase 1D)
   return {
-    food: foodConsumption,
-    water: waterConsumption,
-    wood: woodMaintenance,
-    stone: stoneMaintenance,
-    ore: oreMaintenance,
+    food: baseFoodConsumption * worldTemplateMultiplier,
+    water: baseWaterConsumption * worldTemplateMultiplier,
+    wood: baseWoodMaintenance * worldTemplateMultiplier,
+    stone: baseStoneMaintenance * worldTemplateMultiplier,
+    ore: baseOreMaintenance * worldTemplateMultiplier,
   };
 }
 

@@ -121,13 +121,13 @@ This file provides context and guidelines for GitHub Copilot when working on the
    - ✅ CORRECT: `docs/Server-Architecture.md`
    - ❌ WRONG: `SERVER_ARCHITECTURE.md` (root level)
    - ❌ WRONG: `src/docs/guide.md` (inside src)
-   
+
 2. **Root-Level Exceptions**: Only these files are allowed in the project root:
    - `README.md` - Project overview and getting started
    - `LICENSE` - License file
    - `CHANGELOG.md` - Version history (if needed)
-   
-3. **Summary Documents**: 
+
+3. **Summary Documents**:
    - ⚠️ **DO NOT** create summary documents unless explicitly requested by the user
    - User must specifically ask: "Create a summary of changes", "Document the migration", etc.
    - Most changes should be documented in existing files or commit messages
@@ -337,7 +337,7 @@ async function handleMessage(socket, data) {
 
 ```typescript
 // ✅ Typed Socket.IO events
-import type { 
+import type {
   ClientToServerEvents,
   ServerToClientEvents
 } from './types/socket-events';
@@ -352,16 +352,16 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
 ```typescript
 io.on('connection', (socket) => {
   logger.info('[CONNECTION] Client connected', { socketId: socket.id });
-  
+
   // Authentication check
   if (!socket.data.authenticated) {
     socket.disconnect();
     return;
   }
-  
+
   // Register event handlers
   registerEventHandlers(socket);
-  
+
   // Track connection
   socket.on('disconnect', (reason) => {
     logger.info('[DISCONNECT]', { socketId: socket.id, reason });
@@ -444,7 +444,7 @@ const settlement = await db
 const [newSettlement] = await db
   .insert(settlements)
   .values({
-    id: generateId(),
+    id: createId(),
     playerProfileId: profileId,
     plotId: plotId,
     settlementStorageId: storageId,
@@ -578,7 +578,7 @@ const socket = io('ws://localhost:3001');
 
 socket.on('connect', () => {
   console.log('Connected:', socket.id);
-  
+
   socket.emit('authenticate', {
     playerId: 'player-123',
     token: 'auth-token'
@@ -613,13 +613,13 @@ export function handleNewEvent(socket: Socket, data: NewEventData): Promise<void
       if (!data.settlementId) {
         throw new Error('Settlement ID required');
       }
-      
+
       // Database query
       const settlement = await getSettlementWithDetails(data.settlementId);
-      
+
       // Business logic
       // ...
-      
+
       // Respond
       socket.emit('new-event-response', { success: true });
       resolve();
@@ -656,7 +656,7 @@ export async function getNewData(id: string) {
       .from(tableName)
       .where(eq(tableName.id, id))
       .limit(1);
-    
+
     return result[0] || null;
   } catch (error) {
     logger.error('[QUERY ERROR]', error);
@@ -719,7 +719,7 @@ const socket = io('ws://localhost:3001');
 
 socket.on('connect', () => {
   console.log('Connected:', socket.id);
-  
+
   // Test authentication
   socket.emit('authenticate', {
     playerId: 'test-player',
@@ -727,7 +727,7 @@ socket.on('connect', () => {
   }, (response) => {
     console.log('Auth response:', response);
   });
-  
+
   // Test resource collection
   socket.emit('collect-resources', {
     settlementId: 'settlement-123'
@@ -1061,9 +1061,9 @@ logger.fatal("Database connection pool exhausted", {
 
 ---
 
-**Last Updated**: November 13, 2025  
-**Status**: Production-ready game server with real-time multiplayer features  
-**Tech Stack**: TypeScript + Socket.IO + Drizzle ORM + PostgreSQL + Node.js 22.x  
+**Last Updated**: November 13, 2025
+**Status**: Production-ready game server with real-time multiplayer features
+**Tech Stack**: TypeScript + Socket.IO + Drizzle ORM + PostgreSQL + Node.js 22.x
 **Deployment**: Railway/Render with persistent connections
 
 ````
