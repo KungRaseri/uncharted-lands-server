@@ -111,6 +111,95 @@ This file provides context and guidelines for GitHub Copilot when working on the
 
 ---
 
+## 🚨 CRITICAL DEVELOPMENT PRINCIPLES
+
+### **NEVER Leave Partial Implementations**
+
+When implementing server-side features:
+
+1. ❌ **DON'T** remove database operations and leave TODO comments
+2. ❌ **DON'T** create placeholder validation that will "be done later"
+3. ❌ **DON'T** make partial API changes that break functionality
+4. ✅ **DO** implement features fully, from database to Socket.IO events
+5. ✅ **DO** ask for clarification if game mechanics are unclear
+6. ✅ **DO** consult the GDD for complete specifications
+
+**Example of WRONG approach:**
+```typescript
+// ❌ BAD: Removing validation with comment
+// TODO: In future, implement structure requirements validation
+const structure = await db.insert(structures).values({
+  settlementId,
+  type: structureType
+}).returning();
+```
+
+**Example of CORRECT approach:**
+```typescript
+// ✅ GOOD: Full implementation
+const requirements = await db
+  .select()
+  .from(structureRequirements)
+  .where(eq(structureRequirements.structureType, structureType));
+
+if (!hasResources(settlement, requirements)) {
+  throw new Error('Insufficient resources');
+}
+
+const [structure] = await db.transaction(async (tx) => {
+  // Deduct resources
+  await tx.update(settlementStorage)
+    .set({ wood: settlement.wood - cost.wood, stone: settlement.stone - cost.stone })
+    .where(eq(settlementStorage.id, settlement.storageId));
+  
+  // Create structure
+  return tx.insert(structures)
+    .values({ settlementId, type: structureType })
+    .returning();
+});
+
+// Emit Socket.IO event
+io.to(`world:${worldId}`).emit('structure-built', {
+  settlementId,
+  structure
+});
+```
+
+### **Full-Stack Implementation Required**
+
+Every backend feature must be implemented across:
+
+1. **Database Schema** - Tables, relations, indexes in `src/db/schema.ts`
+2. **Backend Logic** - Business rules, validation in `src/game/*.ts` or `src/api/routes/*.ts`
+3. **API Endpoints** - REST routes with proper error handling (if applicable)
+4. **Socket.IO Events** - Real-time updates defined in `src/types/socket-events.ts`
+5. **Database Queries** - Efficient queries in `src/db/queries.ts` (for reusable patterns)
+6. **Testing** - Unit tests for logic, integration tests for events
+7. **Logging** - Structured logging with context for debugging
+
+**When you identify missing backend functionality:**
+- Check the GDD for the complete specification
+- Implement the full feature with database operations, validation, and events
+- If the GDD doesn't specify the feature, ask the user before proceeding
+- Update the Implementation Tracker when complete
+
+### **Backend Feature Implementation Checklist**
+
+Before considering a server-side feature "done":
+- [ ] Database schema matches GDD specifications (tables, columns, indexes)
+- [ ] Backend validation and business logic complete (game rules enforced)
+- [ ] Database operations use transactions where appropriate
+- [ ] Error handling covers all failure cases
+- [ ] Socket.IO events emitted for real-time updates
+- [ ] Room-based broadcasting targets correct players
+- [ ] Structured logging added with relevant context
+- [ ] Tests written and passing (unit + integration)
+- [ ] Documentation updated (GDD Tracker, API docs)
+- [ ] **No TODO comments left in production code**
+- [ ] Code formatted (Prettier) and linted (ESLint)
+
+---
+
 ## Documentation Policy
 
 **⚠️ CRITICAL: ALL project documentation MUST be placed in the `docs/` directory.**
