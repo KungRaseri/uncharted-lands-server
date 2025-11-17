@@ -6,6 +6,7 @@
  */
 
 import type { Server as SocketIOServer } from 'socket.io';
+import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 import {
   getPlayerSettlements,
@@ -35,6 +36,13 @@ import {
   calculateWaste,
   isNearCapacity,
 } from './storage-calculator.js';
+import {
+  autoAssignPopulation,
+  calculateAllStaffingBonuses,
+  type StructureWithType,
+} from './population-assignment.js';
+import { settlementStructures } from '../db/schema.js';
+import { db } from '../db/index.js';
 
 // Game loop configuration
 const TICK_RATE = Number.parseInt(process.env.TICK_RATE || '60', 10); // Default: 60 ticks per second
@@ -208,11 +216,72 @@ async function processSettlement(
         buildingType: row.structureDef?.buildingType,
       }));
 
+    // ============================================
+    // PHASE 1D: POPULATION ASSIGNMENT SYSTEM
+    // ============================================
+
+    // Get settlement population
+    const populationData = await getSettlementPopulation(settlement.settlementId);
+    const totalPopulation = populationData?.currentPopulation || 0;
+
+    // Map all settlement structures to StructureWithType format for assignment
+    const allStructuresForAssignment: StructureWithType[] = structureData.map((row) => ({
+      ...row.structure,
+      category: (row.structureDef?.category as 'EXTRACTOR' | 'BUILDING') || 'BUILDING',
+    }));
+
+    // Run auto-assignment algorithm
+    const assignmentResult = autoAssignPopulation(totalPopulation, allStructuresForAssignment);
+
+    // Update database with new assignments
+    for (const [structureId, assigned] of assignmentResult.assignments) {
+      await db
+        .update(settlementStructures)
+        .set({ populationAssigned: assigned })
+        .where(eq(settlementStructures.id, structureId));
+    }
+
+    // Calculate staffing bonuses for production
+    const staffingBonuses = calculateAllStaffingBonuses(allStructuresForAssignment);
+
+    // Log assignment statistics (at debug level to avoid spam)
+    if (assignmentResult.totalAssigned > 0 || assignmentResult.understaffedStructures.length > 0) {
+      logger.debug('[GAME LOOP] Population assignment', {
+        settlementId: settlement.settlementId,
+        totalPopulation,
+        assigned: assignmentResult.totalAssigned,
+        remaining: assignmentResult.remainingPopulation,
+        understaffed: assignmentResult.understaffedStructures.length,
+        fullyStaffed: assignmentResult.fullyStaffedStructures.length,
+      });
+    }
+
     // Calculate ticks since last update
     const ticksSinceUpdate = currentTick - settlement.lastUpdateTick;
 
-    // Calculate production for those ticks (GDD formula now applied with biome efficiency)
-    const production = calculateProduction(plot, extractors, ticksSinceUpdate, biome?.name);
+    // Calculate base production for those ticks (GDD formula now applied with biome efficiency)
+    const baseProduction = calculateProduction(plot, extractors, ticksSinceUpdate, biome?.name);
+
+    // Apply staffing bonuses to extractor production
+    // Map extractors to their bonuses and apply them
+    const production = { ...baseProduction };
+    for (const extractor of extractors) {
+      const bonus = staffingBonuses.get(extractor.id) || 1;
+      const extractorType = extractor.extractorType;
+
+      // Apply bonus to the appropriate resource
+      if (extractorType === 'FARM') {
+        production.food *= bonus;
+      } else if (extractorType === 'WELL') {
+        production.water *= bonus;
+      } else if (extractorType === 'LUMBER_MILL') {
+        production.wood *= bonus;
+      } else if (extractorType === 'QUARRY') {
+        production.stone *= bonus;
+      } else if (extractorType === 'MINE') {
+        production.ore *= bonus;
+      }
+    }
 
     // Calculate consumption for those ticks (population + structure maintenance)
     const population = calculatePopulation(structures);

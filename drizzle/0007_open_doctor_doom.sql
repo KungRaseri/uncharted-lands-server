@@ -1,0 +1,1 @@
+ALTER TABLE "SettlementStructure" ADD COLUMN "populationAssigned" integer DEFAULT 0 NOT NULL;

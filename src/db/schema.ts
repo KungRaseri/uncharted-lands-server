@@ -398,6 +398,8 @@ export const settlementStructures = pgTable('SettlementStructure', {
   // Plot linkage for extractors
   // @ts-expect-error - Circular reference
   plotId: text('plotId').references(() => plots.id, { onDelete: 'cascade' }),
+  // Population assignment for structure staffing
+  populationAssigned: integer('populationAssigned').notNull().default(0),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
