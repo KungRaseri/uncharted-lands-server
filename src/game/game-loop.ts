@@ -214,9 +214,10 @@ async function processSettlement(
     // Calculate production for those ticks (GDD formula now applied with biome efficiency)
     const production = calculateProduction(plot, extractors, ticksSinceUpdate, biome?.name);
 
-    // Calculate consumption for those ticks
+    // Calculate consumption for those ticks (population + structure maintenance)
     const population = calculatePopulation(structures);
-    const consumption = calculateConsumption(population, ticksSinceUpdate);
+    const structureCount = structures.length;
+    const consumption = calculateConsumption(population, structureCount, ticksSinceUpdate);
 
     // Calculate net resource changes (production - consumption)
     const netProduction = subtractResources(production, consumption);
@@ -290,7 +291,7 @@ async function processSettlement(
     }
 
     // Check if settlement has enough resources for population (1 hour buffer)
-    const hasResources = hasResourcesForPopulation(population, finalResources);
+    const hasResources = hasResourcesForPopulation(population, structureCount, finalResources);
 
     if (!hasResources && population > 0) {
       io.to(`world:${settlement.worldId}`).emit('resource-shortage', {

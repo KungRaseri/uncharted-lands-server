@@ -11,23 +11,28 @@ import type { Resources } from './resource-calculator.js';
 
 /**
  * Per-capita consumption rates per tick (60 ticks per second)
- * These values are very small per tick but add up over time
+ * Based on GDD specifications (Section 4.6.2)
  *
- * Example: 0.00008333 food per person per tick
- * = 0.005 food per person per second
- * = 0.3 food per person per minute
- * = 18 food per person per hour
- * = 432 food per person per day
+ * Food:  0.005 units per person per tick  = 1,080 units/hour = 25,920 units/day
+ * Water: 0.010 units per person per tick  = 2,160 units/hour = 51,840 units/day
+ *
+ * Note: These rates create significant resource pressure, requiring active management.
+ * A settlement of 10 population consumes 10,800 food and 21,600 water per hour.
  */
 export const CONSUMPTION_RATES = {
-  /** Food consumed per person per tick */
-  FOOD_PER_CAPITA_PER_TICK: 0.00008333, // 18 food/hour
+  /** Food consumed per person per tick (GDD spec: 0.005) */
+  FOOD_PER_CAPITA_PER_TICK: 0.005,
 
-  /** Water consumed per person per tick */
-  WATER_PER_CAPITA_PER_TICK: 0.000125, // 27 water/hour
+  /** Water consumed per person per tick (GDD spec: 0.01) */
+  WATER_PER_CAPITA_PER_TICK: 0.01,
 
   /** Base population capacity without structures */
   BASE_POPULATION_CAPACITY: 10,
+
+  /** Structure maintenance rates per tick */
+  WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.001, // 3.6 wood/hour per structure
+  STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.0005, // 1.8 stone/hour per structure
+  ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.00025, // 0.9 ore/hour per structure
 };
 
 /**
@@ -91,19 +96,32 @@ export function calculatePopulation(structures: Structure[], _currentPopulation?
  * Calculate resource consumption per tick for a settlement
  *
  * @param population Current population count
+ * @param structureCount Total number of structures in settlement
  * @param tickCount Number of ticks to calculate for (default: 1)
  * @returns Resource consumption amounts
  */
-export function calculateConsumption(population: number, tickCount: number = 1): Resources {
+export function calculateConsumption(
+  population: number,
+  structureCount: number = 0,
+  tickCount: number = 1
+): Resources {
   const foodConsumption = population * CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * tickCount;
   const waterConsumption = population * CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * tickCount;
+
+  // Structure maintenance costs (GDD Section 4.6.2)
+  const woodMaintenance =
+    structureCount * CONSUMPTION_RATES.WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
+  const stoneMaintenance =
+    structureCount * CONSUMPTION_RATES.STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
+  const oreMaintenance =
+    structureCount * CONSUMPTION_RATES.ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
 
   return {
     food: foodConsumption,
     water: waterConsumption,
-    wood: 0, // Future: Structure maintenance
-    stone: 0, // Future: Structure maintenance
-    ore: 0, // Future: Structure maintenance
+    wood: woodMaintenance,
+    stone: stoneMaintenance,
+    ore: oreMaintenance,
   };
 }
 
@@ -139,12 +157,14 @@ export function calculateMorale(structures: Structure[]): number {
 export function getConsumptionSummary(structures: Structure[], currentPopulation?: number) {
   const population = calculatePopulation(structures, currentPopulation);
   const capacity = calculatePopulationCapacity(structures);
-  const consumption = calculateConsumption(population, 60); // Per second
+  const structureCount = structures.length;
+  const consumption = calculateConsumption(population, structureCount, 60); // Per second
   const morale = calculateMorale(structures);
 
   return {
     population,
     capacity,
+    structureCount,
     consumption,
     morale,
     perCapitaPerSecond: {
@@ -155,6 +175,11 @@ export function getConsumptionSummary(structures: Structure[], currentPopulation
       food: CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * 60 * 60 * 60,
       water: CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * 60 * 60 * 60,
     },
+    perStructurePerHour: {
+      wood: CONSUMPTION_RATES.WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
+      stone: CONSUMPTION_RATES.STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
+      ore: CONSUMPTION_RATES.ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
+    },
   };
 }
 
@@ -163,12 +188,23 @@ export function getConsumptionSummary(structures: Structure[], currentPopulation
  * Returns true if resources can sustain population for at least 1 hour
  *
  * @param population Current population
+ * @param structureCount Total number of structures
  * @param resources Current resource amounts
  * @returns Whether resources are sufficient
  */
-export function hasResourcesForPopulation(population: number, resources: Resources): boolean {
+export function hasResourcesForPopulation(
+  population: number,
+  structureCount: number,
+  resources: Resources
+): boolean {
   // Calculate consumption for 1 hour (60 * 60 * 60 ticks)
-  const hourlyConsumption = calculateConsumption(population, 60 * 60 * 60);
+  const hourlyConsumption = calculateConsumption(population, structureCount, 60 * 60 * 60);
 
-  return resources.food >= hourlyConsumption.food && resources.water >= hourlyConsumption.water;
+  return (
+    resources.food >= hourlyConsumption.food &&
+    resources.water >= hourlyConsumption.water &&
+    resources.wood >= hourlyConsumption.wood &&
+    resources.stone >= hourlyConsumption.stone &&
+    resources.ore >= hourlyConsumption.ore
+  );
 }
