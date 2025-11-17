@@ -90,7 +90,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Ensure each structure has a modifiers array
-    settlement.structures = settlement.structures.map((structure) => ({
+    settlement.structures = settlement.structures.map((structure: { modifiers?: unknown[] }) => ({
       ...structure,
       modifiers: structure.modifiers || [],
     }));

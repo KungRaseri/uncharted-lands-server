@@ -410,11 +410,13 @@ export const settlementStructures = pgTable('SettlementStructure', {
     .references(() => structures.id, { onDelete: 'restrict' }),
   settlementId: text('settlementId')
     .notNull()
+    // @ts-expect-error - Circular reference with settlements
     .references(() => settlements.id, { onDelete: 'cascade' }),
   level: integer('level').notNull().default(1),
   // Plot linkage for extractors
-  // @ts-expect-error - Circular reference with plots
-  plotId: text('plotId').references(() => plots.id, { onDelete: 'cascade' }),
+  plotId: text('plotId')
+    // @ts-expect-error - Circular reference with plots
+    .references(() => plots.id, { onDelete: 'cascade' }),
   // Population assignment for structure staffing
   populationAssigned: integer('populationAssigned').notNull().default(0),
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),

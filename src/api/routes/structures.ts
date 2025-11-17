@@ -9,14 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
-import {
-  db,
-  settlementStructures,
-  structureRequirements,
-  settlements,
-  plots,
-  worlds,
-} from '../../db/index.js';
+import { db, settlementStructures, settlements, plots, worlds } from '../../db/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import type { WorldTemplateType } from '../../types/world-templates.js';
@@ -148,21 +141,12 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Create building in transaction
     const newStructure = await db.transaction(async (tx) => {
-      // Create structure requirements (placeholder - in future, check actual requirements)
-      const [requirements] = await tx
-        .insert(structureRequirements)
-        .values({
-          id: createId(),
-        })
-        .returning();
-
       // Create the building
       const [building] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
           settlementId,
-          structureRequirementsId: requirements.id,
           category: 'BUILDING',
           buildingType: dbBuildingType,
           level: 1,

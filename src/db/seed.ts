@@ -215,6 +215,7 @@ async function _seedStructureRequirements() {
       } else {
         // Insert new requirement
         await db.insert(structureRequirements).values({
+          id: createId(),
           structureId: structure.id,
           resourceId: resource.id,
           quantity: req.quantity,

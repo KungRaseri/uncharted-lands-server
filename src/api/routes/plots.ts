@@ -15,7 +15,6 @@ import {
   plots,
   tiles,
   settlementStructures,
-  structureRequirements,
   settlementStorage,
   worlds,
 } from '../../db/index.js';
@@ -136,7 +135,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     }
 
     // Check if position is already taken
-    const positionTaken = tile.plots?.some((p) => p.position === position);
+    const positionTaken = tile.plots?.some((p: { position: number }) => p.position === position);
     if (positionTaken) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -274,21 +273,12 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
 
     // Create structure in transaction
     await db.transaction(async (tx) => {
-      // Create structure requirements (placeholder - in future, check actual requirements)
-      const [requirements] = await tx
-        .insert(structureRequirements)
-        .values({
-          id: createId(),
-        })
-        .returning();
-
       // Create the structure
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
           settlementId: plot.settlementId!,
-          structureRequirementsId: requirements.id,
           category: 'EXTRACTOR',
           extractorType,
           level: 1,
