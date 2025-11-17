@@ -14,6 +14,10 @@ import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import type { WorldTemplateType } from '../../types/world-templates.js';
 import { createId } from '@paralleldrive/cuid2';
+import {
+  validateAndDeductResources,
+  type ValidationResult,
+} from '../../game/structure-validation.js';
 
 const router = Router();
 
@@ -140,8 +144,20 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     }
 
     // Create building in transaction
-    const newStructure = await db.transaction(async (tx) => {
-      // Create the building
+    const result = await db.transaction(async (tx) => {
+      // 1. Validate and deduct resources BEFORE creating structure
+      const validation = await validateAndDeductResources(tx, settlementId, buildingType);
+
+      if (!validation.success) {
+        // Throw error to rollback transaction
+        const error = new Error('INSUFFICIENT_RESOURCES') as Error & {
+          validation: ValidationResult;
+        };
+        error.validation = validation;
+        throw error;
+      }
+
+      // 2. Create the building
       const [building] = await tx
         .insert(settlementStructures)
         .values({
@@ -155,18 +171,48 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         })
         .returning();
 
-      return building;
+      return { building, validation };
     });
 
     logger.info('[API] Building created', {
-      structureId: newStructure.id,
+      structureId: result.building.id,
       settlementId,
       buildingType: dbBuildingType,
       clientBuildingType: buildingType,
+      resourcesDeducted: result.validation.deductedResources,
     });
 
-    return res.status(201).json(newStructure);
+    // Emit Socket.IO event for real-time updates
+    const worldId = settlement.worldId;
+    if (worldId && req.app.get('io')) {
+      req.app.get('io').to(`world:${worldId}`).emit('structure:built', {
+        settlementId,
+        structure: result.building,
+        type: 'BUILDING',
+        buildingType,
+        resourcesDeducted: result.validation.deductedResources,
+      });
+    }
+
+    return res.status(201).json(result.building);
   } catch (error) {
+    // Handle validation errors (insufficient resources)
+    if (error instanceof Error && error.message === 'INSUFFICIENT_RESOURCES') {
+      const validationError = (error as Error & { validation: ValidationResult }).validation;
+      logger.warn('[API] Insufficient resources for building', {
+        settlementId: req.body.settlementId,
+        buildingType: req.body.buildingType,
+        shortages: validationError.shortages,
+      });
+      return res.status(400).json({
+        error: 'Bad Request',
+        code: 'INSUFFICIENT_RESOURCES',
+        message: validationError.error || 'Not enough resources to build this structure',
+        shortages: validationError.shortages,
+      });
+    }
+
+    // Handle all other errors
     logger.error('[API] Failed to create building', { error, body: req.body });
     return res.status(500).json({
       error: 'Internal Server Error',
