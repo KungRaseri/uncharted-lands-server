@@ -11,13 +11,14 @@ import type { Resources } from './resource-calculator.js';
 
 /**
  * Per-capita consumption rates per tick (60 ticks per second)
- * Based on GDD specifications (Section 4.6.2)
+ * Based on GDD specifications (Section 6.4)
  *
- * Food:  0.005 units per person per tick  = 1,080 units/hour = 25,920 units/day
- * Water: 0.010 units per person per tick  = 2,160 units/hour = 51,840 units/day
+ * Food:  0.005 units per person per tick  = 18 units/hour = 432 units/day
+ * Water: 0.010 units per person per tick  = 36 units/hour = 864 units/day
  *
- * Note: These rates create significant resource pressure, requiring active management.
- * A settlement of 10 population consumes 10,800 food and 21,600 water per hour.
+ * Note: These rates are balanced for sustainable settlements.
+ * A settlement of 10 population consumes 180 food and 360 water per hour.
+ * A settlement of 100 population consumes 1,800 food and 3,600 water per hour.
  */
 export const CONSUMPTION_RATES = {
   /** Food consumed per person per tick (GDD spec: 0.005) */
