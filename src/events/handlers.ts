@@ -35,6 +35,7 @@ import {
   addResources,
   subtractResources,
   hasEnoughResources,
+  type Resources,
 } from '../game/resource-calculator.js';
 import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop.js';
 import { createWorld } from '../game/world-creator.js';
