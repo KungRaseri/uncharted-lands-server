@@ -35,13 +35,22 @@ export interface PopulationState {
 
 /**
  * Factors affecting population happiness
+ *
+ * GDD Section 3.3: Reweighted for PvE Focus
+ * - Resource Sufficiency: 30%
+ * - Housing Quality: 20%
+ * - Disaster Preparedness: 15%
+ * - Recent Trauma: 15%
+ * - Morale Bonuses: 15%
+ * - NPC Relations: 5%
  */
 export interface HappinessFactors {
-  morale: number; // from structures
-  resourceSufficiency: number; // 0-100, based on resource availability
-  housingQuality: number; // 0-100, based on housing structures
-  defense: number; // 0-100, based on defense structures
-  entertainment: number; // 0-100, from taverns, theaters, etc. (future)
+  resourceSufficiency: number; // 0-100, based on resource availability (30%)
+  housingQuality: number; // 0-100, based on housing structures (20%)
+  disasterPreparedness: number; // 0-100, based on defense/shelter structures (15%)
+  recentTrauma: number; // 0-100, penalty from recent disasters (15%)
+  moraleBonuses: number; // 0-100, from entertainment structures (15%)
+  npcRelations: number; // 0-100, from NPC settlement relationships (5%)
 }
 
 // Growth constants
@@ -170,53 +179,142 @@ export function calculateHousingQuality(
 }
 
 /**
- * Calculate defense rating score
+ * Calculate disaster preparedness score
+ *
+ * Based on:
+ * - Shelter capacity coverage (0-100%)
+ * - Warning systems (watchtowers, etc.)
+ * - Hospital availability
+ * - Defense structures (walls, fortifications)
  *
  * @param structures - Array of settlement structures
- * @returns Score from 0-100 indicating defense level
+ * @param currentPop - Current population
+ * @param capacity - Maximum population capacity
+ * @returns Score from 0-100 indicating disaster preparedness
  */
-export function calculateDefenseScore(structures: Structure[]): number {
-  let defenseRating = 0;
+export function calculateDisasterPreparedness(
+  structures: Structure[],
+  currentPop: number,
+  _capacity: number
+): number {
+  let score = 0;
 
-  for (const structure of structures) {
-    const defenseModifier = structure.modifiers.find((m) =>
-      m.name.toLowerCase().includes('defense')
-    );
-
-    if (defenseModifier) {
-      defenseRating += defenseModifier.value;
+  // Shelter capacity coverage (up to 50 points)
+  // Check for Emergency Shelter structures
+  const shelterCapacity = structures.reduce((total, s) => {
+    if (s.name.toLowerCase().includes('shelter') || s.name.toLowerCase().includes('bunker')) {
+      // Each shelter protects 50 people (from GDD)
+      const capacityMod = s.modifiers.find((m) => m.name.toLowerCase().includes('capacity'));
+      return total + (capacityMod?.value || 50);
     }
+    return total;
+  }, 0);
+
+  const shelterCoverage = currentPop > 0 ? Math.min(1, shelterCapacity / currentPop) : 0;
+  score += shelterCoverage * 50;
+
+  // Warning systems (up to 15 points)
+  const hasWatchtower = structures.some(
+    (s) => s.name.toLowerCase().includes('watchtower') || s.name.toLowerCase().includes('warning')
+  );
+  if (hasWatchtower) {
+    score += 15;
   }
 
-  // Convert defense rating to 0-100 score
-  // 0 defense = 30 (no walls, people are scared)
-  // 50 defense = 70 (well defended)
-  // 100+ defense = 100 (fortress)
-  return Math.min(100, 30 + defenseRating * 0.7);
+  // Hospital availability (up to 15 points)
+  const hasHospital = structures.some((s) => s.name.toLowerCase().includes('hospital'));
+  if (hasHospital) {
+    score += 15;
+  }
+
+  // Defense structures (up to 20 points)
+  const defenseRating = structures.reduce((total, s) => {
+    const defenseModifier = s.modifiers.find((m) => m.name.toLowerCase().includes('defense'));
+    return total + (defenseModifier?.value || 0);
+  }, 0);
+
+  score += Math.min(20, defenseRating * 0.2);
+
+  return Math.min(100, score);
+}
+
+/**
+ * Calculate recent trauma score
+ *
+ * Tracks penalty from recent disasters (decays over time)
+ *
+ * NOTE: Disasters not implemented yet (Phase 3)
+ * Currently returns 100 (no trauma) as baseline
+ *
+ * Will be implemented in Phase 3 with:
+ * - Time since last disaster with decay curve
+ * - Disaster severity impact (0-100 → trauma penalty)
+ * - Multiple disasters compound effect
+ * - Relief Center accelerates recovery
+ *
+ * @param _lastDisasterTime - Timestamp of last disaster (unused until Phase 3)
+ * @param _disasterSeverity - Severity of last disaster 0-100 (unused until Phase 3)
+ * @returns Score from 0-100 (0 = max trauma, 100 = no trauma)
+ */
+export function calculateRecentTrauma(
+  _lastDisasterTime?: number,
+  _disasterSeverity?: number
+): number {
+  // Phase 3: Will implement disaster trauma tracking
+  // For now, return 100 (no trauma baseline) so formula works correctly
+  return 100;
+}
+
+/**
+ * Calculate NPC relations score
+ *
+ * Based on relationships with NPC settlements
+ *
+ * NOTE: NPC system not implemented yet (Phase 4)
+ * Currently returns 50 (neutral) as baseline
+ *
+ * Will be implemented in Phase 4 with:
+ * - Relationship tiers: Hostile, Neutral, Friendly, Allied, Trusted
+ * - Trusted NPCs: +10 points each
+ * - Allied NPCs: +5 points each
+ * - Friendly NPCs: +2 points each
+ * - Hostile NPCs: -10 points each
+ *
+ * @param _npcRelationships - Map of NPC settlement relationships (unused until Phase 4)
+ * @returns Score from 0-100 (50 = neutral baseline)
+ */
+export function calculateNPCRelations(_npcRelationships?: Map<string, number>): number {
+  // Phase 4: Will implement NPC relationship tracking
+  // For now, return 50 (neutral baseline) so formula works correctly
+  return 50;
 }
 
 /**
  * Calculate overall happiness level
  *
+ * GDD Section 3.3: Reweighted for PvE Focus
+ *
  * @param factors - All factors affecting happiness
  * @returns Happiness score from 0-100
  */
 export function calculateHappiness(factors: HappinessFactors): number {
-  // Weighted average of all factors
+  // GDD-specified weights (reweighted for PvE focus)
   const weights = {
-    morale: 0.2,
-    resourceSufficiency: 0.35,
-    housingQuality: 0.25,
-    defense: 0.15,
-    entertainment: 0.05,
+    resourceSufficiency: 0.3, // Do we have food/water?
+    housingQuality: 0.2, // Is housing adequate?
+    disasterPreparedness: 0.15, // Shelters, warnings, defenses
+    recentTrauma: 0.15, // Penalty from recent disasters (decays)
+    moraleBonuses: 0.15, // Entertainment structures
+    npcRelations: 0.05, // Positive relations with NPCs
   };
 
   const happiness =
-    factors.morale * weights.morale +
     factors.resourceSufficiency * weights.resourceSufficiency +
     factors.housingQuality * weights.housingQuality +
-    factors.defense * weights.defense +
-    factors.entertainment * weights.entertainment;
+    factors.disasterPreparedness * weights.disasterPreparedness +
+    factors.recentTrauma * weights.recentTrauma +
+    factors.moraleBonuses * weights.moraleBonuses +
+    factors.npcRelations * weights.npcRelations;
 
   return Math.min(100, Math.max(0, happiness));
 }
@@ -364,33 +462,44 @@ export function calculateEmigrationAmount(currentPop: number): number {
 /**
  * Calculate complete population state for a settlement
  *
+ * GDD Section 3.3: Population Dynamics
+ *
  * @param currentPop - Current population
  * @param structures - Settlement structures
  * @param resources - Current resources
  * @param lastGrowthTick - Timestamp of last growth calculation
+ * @param lastDisasterTime - Timestamp of last disaster (optional, for trauma calculation)
+ * @param disasterSeverity - Severity of last disaster 0-100 (optional)
+ * @param npcRelationships - Map of NPC settlement relationships (optional)
  * @returns Complete population state
  */
 export function calculatePopulationState(
   currentPop: number,
   structures: Structure[],
   resources: Resources,
-  lastGrowthTick: number = Date.now()
+  lastGrowthTick: number = Date.now(),
+  lastDisasterTime?: number,
+  disasterSeverity?: number,
+  npcRelationships?: Map<string, number>
 ): PopulationState {
   // Calculate capacity
   const capacity = calculatePopulationCapacity(structures);
 
-  // Calculate happiness factors
-  const morale = calculateMorale(structures);
+  // Calculate happiness factors (GDD Section 3.3 weights)
   const resourceSufficiency = calculateResourceSufficiency(currentPop, resources);
   const housingQuality = calculateHousingQuality(structures, currentPop, capacity);
-  const defense = calculateDefenseScore(structures);
+  const disasterPreparedness = calculateDisasterPreparedness(structures, currentPop, capacity);
+  const recentTrauma = calculateRecentTrauma(lastDisasterTime, disasterSeverity);
+  const moraleBonuses = calculateMorale(structures); // Entertainment structures
+  const npcRelations = calculateNPCRelations(npcRelationships);
 
   const happinessFactors: HappinessFactors = {
-    morale,
     resourceSufficiency,
     housingQuality,
-    defense,
-    entertainment: 0, // Future feature
+    disasterPreparedness,
+    recentTrauma,
+    moraleBonuses,
+    npcRelations,
   };
 
   const happiness = calculateHappiness(happinessFactors);

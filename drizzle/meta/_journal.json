@@ -64,6 +64,13 @@
       "when": 1763436493155,
       "tag": "0008_curious_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1763437256555,
+      "tag": "0009_special_purple_man",
+      "breakpoints": true
     }
   ]
 }

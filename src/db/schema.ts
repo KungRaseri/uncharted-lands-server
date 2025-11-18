@@ -410,24 +410,33 @@ export const structurePrerequisites = pgTable(
 );
 
 // @ts-expect-error - Circular reference with plots is expected and works at runtime
-export const settlementStructures = pgTable('SettlementStructure', {
-  id: text('id').primaryKey(),
-  structureId: text('structureId')
-    .notNull()
-    .references(() => structures.id, { onDelete: 'restrict' }),
-  settlementId: text('settlementId')
-    .notNull()
-    .references(() => settlements.id, { onDelete: 'cascade' }),
-  level: integer('level').notNull().default(1),
-  // Plot linkage for extractors
-  plotId: text('plotId')
-    // @ts-expect-error - Circular reference with plots
-    .references(() => plots.id, { onDelete: 'cascade' }),
-  // Population assignment for structure staffing
-  populationAssigned: integer('populationAssigned').notNull().default(0),
-  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
-});
+export const settlementStructures = pgTable(
+  'SettlementStructure',
+  {
+    id: text('id').primaryKey(),
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'restrict' }),
+    settlementId: text('settlementId')
+      .notNull()
+      // @ts-expect-error - Circular reference with plots
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+    level: integer('level').notNull().default(1),
+    // Plot linkage for extractors
+    plotId: text('plotId')
+      // @ts-expect-error - Circular reference with plots
+      .references(() => plots.id, { onDelete: 'cascade' }),
+    // Population assignment for structure staffing
+    populationAssigned: integer('populationAssigned').notNull().default(0),
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => ({
+    settlementIdx: index('SettlementStructure_settlementId_idx').on(table.settlementId),
+    structureIdx: index('SettlementStructure_structureId_idx').on(table.structureId),
+    plotIdx: index('SettlementStructure_plotId_idx').on(table.plotId),
+  })
+);
 
 export const structureModifiers = pgTable('StructureModifier', {
   id: text('id').primaryKey(),
