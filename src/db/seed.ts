@@ -121,7 +121,7 @@ async function _seedResources() {
 /**
  * Seed structures with upsert logic (create or update)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 async function _seedStructures() {
   logger.info(`[SEED] Starting structure seeding...`);
 
@@ -282,10 +282,18 @@ async function seedBiomes() {
 logger.info('[SEED] Starting database seeding...');
 
 try {
+  // Seed structures
+  const structureResult = await _seedStructures();
+
   // Seed biomes
   const biomeResult = await seedBiomes();
 
   logger.info('[SEED] ✅ Seeding completed successfully!', {
+    structures: {
+      created: structureResult.created,
+      updated: structureResult.updated,
+      total: structureResult.total,
+    },
     biomes: {
       created: biomeResult.created,
       updated: biomeResult.updated,

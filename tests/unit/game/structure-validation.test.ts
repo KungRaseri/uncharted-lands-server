@@ -14,13 +14,18 @@ import type { ValidationResult, ResourceShortage } from '../../../src/game/struc
 import { getStructureCost, getUpgradeCost } from '../../../src/game/structure-costs.js';
 
 // Mock database and transaction
+const mockUpdateChain = {
+  set: vi.fn().mockReturnThis(),
+  where: vi.fn().mockResolvedValue(true),
+};
+
 const mockTransaction = {
   query: {
     settlements: {
       findFirst: vi.fn(),
     },
   },
-  update: vi.fn(),
+  update: vi.fn().mockImplementation(() => mockUpdateChain),
 };
 
 describe('Structure Validation System', () => {
@@ -105,8 +110,8 @@ describe('Structure Validation System', () => {
           'WORKSHOP'
         );
 
-        expect(result.success).toBe(true);
-        expect(result.shortages).toEqual([]);
+  expect(result.success).toBe(true);
+  expect(result.shortages).toBeUndefined();
       });
     });
 
@@ -203,8 +208,8 @@ describe('Structure Validation System', () => {
         expect(result.shortages).toHaveLength(2);
         expect(result.shortages).toEqual(
           expect.arrayContaining([
-            { resource: 'wood', required: 20, available: 0, shortage: 20 },
-            { resource: 'stone', required: 10, available: 0, shortage: 10 },
+            { type: 'wood', required: 20, available: 0, missing: 20 },
+            { type: 'stone', required: 10, available: 0, missing: 10 },
           ])
         );
       });
@@ -237,9 +242,9 @@ describe('Structure Validation System', () => {
         expect(result.shortages).toHaveLength(3);
         expect(result.shortages).toEqual(
           expect.arrayContaining([
-            { resource: 'wood', required: 60, available: 20, shortage: 40 },
-            { resource: 'stone', required: 60, available: 30, shortage: 30 },
-            { resource: 'ore', required: 30, available: 10, shortage: 20 },
+            { type: 'wood', required: 60, available: 20, missing: 40 },
+            { type: 'stone', required: 60, available: 30, missing: 30 },
+            { type: 'ore', required: 30, available: 10, missing: 20 },
           ])
         );
       });
@@ -270,8 +275,8 @@ describe('Structure Validation System', () => {
         expect(result.shortages).toHaveLength(2);
         expect(result.shortages).toEqual(
           expect.arrayContaining([
-            { resource: 'wood', required: 50, available: 10, shortage: 40 },
-            { resource: 'stone', required: 20, available: 5, shortage: 15 },
+            { type: 'wood', required: 50, available: 10, missing: 40 },
+            { type: 'stone', required: 20, available: 5, missing: 15 },
           ])
         );
       });

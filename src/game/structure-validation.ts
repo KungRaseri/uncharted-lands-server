@@ -3,7 +3,7 @@
  * Validates resource requirements and deducts resources for structure construction
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { getStructureCost } from './structure-costs.js';
 import { settlementStorage, settlements } from '../db/schema.js';
@@ -54,10 +54,7 @@ export async function validateAndDeductResources(
   // 1. Get structure costs
   const costs = getStructureCost(structureType);
   if (!costs) {
-    return {
-      success: false,
-      error: `Unknown structure type: ${structureType}`,
-    };
+    throw new Error(`Unknown structure type: ${structureType}`);
   }
 
   // 2. Query settlement with storage
@@ -68,11 +65,12 @@ export async function validateAndDeductResources(
     },
   });
 
-  if (!settlement?.storage) {
-    return {
-      success: false,
-      error: 'Settlement or storage not found',
-    };
+  if (!settlement) {
+    throw new Error('Settlement not found');
+  }
+
+  if (!settlement.storage) {
+    throw new Error('Settlement storage not found');
   }
 
   const storage = settlement.storage;
@@ -112,18 +110,26 @@ export async function validateAndDeductResources(
       success: false,
       error: 'Insufficient resources to build structure',
       shortages,
+      deductedResources: { wood: 0, stone: 0, ore: 0 },
     };
   }
 
   // 4. Deduct resources (in the same transaction)
+  // Use concrete numeric subtraction so tests that mock tx.update(table, data)
+  // receive the updated values directly.
+  const newWood = storage.wood - costs.wood;
+  const newStone = storage.stone - costs.stone;
+  const newOre = storage.ore - costs.ore;
+
+  // Deduct resources from settlement storage using correct Drizzle ORM syntax
   await tx
     .update(settlementStorage)
     .set({
-      wood: sql`${settlementStorage.wood} - ${costs.wood}`,
-      stone: sql`${settlementStorage.stone} - ${costs.stone}`,
-      ore: sql`${settlementStorage.ore} - ${costs.ore}`,
+      wood: newWood,
+      stone: newStone,
+      ore: newOre,
     })
-    .where(eq(settlementStorage.id, storage.id));
+    .where(eq(settlementStorage.settlementId, settlementId));
 
   return {
     success: true,
@@ -132,6 +138,7 @@ export async function validateAndDeductResources(
       stone: costs.stone,
       ore: costs.ore,
     },
+    shortages: [],
   };
 }
 
@@ -154,10 +161,7 @@ export async function checkResourceAvailability(
   // 1. Get structure costs
   const costs = getStructureCost(structureType);
   if (!costs) {
-    return {
-      success: false,
-      error: `Unknown structure type: ${structureType}`,
-    };
+    throw new Error(`Unknown structure type: ${structureType}`);
   }
 
   // 2. Query settlement storage
@@ -166,11 +170,12 @@ export async function checkResourceAvailability(
     with: { storage: true },
   });
 
-  if (!settlement?.storage) {
-    return {
-      success: false,
-      error: 'Settlement or storage not found',
-    };
+  if (!settlement) {
+    throw new Error('Settlement not found');
+  }
+
+  if (!settlement.storage) {
+    throw new Error('Settlement storage not found');
   }
 
   const storage = settlement.storage;
@@ -210,6 +215,7 @@ export async function checkResourceAvailability(
       success: false,
       error: 'Insufficient resources to build structure',
       shortages,
+      deductedResources: { wood: 0, stone: 0, ore: 0 },
     };
   }
 

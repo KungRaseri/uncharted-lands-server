@@ -9,7 +9,14 @@
 
 import { Router, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
-import { db, settlementStructures, settlements, plots, worlds } from '../../db/index.js';
+import {
+  db,
+  settlementStructures,
+  settlements,
+  plots,
+  worlds,
+  structures,
+} from '../../db/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import type { WorldTemplateType } from '../../types/world-templates.js';
@@ -20,43 +27,6 @@ import {
 } from '../../game/structure-validation.js';
 
 const router = Router();
-
-/**
- * Map client structure IDs to database BuildingType enum values
- * This is a temporary solution until we add all structure types to the database
- */
-function mapStructureToBuildingType(structureId: string): string | null {
-  const mapping: Record<string, string> = {
-    // Housing
-    tent: 'HOUSE',
-    cottage: 'HOUSE',
-    house: 'HOUSE',
-    mansion: 'HOUSE',
-    // Production
-    farm: 'WORKSHOP',
-    well: 'WORKSHOP',
-    lumbermill: 'WORKSHOP',
-    quarry: 'WORKSHOP',
-    mine: 'WORKSHOP',
-    windmill: 'WORKSHOP',
-    solar_panel: 'WORKSHOP',
-    // Storage
-    warehouse: 'STORAGE',
-    silo: 'STORAGE',
-    cellar: 'STORAGE',
-    // Defense
-    watchtower: 'BARRACKS',
-    barracks: 'BARRACKS',
-    wall: 'WALL',
-    gate: 'WALL',
-    // Utility
-    market: 'MARKETPLACE',
-    town_hall: 'TOWN_HALL',
-    workshop: 'WORKSHOP',
-  };
-
-  return mapping[structureId] || null;
-}
 
 /**
  * GET /api/structures/:id
@@ -100,24 +70,14 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    const { settlementId, buildingType, name, description } = req.body;
+    const { settlementId, structureName } = req.body;
 
-    if (!settlementId || !buildingType) {
+    if (!settlementId || !structureName) {
       return res.status(400).json({
+        success: false,
         error: 'Bad Request',
         code: 'MISSING_FIELDS',
-        message: 'settlementId and buildingType are required',
-      });
-    }
-
-    // Map client structure ID to database building type
-    const dbBuildingType = mapStructureToBuildingType(buildingType);
-
-    if (!dbBuildingType) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        code: 'INVALID_BUILDING_TYPE',
-        message: `Unknown building type: ${buildingType}`,
+        message: 'settlementId and structureName are required',
       });
     }
 
@@ -128,6 +88,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     if (!settlement) {
       return res.status(404).json({
+        success: false,
         error: 'Not Found',
         code: 'SETTLEMENT_NOT_FOUND',
         message: 'Settlement not found',
@@ -137,16 +98,32 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     // Verify user owns the settlement
     if (!req.user || settlement.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
+        success: false,
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
         message: 'You do not own this settlement',
       });
     }
 
-    // Create building in transaction
+    // Create structure in transaction
     const result = await db.transaction(async (tx) => {
-      // 1. Validate and deduct resources BEFORE creating structure
-      const validation = await validateAndDeductResources(tx, settlementId, buildingType);
+      // 1. Query structure definition from database by name
+      const [structureDefinition] = await tx
+        .select()
+        .from(structures)
+        .where(eq(structures.name, structureName))
+        .limit(1);
+
+      if (!structureDefinition) {
+        throw new Error(`Structure not found: ${structureName}`);
+      }
+
+      // 2. Validate and deduct resources BEFORE creating structure
+      const validation = await validateAndDeductResources(
+        tx,
+        settlementId,
+        structureDefinition.name
+      );
 
       if (!validation.success) {
         // Throw error to rollback transaction
@@ -157,28 +134,25 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         throw error;
       }
 
-      // 2. Create the building
-      const [building] = await tx
+      // 3. Create the settlement structure instance
+      const [structure] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
+          structureId: structureDefinition.id,
           settlementId,
-          category: 'BUILDING',
-          buildingType: dbBuildingType,
           level: 1,
-          name: name || `${buildingType} Level 1`,
-          description: description || `A ${buildingType.toLowerCase()} for your settlement`,
         })
         .returning();
 
-      return { building, validation };
+      return { structure, structureDefinition, validation };
     });
 
-    logger.info('[API] Building created', {
-      structureId: result.building.id,
+    logger.info('[API] Structure created', {
+      structureId: result.structure.id,
       settlementId,
-      buildingType: dbBuildingType,
-      clientBuildingType: buildingType,
+      category: result.structureDefinition.category,
+      structureName: result.structureDefinition.name,
       resourcesDeducted: result.validation.deductedResources,
     });
 
@@ -187,37 +161,43 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     if (worldId && req.app.get('io')) {
       req.app.get('io').to(`world:${worldId}`).emit('structure:built', {
         settlementId,
-        structure: result.building,
-        type: 'BUILDING',
-        buildingType,
+        structure: result.structure,
+        category: result.structureDefinition.category,
+        structureName: result.structureDefinition.name,
         resourcesDeducted: result.validation.deductedResources,
       });
     }
 
-    return res.status(201).json(result.building);
+    return res.status(201).json({
+      success: true,
+      structure: result.structure,
+    });
   } catch (error) {
     // Handle validation errors (insufficient resources)
     if (error instanceof Error && error.message === 'INSUFFICIENT_RESOURCES') {
       const validationError = (error as Error & { validation: ValidationResult }).validation;
-      logger.warn('[API] Insufficient resources for building', {
+      logger.warn('[API] Insufficient resources for structure', {
         settlementId: req.body.settlementId,
-        buildingType: req.body.buildingType,
+        structureName: req.body.structureName,
         shortages: validationError.shortages,
       });
       return res.status(400).json({
-        error: 'Bad Request',
-        code: 'INSUFFICIENT_RESOURCES',
-        message: validationError.error || 'Not enough resources to build this structure',
+        success: false,
+        error: validationError.error || 'Insufficient resources to build structure',
         shortages: validationError.shortages,
       });
     }
 
     // Handle all other errors
-    logger.error('[API] Failed to create building', { error, body: req.body });
+    logger.error('[API] Failed to create structure', {
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      body: req.body,
+    });
     return res.status(500).json({
       error: 'Internal Server Error',
       code: 'CREATE_FAILED',
-      message: 'Failed to create building',
+      message: 'Failed to create structure',
     });
   }
 });
@@ -253,8 +233,6 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
         message: 'You do not own this settlement',
       });
     }
-
-    // TODO: In future, check upgrade requirements (resources, etc.)
 
     // Upgrade the structure
     const nextLevel = structure.level + 1;

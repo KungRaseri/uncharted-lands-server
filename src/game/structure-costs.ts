@@ -73,7 +73,9 @@ export const STRUCTURE_COSTS: Record<string, StructureCost> = {
  * @returns The structure cost, or null if structure type not found
  */
 export function getStructureCost(structureType: string): StructureCost | null {
-  return STRUCTURE_COSTS[structureType] || null;
+  // Handle both Title Case (e.g., "Farm", "House") and UPPERCASE (e.g., "FARM", "HOUSE")
+  const upperType = structureType.toUpperCase().replaceAll(/\s+/g, '_');
+  return STRUCTURE_COSTS[upperType] || null;
 }
 
 /**
