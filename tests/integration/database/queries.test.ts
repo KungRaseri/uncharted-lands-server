@@ -47,7 +47,7 @@ describe('Database Queries', () => {
           id: createId(),
           name: `Test Server ${Date.now()}`,
           hostname: 'localhost',
-          port: 5000,
+          port: Math.floor(Math.random() * (6000 - 5000 + 1)) + 5000,
           status: 'ONLINE',
         })
         .returning();

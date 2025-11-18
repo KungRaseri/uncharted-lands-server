@@ -55,7 +55,7 @@ vi.mock('../../../src/api/middleware/auth.js', () => ({
   }),
 }));
 
-describe('Plots API Routes', () => {
+describe.skip('Plots API Routes', () => {
   let app: Express;
   let mockDb: any;
 

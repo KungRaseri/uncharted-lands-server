@@ -57,6 +57,13 @@
       "when": 1763351227376,
       "tag": "0007_open_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763436493155,
+      "tag": "0008_curious_loners",
+      "breakpoints": true
     }
   ]
 }

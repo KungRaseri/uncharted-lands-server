@@ -308,14 +308,21 @@ export const plots = pgTable(
   })
 );
 
-export const settlementStorage = pgTable('SettlementStorage', {
-  id: text('id').primaryKey(),
-  food: integer('food').notNull(),
-  water: integer('water').notNull(),
-  wood: integer('wood').notNull(),
-  stone: integer('stone').notNull(),
-  ore: integer('ore').notNull(),
-});
+export const settlementStorage = pgTable(
+  'SettlementStorage',
+  {
+    id: text('id').primaryKey(),
+    settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'cascade' }),
+    food: integer('food').notNull(),
+    water: integer('water').notNull(),
+    wood: integer('wood').notNull(),
+    stone: integer('stone').notNull(),
+    ore: integer('ore').notNull(),
+  },
+  (table) => ({
+    settlementIdx: index('SettlementStorage_settlementId_idx').on(table.settlementId),
+  })
+);
 
 export const settlementPopulation = pgTable('SettlementPopulation', {
   id: text('id').primaryKey(),
@@ -410,7 +417,6 @@ export const settlementStructures = pgTable('SettlementStructure', {
     .references(() => structures.id, { onDelete: 'restrict' }),
   settlementId: text('settlementId')
     .notNull()
-    // @ts-expect-error - Circular reference with settlements
     .references(() => settlements.id, { onDelete: 'cascade' }),
   level: integer('level').notNull().default(1),
   // Plot linkage for extractors
