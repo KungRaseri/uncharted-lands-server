@@ -19,10 +19,10 @@ import { createId } from '@paralleldrive/cuid2';
 export interface WorldTemplateConfig {
   magicLevel?: 'NONE' | 'LOW' | 'HIGH';
   difficulty?: 'CASUAL' | 'NORMAL' | 'HARDCORE' | 'EXTREME';
-  resourceAbundance?: 'SCARCE' | 'NORMAL' | 'ABUNDANT';
+  resourceAbundance?: 'SCARCE' | 'NORMAL' | 'ABUNDANT' | 'EXTREME_SCARCITY';
   depletionEnabled?: boolean;
   depletionRate?: number;
-  disasterFrequency?: 'RARE' | 'NORMAL' | 'FREQUENT';
+  disasterFrequency?: 'RARE' | 'NORMAL' | 'FREQUENT' | 'CONSTANT';
   disasterSeverity?: 'MILD' | 'NORMAL' | 'CATASTROPHIC';
   specialResourcesEnabled?: boolean;
   npcSettlementsEnabled?: boolean;

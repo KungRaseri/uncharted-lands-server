@@ -13,6 +13,11 @@ import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
 import { createWorld } from '../../game/world-creator.js';
 import { startSpan } from '../../utils/sentry.js';
+import {
+  isValidWorldTemplateType,
+  type WorldTemplateType,
+  getWorldTemplateConfig,
+} from '../../types/world-templates.js';
 
 const router = Router();
 
@@ -227,6 +232,8 @@ router.post('/', authenticateAdmin, async (req, res) => {
       width,
       height,
       elevationSeed,
+      // World template
+      worldTemplateType,
     } = req.body;
 
     reqLogger.info('[WORLD CREATE] Request received', {
@@ -246,6 +253,17 @@ router.post('/', authenticateAdmin, async (req, res) => {
       return sendBadRequestError(res, 'Missing required fields: name and serverId');
     }
 
+    // Validate world template type if provided
+    if (worldTemplateType && !isValidWorldTemplateType(worldTemplateType)) {
+      reqLogger.warn('[WORLD CREATE] Invalid world template type', {
+        worldTemplateType,
+      });
+      return sendBadRequestError(
+        res,
+        'Invalid world template type. Must be one of: SURVIVAL, STANDARD, RELAXED, FANTASY, APOCALYPSE'
+      );
+    }
+
     // Server-side generation mode (FULL world with tiles and plots)
     if (generate && width && height) {
       reqLogger.info(`[WORLD CREATE] Starting server-side generation`, {
@@ -256,6 +274,10 @@ router.post('/', authenticateAdmin, async (req, res) => {
       });
 
       // First, create the world record with 'generating' status
+      const templateConfig = worldTemplateType
+        ? getWorldTemplateConfig(worldTemplateType as WorldTemplateType)
+        : getWorldTemplateConfig('STANDARD');
+
       const [newWorld] = await db
         .insert(worlds)
         .values({
@@ -265,6 +287,8 @@ router.post('/', authenticateAdmin, async (req, res) => {
           elevationSettings: elevationSettings || {},
           precipitationSettings: precipitationSettings || {},
           temperatureSettings: temperatureSettings || {},
+          worldTemplateType: worldTemplateType || 'STANDARD',
+          worldTemplateConfig: templateConfig,
           status: 'generating',
         })
         .returning();
@@ -378,6 +402,10 @@ router.post('/', authenticateAdmin, async (req, res) => {
     }
 
     // Legacy mode: Manual world creation (regions only, no tiles/plots)
+    const templateConfig = worldTemplateType
+      ? getWorldTemplateConfig(worldTemplateType as WorldTemplateType)
+      : getWorldTemplateConfig('STANDARD');
+
     const [newWorld] = await db
       .insert(worlds)
       .values({
@@ -387,6 +415,8 @@ router.post('/', authenticateAdmin, async (req, res) => {
         elevationSettings: elevationSettings || {},
         precipitationSettings: precipitationSettings || {},
         temperatureSettings: temperatureSettings || {},
+        worldTemplateType: worldTemplateType || 'STANDARD',
+        worldTemplateConfig: templateConfig,
         status: 'pending', // Set to pending when not generating immediately
       })
       .returning();
