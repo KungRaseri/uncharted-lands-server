@@ -25,8 +25,16 @@ import {
   validateAndDeductResources,
   type ValidationResult,
 } from '../../game/structure-validation.js';
+import { getStructuresMetadata } from './structures-metadata.js';
 
 const router = Router();
+
+/**
+ * GET /api/structures/metadata
+ * Get all structure definitions (costs, requirements, modifiers)
+ * Must come before /:id route to avoid route collision
+ */
+router.get('/metadata', getStructuresMetadata);
 
 /**
  * GET /api/structures/:id

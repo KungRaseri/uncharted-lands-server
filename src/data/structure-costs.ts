@@ -442,3 +442,16 @@ export function getStructuresByCategory(
 export function isValidStructure(structureName: string): boolean {
   return getStructureCostByName(structureName) !== undefined;
 }
+
+/**
+ * Get all structure cost definitions
+ * @returns Array of all structure cost configurations
+ */
+export function getAllStructureCosts(): StructureCostDefinition[] {
+  return STRUCTURE_COSTS;
+}
+
+/**
+ * Type alias for backwards compatibility with API routes
+ */
+export type StructureCost = StructureCostDefinition;
