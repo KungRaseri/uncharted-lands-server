@@ -69,7 +69,57 @@ vi.mock('../../../src/api/middleware/auth.js', () => ({
   },
 }));
 
-describe.skip('Structures API Routes', () => {
+vi.mock('../../../src/data/structure-costs.js', () => ({
+  getAllStructureCosts: vi.fn(() => [
+    {
+      id: 'tent',
+      name: 'TENT',
+      displayName: 'Tent',
+      description: 'A simple tent for starting out',
+      category: 'HOUSING',
+      tier: 1,
+      costs: { food: 0, water: 0, wood: 10, stone: 0, ore: 0 },
+      constructionTimeSeconds: 0,
+      populationRequired: 0,
+    },
+    {
+      id: 'farm',
+      name: 'FARM',
+      displayName: 'Farm',
+      description: 'Produces food',
+      category: 'PRODUCTION',
+      tier: 1,
+      costs: { food: 0, water: 0, wood: 20, stone: 10, ore: 0 },
+      constructionTimeSeconds: 180,
+      populationRequired: 2,
+    },
+  ]),
+}));
+
+vi.mock('../../../src/data/structure-requirements.js', () => ({
+  getStructureRequirements: vi.fn((name: string) => {
+    if (name === 'TENT') {
+      return { area: 1, solar: 0, wind: 0 };
+    }
+    if (name === 'FARM') {
+      return { area: 2, solar: 1, wind: 0 };
+    }
+    return { area: 1, solar: 0, wind: 0 };
+  }),
+}));
+
+vi.mock('../../../src/data/structure-modifiers.js', () => ({
+  getStructureModifiers: vi.fn((name: string) => {
+    if (name === 'FARM') {
+      return [
+        { name: 'Food Production', description: 'Increases food production', value: 10 },
+      ];
+    }
+    return [];
+  }),
+}));
+
+describe('Structures API Routes', () => {
   let app: express.Application;
 
   beforeEach(() => {
@@ -125,7 +175,7 @@ describe.skip('Structures API Routes', () => {
     });
   });
 
-  describe('POST /api/structures/create', () => {
+  describe.skip('POST /api/structures/create', () => {
     const validRequest = {
       settlementId: 'settlement-123',
       buildingType: 'tent',
@@ -452,6 +502,108 @@ describe.skip('Structures API Routes', () => {
         .expect(403);
 
       expect(response.body.code).toBe('NOT_SETTLEMENT_OWNER');
+    });
+  });
+
+  describe('GET /api/structures/metadata', () => {
+    it('should return all structure metadata', async () => {
+      const response = await request(app)
+        .get('/api/structures/metadata')
+        .expect(200);
+
+      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('data');
+      expect(response.body).toHaveProperty('timestamp');
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBe(2); // TENT and FARM from mocks
+
+      // Verify first structure (TENT)
+      const tent = response.body.data[0];
+      expect(tent).toEqual({
+        id: 'tent',
+        name: 'TENT',
+        displayName: 'Tent',
+        description: 'A simple tent for starting out',
+        category: 'HOUSING',
+        tier: 1,
+        costs: { food: 0, water: 0, wood: 10, stone: 0, ore: 0 },
+        constructionTimeSeconds: 0,
+        populationRequired: 0,
+        requirements: { area: 1, solar: 0, wind: 0 },
+        modifiers: [],
+      });
+
+      // Verify second structure (FARM)
+      const farm = response.body.data[1];
+      expect(farm).toEqual({
+        id: 'farm',
+        name: 'FARM',
+        displayName: 'Farm',
+        description: 'Produces food',
+        category: 'PRODUCTION',
+        tier: 1,
+        costs: { food: 0, water: 0, wood: 20, stone: 10, ore: 0 },
+        constructionTimeSeconds: 180,
+        populationRequired: 2,
+        requirements: { area: 2, solar: 1, wind: 0 },
+        modifiers: [
+          { name: 'Food Production', description: 'Increases food production', value: 10 },
+        ],
+      });
+    });
+
+    it('should handle errors when fetching metadata', async () => {
+      // Import mocked functions to override behavior
+      const { getAllStructureCosts } = await import('../../../src/data/structure-costs.js');
+
+      // Make getAllStructureCosts throw an error
+      vi.mocked(getAllStructureCosts).mockImplementationOnce(() => {
+        throw new Error('Database connection failed');
+      });
+
+      const response = await request(app)
+        .get('/api/structures/metadata')
+        .expect(500);
+
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Internal Server Error',
+        code: 'METADATA_FETCH_FAILED',
+        message: 'Failed to fetch structure metadata',
+      });
+    });
+
+    it('should include all required fields in metadata response', async () => {
+      const response = await request(app)
+        .get('/api/structures/metadata')
+        .expect(200);
+
+      const structure = response.body.data[0];
+
+      // Verify all required fields are present
+      expect(structure).toHaveProperty('id');
+      expect(structure).toHaveProperty('name');
+      expect(structure).toHaveProperty('displayName');
+      expect(structure).toHaveProperty('description');
+      expect(structure).toHaveProperty('category');
+      expect(structure).toHaveProperty('tier');
+      expect(structure).toHaveProperty('costs');
+      expect(structure).toHaveProperty('constructionTimeSeconds');
+      expect(structure).toHaveProperty('populationRequired');
+      expect(structure).toHaveProperty('requirements');
+      expect(structure).toHaveProperty('modifiers');
+
+      // Verify cost structure
+      expect(structure.costs).toHaveProperty('food');
+      expect(structure.costs).toHaveProperty('water');
+      expect(structure.costs).toHaveProperty('wood');
+      expect(structure.costs).toHaveProperty('stone');
+      expect(structure.costs).toHaveProperty('ore');
+
+      // Verify requirements structure
+      expect(structure.requirements).toHaveProperty('area');
+      expect(structure.requirements).toHaveProperty('solar');
+      expect(structure.requirements).toHaveProperty('wind');
     });
   });
 });
