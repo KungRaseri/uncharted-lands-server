@@ -25,7 +25,9 @@ import {
   validateAndDeductResources,
   type ValidationResult,
 } from '../../game/structure-validation.js';
-import { getStructuresMetadata } from './structures-metadata.js';
+import { getAllStructureCosts } from '../../data/structure-costs.js';
+import { getStructureRequirements } from '../../data/structure-requirements.js';
+import { getStructureModifiers } from '../../data/structure-modifiers.js';
 
 const router = Router();
 
@@ -34,7 +36,43 @@ const router = Router();
  * Get all structure definitions (costs, requirements, modifiers)
  * Must come before /:id route to avoid route collision
  */
-router.get('/metadata', getStructuresMetadata);
+router.get('/metadata', async (req: Request, res: Response) => {
+  try {
+    const allCosts = getAllStructureCosts();
+    const metadata = allCosts.map((structure) => {
+      const requirements = getStructureRequirements(structure.name);
+      const modifiers = getStructureModifiers(structure.name);
+
+      return {
+        id: structure.id,
+        name: structure.name,
+        displayName: structure.displayName,
+        description: structure.description,
+        category: structure.category,
+        tier: structure.tier,
+        costs: structure.costs,
+        constructionTimeSeconds: structure.constructionTimeSeconds,
+        populationRequired: structure.populationRequired,
+        requirements,
+        modifiers: modifiers || [],
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: metadata,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    logger.error('[API] Failed to fetch structure metadata', { error });
+    return res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      code: 'METADATA_FETCH_FAILED',
+      message: 'Failed to fetch structure metadata',
+    });
+  }
+});
 
 /**
  * GET /api/structures/:id
