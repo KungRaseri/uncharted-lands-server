@@ -71,6 +71,13 @@
       "when": 1763437256555,
       "tag": "0009_special_purple_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1763658643327,
+      "tag": "0010_far_jocasta",
+      "breakpoints": true
     }
   ]
 }

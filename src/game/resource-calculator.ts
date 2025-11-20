@@ -45,12 +45,68 @@ const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
   FISHING_DOCK: 'food', // Alternative food source
   HUNTERS_LODGE: 'food', // Alternative food source
   HERB_GARDEN: 'food', // Special resource (treated as food for now)
+  // Tier 3 Extractors
+  DEEP_MINE: 'ore', // Advanced ore extraction
+  ADVANCED_FARM: 'food', // Advanced food production
 };
+
+/**
+ * Extractor tier definitions (determines base multiplier)
+ *
+ * ISSUE #2 Spec:
+ * - Tier 1: 5x base multiplier (FARM, LUMBER_MILL, QUARRY, MINE, WELL)
+ * - Tier 2: 8x base multiplier (FISHING_DOCK, HUNTERS_LODGE, HERB_GARDEN - planned)
+ * - Tier 3: 12x base multiplier (DEEP_MINE, ADVANCED_FARM - planned)
+ *
+ * Formula: Multiplier = TierBase + (level - 1) × 1
+ * Example: Tier 1 Level 5 = 5 + (5 - 1) × 1 = 9x
+ */
+const EXTRACTOR_TIER_MAP: Record<string, number> = {
+  // Tier 1 Extractors (5x base)
+  FARM: 5,
+  WELL: 5,
+  LUMBER_MILL: 5,
+  QUARRY: 5,
+  MINE: 5,
+  // Tier 2 Extractors (8x base) - planned
+  FISHING_DOCK: 8,
+  HUNTERS_LODGE: 8,
+  HERB_GARDEN: 8,
+  // Tier 3 Extractors (12x base) - planned
+  DEEP_MINE: 12,
+  ADVANCED_FARM: 12,
+};
+
+/**
+ * Get extractor multiplier based on type and level
+ *
+ * ISSUE #2: Extractor multipliers are variable by tier and level
+ * Formula: TierBase + (level - 1) × 1
+ *
+ * @param extractorType - Type of extractor (e.g., 'FARM', 'LUMBER_MILL')
+ * @param level - Structure level (1-5 typically)
+ * @returns Multiplier to apply to base production
+ */
+function getExtractorMultiplier(extractorType: string, level: number): number {
+  const tierBase = EXTRACTOR_TIER_MAP[extractorType] || 5; // Default to Tier 1 if unknown
+  const levelBonus = (level - 1) * 1; // +1 per level above 1
+  return tierBase + levelBonus;
+}
 
 /**
  * Calculate base production rates for a settlement based on its plot and extractors
  *
- * GDD Formula: Production = BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount × WorldTemplateMultiplier
+ * ISSUE #2: Hybrid Production System
+ *
+ * Formula:
+ * - Base (Passive) = BaseRate × Quality × BiomeEfficiency × 0.20
+ * - With Extractor = Base × ExtractorMultiplier
+ * - ExtractorMultiplier = TierBase + (level - 1) × 1
+ *
+ * Example (Forest plot, 80% quality, 1.2 biome efficiency):
+ * - No Extractor: 1.0 × 0.8 × 1.2 × 0.20 = 0.192 wood/tick (~692/hour)
+ * - Tier 1 Lumber Mill (L1): 0.192 × 5 = 0.96 wood/tick (~3,456/hour)
+ * - Tier 1 Lumber Mill (L5): 0.192 × 9 = 1.728 wood/tick (~6,221/hour)
  *
  * @param plot - The plot where the settlement is located
  * @param extractors - Extractor structures on this plot (must include category and extractorType)
@@ -66,17 +122,6 @@ export function calculateProduction(
   biomeName?: string | null,
   worldTemplateMultiplier: number = 1
 ): Resources {
-  // CRITICAL: No extractors = NO production (GDD requirement)
-  if (!extractors || extractors.length === 0) {
-    return {
-      food: 0,
-      water: 0,
-      wood: 0,
-      stone: 0,
-      ore: 0,
-    };
-  }
-
   // Base production per tick (60 ticks = 1 second)
   const BASE_RATE_PER_TICK = 0.01; // 0.01 resource per resource point per tick
 
@@ -92,44 +137,71 @@ export function calculateProduction(
     ore: 0,
   };
 
-  // Calculate production from each extractor
-  for (const extractor of extractors) {
-    // Skip if not an extractor or missing extractorType
-    if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
-      continue;
-    }
+  // ISSUE #2: Calculate base passive production for ALL resource types (20% of potential)
+  // This represents "natural gathering" or "basic foraging" - always active even without extractors
+  const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
 
-    // Determine which resource this extractor produces
-    const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
-    if (!resourceType) {
-      continue; // Skip if not a recognized extractor
-    }
-
+  for (const resourceType of resourceTypes) {
     // Get plot's resource value for this type (legacy field names)
     const plotResourceValue = plot[resourceType] || 0;
 
     // Get quality multiplier (plot.qualityMultiplier or default to 1)
     const quality = plot.qualityMultiplier || 1;
 
-    // Get structure level multiplier (level 1 = 1.0, level 2 = 1.2, level 3 = 1.4, etc.)
-    const structureLevel = extractor.level || 1;
-    const levelMultiplier = 1 + (structureLevel - 1) * 0.2;
-
     // Get biome efficiency for this resource
     const resourceBiomeEfficiency = biomeEfficiency[resourceType];
 
-    // Apply GDD formula: BaseRate × Quality × BiomeEfficiency × StructureLevel × TickCount × WorldTemplateMultiplier
-    const resourceProduction =
+    // Base passive production = BaseRate × Quality × BiomeEfficiency × 0.2 (20% of potential)
+    const passiveProduction =
       BASE_RATE_PER_TICK *
       plotResourceValue *
       quality *
       resourceBiomeEfficiency *
-      levelMultiplier *
+      0.2 * // 20% passive production without extractor
       tickCount *
       worldTemplateMultiplier;
 
-    // Add to total production for this resource
-    production[resourceType] += resourceProduction;
+    // Start with passive production
+    production[resourceType] = passiveProduction;
+  }
+
+  // ISSUE #2: Apply extractor multipliers if extractors exist
+  // Extractors multiply the base passive production by their tier-based multiplier
+  if (extractors && extractors.length > 0) {
+    for (const extractor of extractors) {
+      // Skip if not an extractor or missing extractorType
+      if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
+        continue;
+      }
+
+      // Determine which resource this extractor produces
+      const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
+      if (!resourceType) {
+        continue; // Skip if not a recognized extractor
+      }
+
+      // Get extractor multiplier (variable by tier and level)
+      const structureLevel = extractor.level || 1;
+      const extractorMultiplier = getExtractorMultiplier(extractor.extractorType, structureLevel);
+
+      // Calculate base production for THIS resource (before multiplier)
+      const plotResourceValue = plot[resourceType] || 0;
+      const quality = plot.qualityMultiplier || 1;
+      const resourceBiomeEfficiency = biomeEfficiency[resourceType];
+
+      const baseProduction =
+        BASE_RATE_PER_TICK *
+        plotResourceValue *
+        quality *
+        resourceBiomeEfficiency *
+        0.2 * // Base 20% rate
+        tickCount *
+        worldTemplateMultiplier;
+
+      // Apply extractor multiplier and REPLACE passive production (not add to it)
+      // Formula: Base × ExtractorMultiplier
+      production[resourceType] = baseProduction * extractorMultiplier;
+    }
   }
 
   return production;

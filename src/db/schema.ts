@@ -257,6 +257,9 @@ export const tiles = pgTable(
     // @ts-expect-error - Circular reference
     settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'set null' }),
     plotSlots: integer('plotSlots').notNull().default(5),
+    // Base production modifier for disaster impacts (Type 2: resource depletion)
+    // Default 1.0 = normal production, 0.4 = 60% drought, etc.
+    baseProductionModifier: doublePrecision('baseProductionModifier').notNull().default(1),
   },
   (table) => ({
     regionIdx: index('Tile_regionId_idx').on(table.regionId),
