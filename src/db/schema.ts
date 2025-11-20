@@ -76,6 +76,43 @@ export const buildingTypeEnum = pgEnum('BuildingType', [
   'WALL',
 ]);
 
+// Disaster system enums (Phase 4 - November 2025)
+export const disasterTypeEnum = pgEnum('DisasterType', [
+  // Weather Disasters
+  'DROUGHT',
+  'FLOOD',
+  'BLIZZARD',
+  'HURRICANE',
+  'TORNADO',
+  'SANDSTORM',
+  'HEATWAVE',
+  // Geological Disasters
+  'EARTHQUAKE',
+  'VOLCANO',
+  'LANDSLIDE',
+  'AVALANCHE',
+  // Environmental Disasters
+  'WILDFIRE',
+  'INSECT_PLAGUE',
+  'BLIGHT',
+  'LOCUST_SWARM',
+]);
+
+export const disasterStatusEnum = pgEnum('DisasterStatus', [
+  'SCHEDULED', // Disaster scheduled, not yet announced
+  'WARNING', // Warning issued, players can prepare
+  'IMPACT', // Disaster actively causing damage
+  'AFTERMATH', // Recovery phase
+  'RESOLVED', // Fully resolved
+]);
+
+export const disasterSeverityEnum = pgEnum('DisasterSeverity', [
+  'MILD', // 20% production reduction
+  'MODERATE', // 40% production reduction
+  'MAJOR', // 60% production reduction
+  'CATASTROPHIC', // 80% production reduction
+]);
+
 // ===========================
 // TABLES
 // ===========================
@@ -623,6 +660,118 @@ export const structureModifiersRelations = relations(structureModifiers, ({ one 
 }));
 
 // ===========================
+// DISASTER SYSTEM (Phase 4 - November 2025)
+// ===========================
+
+// Disaster events table
+export const disasterEvents = pgTable(
+  'DisasterEvent',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    worldId: text('worldId')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
+
+    // Disaster properties
+    type: disasterTypeEnum('type').notNull(),
+    severity: integer('severity').notNull(), // 0-100 numeric value
+    severityLevel: disasterSeverityEnum('severityLevel').notNull(), // MILD/MODERATE/MAJOR/CATASTROPHIC
+
+    // Affected area (nullable for world-scale disasters)
+    affectedRegionId: text('affectedRegionId').references(() => regions.id),
+    affectedBiomes: json('affectedBiomes').$type<string[]>(), // Array of biome names
+
+    // Timing
+    scheduledAt: timestamp('scheduledAt', { mode: 'date' }).notNull(), // When disaster will start
+    warningTime: integer('warningTime').notNull().default(7200), // Seconds of advance warning (default 2 hours)
+    impactDuration: integer('impactDuration').notNull().default(3600), // Seconds of impact phase (default 1 hour)
+
+    // State tracking
+    status: disasterStatusEnum('status').notNull().default('SCHEDULED'),
+    warningIssuedAt: timestamp('warningIssuedAt', { mode: 'date' }),
+    impactStartedAt: timestamp('impactStartedAt', { mode: 'date' }),
+    impactEndedAt: timestamp('impactEndedAt', { mode: 'date' }),
+
+    // Flags
+    imminentWarningIssued: integer('imminentWarningIssued').notNull().default(0), // Boolean: 0 = false, 1 = true
+
+    // Metadata
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => ({
+    worldIdx: index('disaster_world_idx').on(table.worldId),
+    statusIdx: index('disaster_status_idx').on(table.status),
+    scheduledIdx: index('disaster_scheduled_idx').on(table.scheduledAt),
+    activeIdx: index('disaster_active_idx').on(table.worldId, table.status),
+  })
+);
+
+// Disaster history table (records disaster impact per settlement)
+export const disasterHistory = pgTable(
+  'DisasterHistory',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    settlementId: text('settlementId')
+      .notNull()
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+    disasterId: text('disasterId')
+      .notNull()
+      .references(() => disasterEvents.id, { onDelete: 'cascade' }),
+
+    // Impact data
+    casualties: integer('casualties').notNull().default(0), // Population lost
+    structuresDamaged: integer('structuresDamaged').notNull().default(0), // Structures with health < 100%
+    structuresDestroyed: integer('structuresDestroyed').notNull().default(0), // Structures at 0% health
+    resourcesLost: json('resourcesLost').$type<{
+      food?: number;
+      water?: number;
+      wood?: number;
+      stone?: number;
+      ore?: number;
+    }>(), // Resources lost from damaged storage
+
+    // Recovery
+    resilienceGained: integer('resilienceGained').notNull().default(5), // Resilience bonus from surviving
+
+    // Metadata
+    timestamp: timestamp('timestamp', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => ({
+    settlementIdx: index('disaster_history_settlement_idx').on(table.settlementId),
+    disasterIdx: index('disaster_history_disaster_idx').on(table.disasterId),
+  })
+);
+
+// Relations
+export const disasterEventsRelations = relations(disasterEvents, ({ one, many }) => ({
+  world: one(worlds, {
+    fields: [disasterEvents.worldId],
+    references: [worlds.id],
+  }),
+  affectedRegion: one(regions, {
+    fields: [disasterEvents.affectedRegionId],
+    references: [regions.id],
+  }),
+  history: many(disasterHistory),
+}));
+
+export const disasterHistoryRelations = relations(disasterHistory, ({ one }) => ({
+  settlement: one(settlements, {
+    fields: [disasterHistory.settlementId],
+    references: [settlements.id],
+  }),
+  disaster: one(disasterEvents, {
+    fields: [disasterHistory.disasterId],
+    references: [disasterEvents.id],
+  }),
+}));
+
+// ===========================
 // TYPE EXPORTS
 // ===========================
 
@@ -676,3 +825,9 @@ export type NewSettlementStructure = typeof settlementStructures.$inferInsert;
 
 export type StructureModifier = typeof structureModifiers.$inferSelect;
 export type NewStructureModifier = typeof structureModifiers.$inferInsert;
+
+export type DisasterEvent = typeof disasterEvents.$inferSelect;
+export type NewDisasterEvent = typeof disasterEvents.$inferInsert;
+
+export type DisasterHistory = typeof disasterHistory.$inferSelect;
+export type NewDisasterHistory = typeof disasterHistory.$inferInsert;
