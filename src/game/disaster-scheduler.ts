@@ -18,15 +18,36 @@
  */
 
 import { db } from '../db/index.js';
-import { disasterEvents, worlds, tiles } from '../db/schema.js';
+import {
+  disasterEvents,
+  worlds,
+  tiles,
+  disasterTypeEnum,
+  disasterSeverityEnum,
+} from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 
 /**
- * Disaster types by biome (from GDD Section 5.3)
- * Mapped to schema DisasterTypeEnum values
+ * Type-safe disaster types extracted from schema
+ * These are inferred from the DisasterTypeEnum in schema.ts
+ * No duplication - schema is the single source of truth!
  */
-export const BIOME_DISASTER_MAP = {
+export type DisasterType = (typeof disasterTypeEnum.enumValues)[number];
+export type DisasterSeverity = (typeof disasterSeverityEnum.enumValues)[number];
+
+/**
+ * Disaster types by biome (from GDD Section 5.3)
+ * TypeScript validates these strings against the DisasterType union from schema
+ */
+export const BIOME_DISASTER_MAP: Record<
+  string,
+  {
+    highRisk: DisasterType[];
+    moderateRisk: DisasterType[];
+    lowRisk: DisasterType[];
+  }
+> = {
   GRASSLAND: {
     highRisk: ['DROUGHT', 'TORNADO', 'LOCUST_SWARM'],
     moderateRisk: ['FLOOD', 'WILDFIRE', 'HEATWAVE'],
@@ -69,31 +90,6 @@ export const BIOME_DISASTER_MAP = {
   },
 } as const;
 
-/**
- * All possible disaster types (from schema DisasterTypeEnum)
- */
-export const ALL_DISASTER_TYPES = [
-  // Weather Disasters
-  'DROUGHT',
-  'FLOOD',
-  'BLIZZARD',
-  'HURRICANE',
-  'TORNADO',
-  'SANDSTORM',
-  'HEATWAVE',
-  // Geological Disasters
-  'EARTHQUAKE',
-  'VOLCANO',
-  'LANDSLIDE',
-  'AVALANCHE',
-  // Environmental Disasters
-  'WILDFIRE',
-  'INSECT_PLAGUE',
-  'BLIGHT',
-  'LOCUST_SWARM',
-] as const;
-
-export type DisasterType = (typeof ALL_DISASTER_TYPES)[number];
 export type BiomeType = keyof typeof BIOME_DISASTER_MAP;
 
 /**
@@ -162,8 +158,9 @@ export function calculateDisasterSeverity(
 
 /**
  * Convert numeric severity (0-100) to severity level enum
+ * Maps to DisasterSeverityEnum from schema
  */
-export function getSeverityLevel(severity: number): 'MILD' | 'MODERATE' | 'MAJOR' | 'CATASTROPHIC' {
+export function getSeverityLevel(severity: number): DisasterSeverity {
   if (severity < 25) return 'MILD';
   if (severity < 50) return 'MODERATE';
   if (severity < 75) return 'MAJOR';
