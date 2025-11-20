@@ -5,7 +5,7 @@
 
 import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { getStructureCost } from './structure-costs.js';
+import { getStructureCost } from '../data/structure-costs.js';
 import { settlementStorage, settlements } from '../db/schema.js';
 import type * as schema from '../db/schema.js';
 
@@ -52,10 +52,12 @@ export async function validateAndDeductResources(
   structureType: string
 ): Promise<ValidationResult> {
   // 1. Get structure costs
-  const costs = getStructureCost(structureType);
-  if (!costs) {
+  const costDef = getStructureCost(structureType);
+  if (!costDef) {
     throw new Error(`Unknown structure type: ${structureType}`);
   }
+
+  const costs = costDef.costs;
 
   // 2. Query settlement with storage
   const settlement = await tx.query.settlements.findFirst({
@@ -78,30 +80,35 @@ export async function validateAndDeductResources(
   // 3. Validate sufficient resources
   const shortages: ResourceShortage[] = [];
 
-  if (storage.wood < costs.wood) {
+  // Only check costs that are defined (handle optional properties)
+  const woodCost = costs.wood ?? 0;
+  const stoneCost = costs.stone ?? 0;
+  const oreCost = costs.ore ?? 0;
+
+  if (storage.wood < woodCost) {
     shortages.push({
       type: 'wood',
-      required: costs.wood,
+      required: woodCost,
       available: storage.wood,
-      missing: costs.wood - storage.wood,
+      missing: woodCost - storage.wood,
     });
   }
 
-  if (storage.stone < costs.stone) {
+  if (storage.stone < stoneCost) {
     shortages.push({
       type: 'stone',
-      required: costs.stone,
+      required: stoneCost,
       available: storage.stone,
-      missing: costs.stone - storage.stone,
+      missing: stoneCost - storage.stone,
     });
   }
 
-  if (storage.ore < costs.ore) {
+  if (storage.ore < oreCost) {
     shortages.push({
       type: 'ore',
-      required: costs.ore,
+      required: oreCost,
       available: storage.ore,
-      missing: costs.ore - storage.ore,
+      missing: oreCost - storage.ore,
     });
   }
 
@@ -117,9 +124,9 @@ export async function validateAndDeductResources(
   // 4. Deduct resources (in the same transaction)
   // Use concrete numeric subtraction so tests that mock tx.update(table, data)
   // receive the updated values directly.
-  const newWood = storage.wood - costs.wood;
-  const newStone = storage.stone - costs.stone;
-  const newOre = storage.ore - costs.ore;
+  const newWood = storage.wood - woodCost;
+  const newStone = storage.stone - stoneCost;
+  const newOre = storage.ore - oreCost;
 
   // Deduct resources from settlement storage using correct Drizzle ORM syntax
   await tx
@@ -134,9 +141,9 @@ export async function validateAndDeductResources(
   return {
     success: true,
     deductedResources: {
-      wood: costs.wood,
-      stone: costs.stone,
-      ore: costs.ore,
+      wood: woodCost,
+      stone: stoneCost,
+      ore: oreCost,
     },
     shortages: [],
   };
@@ -159,10 +166,12 @@ export async function checkResourceAvailability(
   structureType: string
 ): Promise<ValidationResult> {
   // 1. Get structure costs
-  const costs = getStructureCost(structureType);
-  if (!costs) {
+  const costDef = getStructureCost(structureType);
+  if (!costDef) {
     throw new Error(`Unknown structure type: ${structureType}`);
   }
+
+  const costs = costDef.costs;
 
   // 2. Query settlement storage
   const settlement = await tx.query.settlements.findFirst({
@@ -183,30 +192,35 @@ export async function checkResourceAvailability(
   // 3. Check for shortages
   const shortages: ResourceShortage[] = [];
 
-  if (storage.wood < costs.wood) {
+  // Only check costs that are defined (handle optional properties)
+  const woodCost = costs.wood ?? 0;
+  const stoneCost = costs.stone ?? 0;
+  const oreCost = costs.ore ?? 0;
+
+  if (storage.wood < woodCost) {
     shortages.push({
       type: 'wood',
-      required: costs.wood,
+      required: woodCost,
       available: storage.wood,
-      missing: costs.wood - storage.wood,
+      missing: woodCost - storage.wood,
     });
   }
 
-  if (storage.stone < costs.stone) {
+  if (storage.stone < stoneCost) {
     shortages.push({
       type: 'stone',
-      required: costs.stone,
+      required: stoneCost,
       available: storage.stone,
-      missing: costs.stone - storage.stone,
+      missing: stoneCost - storage.stone,
     });
   }
 
-  if (storage.ore < costs.ore) {
+  if (storage.ore < oreCost) {
     shortages.push({
       type: 'ore',
-      required: costs.ore,
+      required: oreCost,
       available: storage.ore,
-      missing: costs.ore - storage.ore,
+      missing: oreCost - storage.ore,
     });
   }
 
