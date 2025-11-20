@@ -413,11 +413,10 @@ export function getStructureCost(structureId: string): StructureCostDefinition |
 }
 
 /**
- * Helper function to get structure cost definition by name (case-insensitive)
+ * Helper function to get structure cost definition by name (case-sensitive)
  */
 export function getStructureCostByName(structureName: string): StructureCostDefinition | undefined {
-  const normalizedName = structureName.toUpperCase();
-  return STRUCTURE_COSTS.find((s) => s.name === normalizedName);
+  return STRUCTURE_COSTS.find((s) => s.name === structureName);
 }
 
 /**
