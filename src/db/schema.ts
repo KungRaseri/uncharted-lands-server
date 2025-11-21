@@ -257,9 +257,7 @@ export const servers = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    hostnamePortIdx: uniqueIndex('Server_hostname_port_key').on(table.hostname, table.port),
-  })
+  (table) => [uniqueIndex('Server_hostname_port_key').on(table.hostname, table.port)]
 );
 
 export const profileServerData = pgTable(
@@ -272,14 +270,11 @@ export const profileServerData = pgTable(
       .notNull()
       .references(() => servers.id, { onDelete: 'cascade' }),
   },
-  (table) => ({
-    profileIdIdx: uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
-    serverIdIdx: uniqueIndex('ProfileServerData_serverId_key').on(table.serverId),
-    profileServerIdx: uniqueIndex('ProfileServerData_profileId_serverId_key').on(
-      table.profileId,
-      table.serverId
-    ),
-  })
+  (table) => [
+    uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
+    uniqueIndex('ProfileServerData_serverId_key').on(table.serverId),
+    uniqueIndex('ProfileServerData_profileId_serverId_key').on(table.profileId, table.serverId),
+  ]
 );
 
 export const worlds = pgTable(
@@ -299,9 +294,7 @@ export const worlds = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    nameServerIdx: uniqueIndex('World_name_serverId_key').on(table.name, table.serverId),
-  })
+  (table) => [uniqueIndex('World_name_serverId_key').on(table.name, table.serverId)]
 );
 
 export const regions = pgTable(
@@ -318,15 +311,11 @@ export const regions = pgTable(
       .notNull()
       .references(() => worlds.id, { onDelete: 'cascade' }),
   },
-  (table) => ({
-    nameWorldIdx: uniqueIndex('Region_name_worldId_key').on(table.name, table.worldId),
-    worldCoordsIdx: index('Region_worldId_xCoord_yCoord_idx').on(
-      table.worldId,
-      table.xCoord,
-      table.yCoord
-    ),
-    coordsIdx: index('Region_xCoord_yCoord_idx').on(table.xCoord, table.yCoord),
-  })
+  (table) => [
+    uniqueIndex('Region_name_worldId_key').on(table.name, table.worldId),
+    index('Region_worldId_xCoord_yCoord_idx').on(table.worldId, table.xCoord, table.yCoord),
+    index('Region_xCoord_yCoord_idx').on(table.xCoord, table.yCoord),
+  ]
 );
 
 export const biomes = pgTable('Biome', {
@@ -380,13 +369,13 @@ export const tiles = pgTable(
     // Default 1.0 = normal production, 0.4 = 60% drought, etc.
     baseProductionModifier: doublePrecision('baseProductionModifier').notNull().default(1),
   },
-  (table) => ({
-    regionIdx: index('Tile_regionId_idx').on(table.regionId),
-    biomeIdx: index('Tile_biomeId_idx').on(table.biomeId),
-    typeIdx: index('Tile_type_idx').on(table.type),
-    coordIdx: index('Tile_coords_idx').on(table.xCoord, table.yCoord),
-    settlementIdx: index('Tile_settlementId_idx').on(table.settlementId),
-  })
+  (table) => [
+    index('Tile_regionId_idx').on(table.regionId),
+    index('Tile_biomeId_idx').on(table.biomeId),
+    index('Tile_type_idx').on(table.type),
+    index('Tile_coords_idx').on(table.xCoord, table.yCoord),
+    index('Tile_settlementId_idx').on(table.settlementId),
+  ]
 );
 
 // @ts-expect-error - Circular reference with tiles and settlementStructures is expected and works at runtime
@@ -424,10 +413,10 @@ export const plots = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    tileIdx: index('Plot_tileId_idx').on(table.tileId),
-    settlementIdx: index('Plot_settlementId_idx').on(table.settlementId),
-  })
+  (table) => [
+    index('Plot_tileId_idx').on(table.tileId),
+    index('Plot_settlementId_idx').on(table.settlementId),
+  ]
 );
 
 export const settlementStorage = pgTable(
@@ -441,9 +430,7 @@ export const settlementStorage = pgTable(
     stone: integer('stone').notNull(),
     ore: integer('ore').notNull(),
   },
-  (table) => ({
-    settlementIdx: index('SettlementStorage_settlementId_idx').on(table.settlementId),
-  })
+  (table) => [index('SettlementStorage_settlementId_idx').on(table.settlementId)]
 );
 
 export const settlementPopulation = pgTable('SettlementPopulation', {
@@ -480,10 +467,10 @@ export const settlements = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    playerProfileIdx: index('Settlement_playerProfileId_idx').on(table.playerProfileId),
-    plotIdx: index('Settlement_plotId_idx').on(table.plotId),
-  })
+  (table) => [
+    index('Settlement_playerProfileId_idx').on(table.playerProfileId),
+    index('Settlement_plotId_idx').on(table.plotId),
+  ]
 );
 
 // Normalized structure costs table
@@ -499,10 +486,10 @@ export const structureRequirements = pgTable(
       .references(() => resources.id, { onDelete: 'cascade' }),
     quantity: integer('quantity').notNull(),
   },
-  (table) => ({
-    structureIdx: index('StructureRequirement_structureId_idx').on(table.structureId),
-    resourceIdx: index('StructureRequirement_resourceId_idx').on(table.resourceId),
-  })
+  (table) => [
+    index('StructureRequirement_structureId_idx').on(table.structureId),
+    index('StructureRequirement_resourceId_idx').on(table.resourceId),
+  ]
 );
 
 // Structure prerequisites table - Option B1 (two nullable columns with FK constraints)
@@ -523,12 +510,10 @@ export const structurePrerequisites = pgTable(
     requiredLevel: integer('requiredLevel').notNull().default(1),
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    structureIdx: index('StructurePrerequisite_structureId_idx').on(table.structureId),
-    requiredStructureIdx: index('StructurePrerequisite_requiredStructureId_idx').on(
-      table.requiredStructureId
-    ),
-  })
+  (table) => [
+    index('StructurePrerequisite_structureId_idx').on(table.structureId),
+    index('StructurePrerequisite_requiredStructureId_idx').on(table.requiredStructureId),
+  ]
 );
 
 // @ts-expect-error - Circular reference with plots is expected and works at runtime
@@ -553,11 +538,11 @@ export const settlementStructures = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    settlementIdx: index('SettlementStructure_settlementId_idx').on(table.settlementId),
-    structureIdx: index('SettlementStructure_structureId_idx').on(table.structureId),
-    plotIdx: index('SettlementStructure_plotId_idx').on(table.plotId),
-  })
+  (table) => [
+    index('SettlementStructure_settlementId_idx').on(table.settlementId),
+    index('SettlementStructure_structureId_idx').on(table.structureId),
+    index('SettlementStructure_plotId_idx').on(table.plotId),
+  ]
 );
 
 export const structureModifiers = pgTable('StructureModifier', {
@@ -783,12 +768,12 @@ export const disasterEvents = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    worldIdx: index('disaster_world_idx').on(table.worldId),
-    statusIdx: index('disaster_status_idx').on(table.status),
-    scheduledIdx: index('disaster_scheduled_idx').on(table.scheduledAt),
-    activeIdx: index('disaster_active_idx').on(table.worldId, table.status),
-  })
+  (table) => [
+    index('disaster_world_idx').on(table.worldId),
+    index('disaster_status_idx').on(table.status),
+    index('disaster_scheduled_idx').on(table.scheduledAt),
+    index('disaster_active_idx').on(table.worldId, table.status),
+  ]
 );
 
 // Disaster history table (records disaster impact per settlement)
@@ -823,10 +808,10 @@ export const disasterHistory = pgTable(
     // Metadata
     timestamp: timestamp('timestamp', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    settlementIdx: index('disaster_history_settlement_idx').on(table.settlementId),
-    disasterIdx: index('disaster_history_disaster_idx').on(table.disasterId),
-  })
+  (table) => [
+    index('disaster_history_settlement_idx').on(table.settlementId),
+    index('disaster_history_disaster_idx').on(table.disasterId),
+  ]
 );
 
 // Relations
