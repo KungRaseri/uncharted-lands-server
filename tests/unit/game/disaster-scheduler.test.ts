@@ -19,10 +19,12 @@ import {
     selectDisasterType,
     calculateWarningTime,
     calculateImpactDuration,
-    BIOME_DISASTER_MAP,
-    type DisasterType
 } from '../../../src/game/disaster-scheduler.js';
-import { disasterTypeEnum } from '../../../src/db/schema.js';
+import { 
+    disasterTypeEnum,
+    BIOME_DISASTER_MAP,
+    type DisasterType,
+} from '../../../src/db/schema.js';
 
 // Get all disaster types from schema (single source of truth)
 const ALL_DISASTER_TYPES = disasterTypeEnum.enumValues as readonly DisasterType[];

@@ -113,6 +113,88 @@ export const disasterSeverityEnum = pgEnum('DisasterSeverity', [
   'CATASTROPHIC', // 80% production reduction
 ]);
 
+export const biomeTypeEnum = pgEnum('BiomeType', [
+  'GRASSLAND',
+  'FOREST',
+  'DESERT',
+  'MOUNTAIN',
+  'TUNDRA',
+  'SWAMP',
+  'COASTAL',
+  'OCEAN',
+]);
+
+// ==================== DISASTER CONFIGURATION ====================
+
+/**
+ * Biome-specific disaster mappings (from GDD Section 5.3)
+ *
+ * Each biome has different disaster vulnerabilities:
+ * - highRisk: 60% chance of selection
+ * - moderateRisk: 30% chance of selection
+ * - lowRisk: 10% chance of selection
+ *
+ * Single source of truth for disaster-biome relationships.
+ * No duplication - disaster-scheduler.ts imports this constant.
+ */
+export const BIOME_DISASTER_MAP = {
+  GRASSLAND: {
+    highRisk: ['DROUGHT', 'TORNADO', 'LOCUST_SWARM'],
+    moderateRisk: ['FLOOD', 'WILDFIRE', 'HEATWAVE'],
+    lowRisk: ['EARTHQUAKE'],
+  },
+  FOREST: {
+    highRisk: ['WILDFIRE', 'INSECT_PLAGUE', 'BLIGHT'],
+    moderateRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
+    lowRisk: ['EARTHQUAKE', 'HEATWAVE'],
+  },
+  DESERT: {
+    highRisk: ['DROUGHT', 'SANDSTORM', 'HEATWAVE', 'LOCUST_SWARM'],
+    moderateRisk: ['WILDFIRE'],
+    lowRisk: ['FLOOD', 'BLIZZARD'],
+  },
+  MOUNTAIN: {
+    highRisk: ['EARTHQUAKE', 'AVALANCHE', 'LANDSLIDE', 'VOLCANO'],
+    moderateRisk: ['BLIZZARD', 'WILDFIRE'],
+    lowRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
+  },
+  TUNDRA: {
+    highRisk: ['BLIZZARD', 'AVALANCHE'],
+    moderateRisk: ['EARTHQUAKE'],
+    lowRisk: ['WILDFIRE', 'DROUGHT', 'HEATWAVE'],
+  },
+  SWAMP: {
+    highRisk: ['FLOOD', 'INSECT_PLAGUE', 'BLIGHT'],
+    moderateRisk: ['WILDFIRE', 'TORNADO'],
+    lowRisk: ['DROUGHT', 'EARTHQUAKE'],
+  },
+  COASTAL: {
+    highRisk: ['HURRICANE', 'FLOOD'],
+    moderateRisk: ['EARTHQUAKE', 'TORNADO', 'WILDFIRE'],
+    lowRisk: ['DROUGHT', 'BLIZZARD'],
+  },
+  OCEAN: {
+    highRisk: [],
+    moderateRisk: ['HURRICANE'],
+    lowRisk: [],
+  },
+} as const;
+
+/**
+ * Type-safe biome type extracted from schema enum
+ */
+export type BiomeType = (typeof biomeTypeEnum.enumValues)[number];
+
+/**
+ * Type-safe disaster type extracted from schema enum
+ */
+export type DisasterType = (typeof disasterTypeEnum.enumValues)[number];
+
+/**
+ * Type-safe disaster severity extracted from schema enum
+ */
+export type DisasterSeverity = (typeof disasterSeverityEnum.enumValues)[number];
+
 // ===========================
 // TABLES
 // ===========================

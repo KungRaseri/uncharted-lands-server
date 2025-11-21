@@ -22,75 +22,13 @@ import {
   disasterEvents,
   worlds,
   tiles,
-  disasterTypeEnum,
-  disasterSeverityEnum,
+  BIOME_DISASTER_MAP,
+  type BiomeType,
+  type DisasterType,
+  type DisasterSeverity,
 } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
-
-/**
- * Type-safe disaster types extracted from schema
- * These are inferred from the DisasterTypeEnum in schema.ts
- * No duplication - schema is the single source of truth!
- */
-export type DisasterType = (typeof disasterTypeEnum.enumValues)[number];
-export type DisasterSeverity = (typeof disasterSeverityEnum.enumValues)[number];
-
-/**
- * Disaster types by biome (from GDD Section 5.3)
- * TypeScript validates these strings against the DisasterType union from schema
- */
-export const BIOME_DISASTER_MAP: Record<
-  string,
-  {
-    highRisk: DisasterType[];
-    moderateRisk: DisasterType[];
-    lowRisk: DisasterType[];
-  }
-> = {
-  GRASSLAND: {
-    highRisk: ['DROUGHT', 'TORNADO', 'LOCUST_SWARM'],
-    moderateRisk: ['FLOOD', 'WILDFIRE', 'HEATWAVE'],
-    lowRisk: ['EARTHQUAKE'],
-  },
-  FOREST: {
-    highRisk: ['WILDFIRE', 'INSECT_PLAGUE', 'BLIGHT'],
-    moderateRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
-    lowRisk: ['EARTHQUAKE', 'HEATWAVE'],
-  },
-  DESERT: {
-    highRisk: ['DROUGHT', 'SANDSTORM', 'HEATWAVE', 'LOCUST_SWARM'],
-    moderateRisk: ['WILDFIRE'],
-    lowRisk: ['FLOOD', 'BLIZZARD'],
-  },
-  MOUNTAIN: {
-    highRisk: ['EARTHQUAKE', 'AVALANCHE', 'LANDSLIDE', 'VOLCANO'],
-    moderateRisk: ['BLIZZARD', 'WILDFIRE'],
-    lowRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
-  },
-  TUNDRA: {
-    highRisk: ['BLIZZARD', 'AVALANCHE'],
-    moderateRisk: ['EARTHQUAKE'],
-    lowRisk: ['WILDFIRE', 'DROUGHT', 'HEATWAVE'],
-  },
-  SWAMP: {
-    highRisk: ['FLOOD', 'INSECT_PLAGUE', 'BLIGHT'],
-    moderateRisk: ['WILDFIRE', 'TORNADO'],
-    lowRisk: ['DROUGHT', 'EARTHQUAKE'],
-  },
-  COASTAL: {
-    highRisk: ['HURRICANE', 'FLOOD'],
-    moderateRisk: ['EARTHQUAKE', 'TORNADO', 'WILDFIRE'],
-    lowRisk: ['DROUGHT', 'BLIZZARD'],
-  },
-  OCEAN: {
-    highRisk: [],
-    moderateRisk: ['HURRICANE'],
-    lowRisk: [],
-  },
-} as const;
-
-export type BiomeType = keyof typeof BIOME_DISASTER_MAP;
 
 /**
  * World template disaster frequency settings
