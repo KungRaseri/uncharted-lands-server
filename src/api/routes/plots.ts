@@ -15,16 +15,21 @@ import {
   plots,
   tiles,
   settlementStructures,
-  structureRequirements,
   settlementStorage,
+  worlds,
 } from '../../db/index.js';
-import { generateId } from '../../db/queries.js';
 import {
   calculateProductionRate,
   calculateAccumulatedResources,
 } from '../../utils/resource-production.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import type { WorldTemplateType } from '../../types/world-templates.js';
+import { createId } from '@paralleldrive/cuid2';
+import {
+  validateAndDeductResources,
+  type ValidationResult,
+} from '../../game/structure-validation.js';
 
 const router = Router();
 
@@ -134,7 +139,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     }
 
     // Check if position is already taken
-    const positionTaken = tile.plots?.some((p: any) => p.position === position);
+    const positionTaken = tile.plots?.some((p: { position: number }) => p.position === position);
     if (positionTaken) {
       return res.status(400).json({
         error: 'Bad Request',
@@ -147,7 +152,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     const [newPlot] = await db
       .insert(plots)
       .values({
-        id: generateId(),
+        id: createId(),
         tileId,
         settlementId,
         position,
@@ -231,12 +236,31 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
       });
     }
 
+    // Verify plot belongs to a settlement
+    if (!plot.settlementId) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        code: 'PLOT_NOT_CLAIMED',
+        message: 'Plot must be claimed by a settlement before building',
+      });
+    }
+
+    // Phase 1D: Load world template for production multiplier
+    const { getWorldTemplateConfig } = await import('../../types/world-templates.js');
+    const world = await db.query.worlds.findFirst({
+      where: eq(worlds.id, plot.settlement?.worldId || ''),
+    });
+    const worldTemplate = getWorldTemplateConfig(
+      (world?.worldTemplateType as WorldTemplateType) || 'STANDARD'
+    );
+
     // Calculate production rate
     const productionRate = calculateProductionRate({
       resourceType,
       extractorType,
       biomeName: plot.tile?.biome?.name || '',
       structureLevel: 1,
+      worldTemplateMultiplier: worldTemplate.productionMultiplier,
     });
 
     if (productionRate === 0) {
@@ -261,22 +285,25 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
     }
 
     // Create structure in transaction
-    await db.transaction(async (tx) => {
-      // Create structure requirements (placeholder - in future, check actual requirements)
-      const [requirements] = await tx
-        .insert(structureRequirements)
-        .values({
-          id: generateId(),
-        })
-        .returning();
+    const result = await db.transaction(async (tx) => {
+      // 1. Validate and deduct resources BEFORE creating structure
+      const validation = await validateAndDeductResources(tx, plot.settlementId, extractorType);
 
-      // Create the structure
+      if (!validation.success) {
+        // Throw error to rollback transaction
+        const error = new Error('INSUFFICIENT_RESOURCES') as Error & {
+          validation: ValidationResult;
+        };
+        error.validation = validation;
+        throw error;
+      }
+
+      // 2. Create the structure
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
-          id: generateId(),
+          id: createId(),
           settlementId: plot.settlementId!,
-          structureRequirementsId: requirements.id,
           category: 'EXTRACTOR',
           extractorType,
           level: 1,
@@ -286,7 +313,7 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
         })
         .returning();
 
-      // Update plot with structure and production info
+      // 3. Update plot with structure and production info
       await tx
         .update(plots)
         .set({
@@ -298,6 +325,8 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
           updatedAt: new Date(),
         })
         .where(eq(plots.id, id));
+
+      return { structure, validation };
     });
 
     logger.info('[API] Extractor built on plot', {
@@ -305,7 +334,21 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
       extractorType,
       resourceType,
       productionRate,
+      resourcesDeducted: result.validation.deductedResources,
     });
+
+    // Emit Socket.IO event for real-time updates
+    const worldId = plot.tile?.region?.worldId;
+    if (worldId && req.app.get('io')) {
+      req.app.get('io').to(`world:${worldId}`).emit('structure:built', {
+        settlementId: plot.settlementId,
+        structure: result.structure,
+        type: 'EXTRACTOR',
+        extractorType,
+        resourceType,
+        resourcesDeducted: result.validation.deductedResources,
+      });
+    }
 
     // Fetch updated plot
     const updatedPlot = await db.query.plots.findFirst({
@@ -318,6 +361,23 @@ router.post('/:id/build-extractor', authenticate, async (req: Request, res: Resp
 
     return res.status(201).json(updatedPlot);
   } catch (error) {
+    // Handle validation errors (insufficient resources)
+    if (error instanceof Error && error.message === 'INSUFFICIENT_RESOURCES') {
+      const validationError = (error as Error & { validation: ValidationResult }).validation;
+      logger.warn('[API] Insufficient resources for extractor', {
+        plotId: req.params.id,
+        extractorType: req.body.extractorType,
+        shortages: validationError.shortages,
+      });
+      return res.status(400).json({
+        error: 'Bad Request',
+        code: 'INSUFFICIENT_RESOURCES',
+        message: validationError.error || 'Not enough resources to build this structure',
+        shortages: validationError.shortages,
+      });
+    }
+
+    // Handle all other errors
     logger.error('[API] Failed to build extractor', { error, plotId: req.params.id });
     return res.status(500).json({
       error: 'Internal Server Error',

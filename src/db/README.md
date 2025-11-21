@@ -112,12 +112,13 @@ const account = await findAccountByToken(authToken);
 const settlements = await getPlayerSettlements(profileId);
 
 // Create new settlement
-const { settlement, storage } = await createSettlement(
-  profileId,
-  plotId,
-  'New Settlement',
-  { food: 100, water: 100, wood: 50, stone: 30, ore: 10 }
-);
+const { settlement, storage } = await createSettlement(profileId, plotId, 'New Settlement', {
+  food: 100,
+  water: 100,
+  wood: 50,
+  stone: 30,
+  ore: 10,
+});
 
 // Update resources
 await updateSettlementStorage(storage.id, {
@@ -149,12 +150,12 @@ const result = await db
 
 ```typescript
 import { db, settlements } from './db';
-import { generateId } from './queries';
+import { createId } from '@paralleldrive/cuid2';
 
 const [newSettlement] = await db
   .insert(settlements)
   .values({
-    id: generateId(),
+    id: createId(),
     playerProfileId: 'player123',
     plotId: 'plot456',
     settlementStorageId: 'storage789',
@@ -162,8 +163,6 @@ const [newSettlement] = await db
   })
   .returning();
 ```
-
-**Note**: `generateId()` uses the `@paralleldrive/cuid2` library to generate cryptographically secure, collision-resistant IDs.
 
 ### Updating Data
 
@@ -184,9 +183,7 @@ const [updated] = await db
 import { db, settlements } from './db';
 import { eq } from 'drizzle-orm';
 
-await db
-  .delete(settlements)
-  .where(eq(settlements.id, settlementId));
+await db.delete(settlements).where(eq(settlements.id, settlementId));
 ```
 
 ## 🔧 Advanced Queries
@@ -233,7 +230,7 @@ await db.transaction(async (tx) => {
   // All operations in this block are part of one transaction
   const [storage] = await tx.insert(settlementStorage).values({...}).returning();
   const [settlement] = await tx.insert(settlements).values({...}).returning();
-  
+
   // If any operation fails, all are rolled back
 });
 ```
@@ -292,10 +289,7 @@ export async function getMyNewData(id: string) {
 
 ```typescript
 // ✅ Good - Protected from SQL injection
-const user = await db
-  .select()
-  .from(accounts)
-  .where(eq(accounts.email, userInput));
+const user = await db.select().from(accounts).where(eq(accounts.email, userInput));
 
 // ❌ Bad - Never concatenate user input
 // await db.execute(sql`SELECT * FROM accounts WHERE email = '${userInput}'`);

@@ -392,6 +392,101 @@ describe('Worlds API Routes', () => {
 
       expect(response.body.code).toBe('CREATE_FAILED');
     });
+
+    // World Template Tests
+    it('should accept worldTemplateType parameter', async () => {
+      const requestWithTemplate = {
+        ...validRequest,
+        worldTemplateType: 'SURVIVAL',
+      };
+
+      const mockWorld = {
+        id: generateTestId('world'),
+        name: 'Survival World',
+        worldTemplateType: 'SURVIVAL',
+        worldTemplateConfig: { productionMultiplier: 0.7, consumptionMultiplier: 1.3 },
+      };
+
+      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
+      const mockValues = vi.fn(() => ({ returning: mockReturning }));
+      const mockInsert = vi.fn(() => ({ values: mockValues }));
+      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Authorization', 'Bearer admin-token')
+        .send(requestWithTemplate)
+        .expect(201);
+
+      expect(response.body.worldTemplateType).toBe('SURVIVAL');
+      expect(response.body.worldTemplateConfig).toBeDefined();
+    });
+
+    it('should return 400 for invalid worldTemplateType', async () => {
+      const requestWithInvalidTemplate = {
+        ...validRequest,
+        worldTemplateType: 'INVALID_TYPE',
+      };
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Authorization', 'Bearer admin-token')
+        .send(requestWithInvalidTemplate)
+        .expect(400);
+
+      expect(response.body.error).toContain('Invalid world template type');
+    });
+
+    it('should default to STANDARD template when worldTemplateType not provided', async () => {
+      const mockWorld = {
+        id: generateTestId('world'),
+        name: 'Default World',
+        worldTemplateType: 'STANDARD',
+        worldTemplateConfig: { productionMultiplier: 1, consumptionMultiplier: 1 },
+      };
+
+      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
+      const mockValues = vi.fn(() => ({ returning: mockReturning }));
+      const mockInsert = vi.fn(() => ({ values: mockValues }));
+      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Authorization', 'Bearer admin-token')
+        .send(validRequest)
+        .expect(201);
+
+      expect(response.body.worldTemplateType).toBe('STANDARD');
+    });
+
+    it.each(['STANDARD', 'SURVIVAL', 'RELAXED', 'FANTASY', 'APOCALYPSE'])(
+      'should accept template type: %s',
+      async (templateType) => {
+        const requestWithTemplate = {
+          ...validRequest,
+          worldTemplateType: templateType,
+        };
+
+        const mockWorld = {
+          id: generateTestId('world'),
+          name: `${templateType} World`,
+          worldTemplateType: templateType,
+        };
+
+        const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
+        const mockValues = vi.fn(() => ({ returning: mockReturning }));
+        const mockInsert = vi.fn(() => ({ values: mockValues }));
+        vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
+
+        const response = await request(app)
+          .post('/api/worlds')
+          .set('Authorization', 'Bearer admin-token')
+          .send(requestWithTemplate)
+          .expect(201);
+
+        expect(response.body.worldTemplateType).toBe(templateType);
+      },
+    );
   });
 
   describe('PUT /api/worlds/:id', () => {

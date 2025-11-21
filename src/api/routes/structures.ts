@@ -12,52 +12,67 @@ import { eq } from 'drizzle-orm';
 import {
   db,
   settlementStructures,
-  structureRequirements,
   settlements,
   plots,
+  worlds,
+  structures,
 } from '../../db/index.js';
-import { generateId } from '../../db/queries.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import type { WorldTemplateType } from '../../types/world-templates.js';
+import { createId } from '@paralleldrive/cuid2';
+import {
+  validateAndDeductResources,
+  type ValidationResult,
+} from '../../game/structure-validation.js';
+import { getAllStructureCosts } from '../../data/structure-costs.js';
+import { getStructureRequirements } from '../../data/structure-requirements.js';
+import { getStructureModifiers } from '../../data/structure-modifiers.js';
 
 const router = Router();
 
 /**
- * Map client structure IDs to database BuildingType enum values
- * This is a temporary solution until we add all structure types to the database
+ * GET /api/structures/metadata
+ * Get all structure definitions (costs, requirements, modifiers)
+ * Must come before /:id route to avoid route collision
  */
-function mapStructureToBuildingType(structureId: string): string | null {
-  const mapping: Record<string, string> = {
-    // Housing
-    tent: 'HOUSE',
-    cottage: 'HOUSE',
-    house: 'HOUSE',
-    mansion: 'HOUSE',
-    // Production
-    farm: 'WORKSHOP',
-    well: 'WORKSHOP',
-    lumbermill: 'WORKSHOP',
-    quarry: 'WORKSHOP',
-    mine: 'WORKSHOP',
-    windmill: 'WORKSHOP',
-    solar_panel: 'WORKSHOP',
-    // Storage
-    warehouse: 'STORAGE',
-    silo: 'STORAGE',
-    cellar: 'STORAGE',
-    // Defense
-    watchtower: 'BARRACKS',
-    barracks: 'BARRACKS',
-    wall: 'WALL',
-    gate: 'WALL',
-    // Utility
-    market: 'MARKETPLACE',
-    town_hall: 'TOWN_HALL',
-    workshop: 'WORKSHOP',
-  };
+router.get('/metadata', async (req: Request, res: Response) => {
+  try {
+    const allCosts = getAllStructureCosts();
+    const metadata = allCosts.map((structure) => {
+      const requirements = getStructureRequirements(structure.name);
+      const modifiers = getStructureModifiers(structure.name);
 
-  return mapping[structureId] || null;
-}
+      return {
+        id: structure.id,
+        name: structure.name,
+        displayName: structure.displayName,
+        description: structure.description,
+        category: structure.category,
+        tier: structure.tier,
+        costs: structure.costs,
+        constructionTimeSeconds: structure.constructionTimeSeconds,
+        populationRequired: structure.populationRequired,
+        requirements,
+        modifiers: modifiers || [],
+      };
+    });
+
+    return res.json({
+      success: true,
+      data: metadata,
+      timestamp: Date.now(),
+    });
+  } catch (error) {
+    logger.error('[API] Failed to fetch structure metadata', { error });
+    return res.status(500).json({
+      success: false,
+      error: 'Internal Server Error',
+      code: 'METADATA_FETCH_FAILED',
+      message: 'Failed to fetch structure metadata',
+    });
+  }
+});
 
 /**
  * GET /api/structures/:id
@@ -101,24 +116,14 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    const { settlementId, buildingType, name, description } = req.body;
+    const { settlementId, structureName } = req.body;
 
-    if (!settlementId || !buildingType) {
+    if (!settlementId || !structureName) {
       return res.status(400).json({
+        success: false,
         error: 'Bad Request',
         code: 'MISSING_FIELDS',
-        message: 'settlementId and buildingType are required',
-      });
-    }
-
-    // Map client structure ID to database building type
-    const dbBuildingType = mapStructureToBuildingType(buildingType);
-
-    if (!dbBuildingType) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        code: 'INVALID_BUILDING_TYPE',
-        message: `Unknown building type: ${buildingType}`,
+        message: 'settlementId and structureName are required',
       });
     }
 
@@ -129,6 +134,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     if (!settlement) {
       return res.status(404).json({
+        success: false,
         error: 'Not Found',
         code: 'SETTLEMENT_NOT_FOUND',
         message: 'Settlement not found',
@@ -138,54 +144,106 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     // Verify user owns the settlement
     if (!req.user || settlement.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
+        success: false,
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
         message: 'You do not own this settlement',
       });
     }
 
-    // Create building in transaction
-    const newStructure = await db.transaction(async (tx) => {
-      // Create structure requirements (placeholder - in future, check actual requirements)
-      const [requirements] = await tx
-        .insert(structureRequirements)
-        .values({
-          id: generateId(),
-        })
-        .returning();
+    // Create structure in transaction
+    const result = await db.transaction(async (tx) => {
+      // 1. Query structure definition from database by name
+      const [structureDefinition] = await tx
+        .select()
+        .from(structures)
+        .where(eq(structures.name, structureName))
+        .limit(1);
 
-      // Create the building
-      const [building] = await tx
+      if (!structureDefinition) {
+        throw new Error(`Structure not found: ${structureName}`);
+      }
+
+      // 2. Validate and deduct resources BEFORE creating structure
+      const validation = await validateAndDeductResources(
+        tx,
+        settlementId,
+        structureDefinition.name
+      );
+
+      if (!validation.success) {
+        // Throw error to rollback transaction
+        const error = new Error('INSUFFICIENT_RESOURCES') as Error & {
+          validation: ValidationResult;
+        };
+        error.validation = validation;
+        throw error;
+      }
+
+      // 3. Create the settlement structure instance
+      const [structure] = await tx
         .insert(settlementStructures)
         .values({
-          id: generateId(),
+          id: createId(),
+          structureId: structureDefinition.id,
           settlementId,
-          structureRequirementsId: requirements.id,
-          category: 'BUILDING',
-          buildingType: dbBuildingType,
           level: 1,
-          name: name || `${buildingType} Level 1`,
-          description: description || `A ${buildingType.toLowerCase()} for your settlement`,
         })
         .returning();
 
-      return building;
+      return { structure, structureDefinition, validation };
     });
 
-    logger.info('[API] Building created', {
-      structureId: newStructure.id,
+    logger.info('[API] Structure created', {
+      structureId: result.structure.id,
       settlementId,
-      buildingType: dbBuildingType,
-      clientBuildingType: buildingType,
+      category: result.structureDefinition.category,
+      structureName: result.structureDefinition.name,
+      resourcesDeducted: result.validation.deductedResources,
     });
 
-    return res.status(201).json(newStructure);
+    // Emit Socket.IO event for real-time updates
+    const worldId = settlement.worldId;
+    if (worldId && req.app.get('io')) {
+      req.app.get('io').to(`world:${worldId}`).emit('structure:built', {
+        settlementId,
+        structure: result.structure,
+        category: result.structureDefinition.category,
+        structureName: result.structureDefinition.name,
+        resourcesDeducted: result.validation.deductedResources,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      structure: result.structure,
+    });
   } catch (error) {
-    logger.error('[API] Failed to create building', { error, body: req.body });
+    // Handle validation errors (insufficient resources)
+    if (error instanceof Error && error.message === 'INSUFFICIENT_RESOURCES') {
+      const validationError = (error as Error & { validation: ValidationResult }).validation;
+      logger.warn('[API] Insufficient resources for structure', {
+        settlementId: req.body.settlementId,
+        structureName: req.body.structureName,
+        shortages: validationError.shortages,
+      });
+      return res.status(400).json({
+        success: false,
+        error: validationError.error || 'Insufficient resources to build structure',
+        shortages: validationError.shortages,
+      });
+    }
+
+    // Handle all other errors
+    logger.error('[API] Failed to create structure', {
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      body: req.body,
+    });
     return res.status(500).json({
       error: 'Internal Server Error',
       code: 'CREATE_FAILED',
-      message: 'Failed to create building',
+      message: 'Failed to create structure',
     });
   }
 });
@@ -222,8 +280,6 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
       });
     }
 
-    // TODO: In future, check upgrade requirements (resources, etc.)
-
     // Upgrade the structure
     const nextLevel = structure.level + 1;
     const [upgraded] = await db
@@ -250,11 +306,22 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
 
       if (plot?.resourceType && structure.extractorType) {
         const { calculateProductionRate } = await import('../../utils/resource-production.js');
+
+        // Phase 1D: Load world template for production multiplier
+        const { getWorldTemplateConfig } = await import('../../types/world-templates.js');
+        const world = await db.query.worlds.findFirst({
+          where: eq(worlds.id, structure.settlement.worldId),
+        });
+        const worldTemplate = getWorldTemplateConfig(
+          (world?.worldTemplateType as WorldTemplateType) || 'STANDARD'
+        );
+
         const newProductionRate = calculateProductionRate({
           resourceType: plot.resourceType,
           extractorType: structure.extractorType,
           biomeName: plot.tile?.biome?.name || '',
           structureLevel: nextLevel,
+          worldTemplateMultiplier: worldTemplate.productionMultiplier,
         });
 
         await db

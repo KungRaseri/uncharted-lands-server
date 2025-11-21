@@ -23,7 +23,8 @@ import {
   determineSpecialResource,
 } from '../utils/resource-quality.js';
 import { db, worlds, regions, tiles, plots } from '../db/index.js';
-import { generateId, getAllBiomes, findBiome } from '../db/queries.js';
+import { getAllBiomes, findBiome } from '../db/queries.js';
+import { createId } from '@paralleldrive/cuid2';
 
 export interface WorldCreationOptions {
   serverId: string | null;
@@ -83,7 +84,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
   logger.info('[WORLD CREATE] Loaded biomes', { biomeCount: biomes.length });
 
   // Step 3: Create or use existing world record
-  const worldId = options.worldId || generateId();
+  const worldId = options.worldId || createId();
   const worldRecord = {
     id: worldId,
     name: options.worldName,
@@ -97,7 +98,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
 
   // Step 4: Create regions
   const regionRecords = regionData.map((region) => ({
-    id: generateId(),
+    id: createId(),
     worldId: worldId,
     name: `Region ${region.xCoord},${region.yCoord}`, // Add required name field
     xCoord: region.xCoord,
@@ -154,7 +155,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
         const specialResource = determineSpecialResource(biome, (tileSeed % 100) / 100);
 
         tileRecords.push({
-          id: generateId(),
+          id: createId(),
           regionId: region.id,
           biomeId: biome.id,
           type,
@@ -205,7 +206,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     for (let i = 0; i < plotsTotal; i++) {
       const resources = generatePlotResources(tileData, biome as BiomeType);
       plotRecords.push({
-        id: generateId(),
+        id: createId(),
         tileId: tile.id,
         ...resources,
       });
@@ -252,7 +253,8 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
     plotCount: plotRecords.length,
-    duration: `${(duration / 1000).toFixed(2)}s`,
+    durationMs: duration,
+    durationFormatted: `${(duration / 1000).toFixed(2)}s`,
   });
 
   return {

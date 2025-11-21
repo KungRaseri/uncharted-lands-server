@@ -1,0 +1,2 @@
+CREATE TYPE "public"."BiomeType" AS ENUM('GRASSLAND', 'FOREST', 'DESERT', 'MOUNTAIN', 'TUNDRA', 'SWAMP', 'COASTAL', 'OCEAN');--> statement-breakpoint
+ALTER TABLE "Settlement" ADD COLUMN "resilience" integer DEFAULT 0 NOT NULL;

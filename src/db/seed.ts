@@ -6,244 +6,233 @@
  */
 
 import 'dotenv/config';
-import { db, biomes } from './index.js';
+import { db, biomes, structures, resources, structureRequirements } from './index.js';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '../utils/logger.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
+import { RESOURCES } from '../data/resources.js';
+import { BIOMES } from '../data/biomes.js';
+import { STRUCTURES } from '../data/structures.js';
 
 /**
  * Biome definitions with environmental parameters and modifiers
+ * Generated from master data file: src/data/biomes.ts
  */
-const biomeData = [
-  {
+const biomeData = BIOMES.map((biome) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, ...biomeWithoutId } = biome;
+  return {
     id: createId(),
-    name: 'TUNDRA',
-    precipitationMin: 10,
-    precipitationMax: 175,
-    temperatureMin: -10,
-    temperatureMax: 5,
-    solarModifier: 2,
-    windModifier: 2,
-    foodModifier: 1,
-    waterModifier: 1,
-    woodModifier: 1,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 0,
-    plotsMax: 6,
-    plotAreaMin: 50,
-    plotAreaMax: 70,
-  },
-  {
+    ...biomeWithoutId,
+  };
+});
+
+/**
+ * Resource Master Data
+ * Generated from master data file: src/data/resources.ts
+ */
+const resourcesData = RESOURCES.map((resource) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, ...resourceWithoutId } = resource;
+  return {
     id: createId(),
-    name: 'FOREST_BOREAL',
-    precipitationMin: 25,
-    precipitationMax: 300,
-    temperatureMin: -5,
-    temperatureMax: 10,
-    solarModifier: 2,
-    windModifier: 1,
-    foodModifier: 2,
-    waterModifier: 2,
-    woodModifier: 2,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 2,
-    plotsMax: 8,
-    plotAreaMin: 50,
-    plotAreaMax: 85,
-  },
-  {
+    ...resourceWithoutId,
+  };
+});
+
+/**
+ * Structure Master Data
+ * Generated from master data file: src/data/structures.ts
+ */
+const structuresData = STRUCTURES.map((structure) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, requirements: _requirements, ...structureWithoutId } = structure;
+  return {
     id: createId(),
-    name: 'FOREST_TEMPERATE_SEASONAL',
-    precipitationMin: 50,
-    precipitationMax: 350,
-    temperatureMin: 4,
-    temperatureMax: 22,
-    solarModifier: 2,
-    windModifier: 1,
-    foodModifier: 2,
-    waterModifier: 2,
-    woodModifier: 2,
-    stoneModifier: 2,
-    oreModifier: 2,
-    plotsMin: 3,
-    plotsMax: 8,
-    plotAreaMin: 55,
-    plotAreaMax: 95,
-  },
-  {
-    id: createId(),
-    name: 'FOREST_TROPICAL_SEASONAL',
-    precipitationMin: 50,
-    precipitationMax: 350,
-    temperatureMin: 20,
-    temperatureMax: 32,
-    solarModifier: 3,
-    windModifier: 1,
-    foodModifier: 3,
-    waterModifier: 3,
-    woodModifier: 3,
-    stoneModifier: 2,
-    oreModifier: 2,
-    plotsMin: 3,
-    plotsMax: 9,
-    plotAreaMin: 55,
-    plotAreaMax: 100,
-  },
-  {
-    id: createId(),
-    name: 'RAINFOREST_TEMPERATE',
-    precipitationMin: 175,
-    precipitationMax: 375,
-    temperatureMin: 7,
-    temperatureMax: 25,
-    solarModifier: 2,
-    windModifier: 1,
-    foodModifier: 2,
-    waterModifier: 3,
-    woodModifier: 3,
-    stoneModifier: 2,
-    oreModifier: 2,
-    plotsMin: 3,
-    plotsMax: 9,
-    plotAreaMin: 60,
-    plotAreaMax: 95,
-  },
-  {
-    id: createId(),
-    name: 'RAINFOREST_TROPICAL',
-    precipitationMin: 225,
-    precipitationMax: 450,
-    temperatureMin: 24,
-    temperatureMax: 31,
-    solarModifier: 3,
-    windModifier: 1,
-    foodModifier: 3,
-    waterModifier: 3,
-    woodModifier: 3,
-    stoneModifier: 2,
-    oreModifier: 2,
-    plotsMin: 4,
-    plotsMax: 10,
-    plotAreaMin: 65,
-    plotAreaMax: 100,
-  },
-  {
-    id: createId(),
-    name: 'WOODLAND',
-    precipitationMin: 15,
-    precipitationMax: 150,
-    temperatureMin: -2,
-    temperatureMax: 23,
-    solarModifier: 2,
-    windModifier: 1,
-    foodModifier: 2,
-    waterModifier: 1,
-    woodModifier: 2,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 1,
-    plotsMax: 7,
-    plotAreaMin: 50,
-    plotAreaMax: 75,
-  },
-  {
-    id: createId(),
-    name: 'SHRUBLAND',
-    precipitationMin: 15,
-    precipitationMax: 125,
-    temperatureMin: -2,
-    temperatureMax: 23,
-    solarModifier: 2,
-    windModifier: 1,
-    foodModifier: 1,
-    waterModifier: 1,
-    woodModifier: 2,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 1,
-    plotsMax: 7,
-    plotAreaMin: 50,
-    plotAreaMax: 70,
-  },
-  {
-    id: createId(),
-    name: 'SAVANNA',
-    precipitationMin: 50,
-    precipitationMax: 275,
-    temperatureMin: 22,
-    temperatureMax: 32,
-    solarModifier: 3,
-    windModifier: 2,
-    foodModifier: 3,
-    waterModifier: 2,
-    woodModifier: 1,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 2,
-    plotsMax: 8,
-    plotAreaMin: 55,
-    plotAreaMax: 95,
-  },
-  {
-    id: createId(),
-    name: 'GRASSLAND_TEMPERATE',
-    precipitationMin: 5,
-    precipitationMax: 50,
-    temperatureMin: -4,
-    temperatureMax: 22,
-    solarModifier: 2,
-    windModifier: 2,
-    foodModifier: 2,
-    waterModifier: 1,
-    woodModifier: 1,
-    stoneModifier: 1,
-    oreModifier: 1,
-    plotsMin: 1,
-    plotsMax: 7,
-    plotAreaMin: 50,
-    plotAreaMax: 70,
-  },
-  {
-    id: createId(),
-    name: 'DESERT_COLD',
-    precipitationMin: 1,
-    precipitationMax: 50,
-    temperatureMin: -4,
-    temperatureMax: 22,
-    solarModifier: 3,
-    windModifier: 3,
-    foodModifier: 1,
-    waterModifier: 1,
-    woodModifier: 1,
-    stoneModifier: 2,
-    oreModifier: 2,
-    plotsMin: 0,
-    plotsMax: 5,
-    plotAreaMin: 50,
-    plotAreaMax: 60,
-  },
-  {
-    id: createId(),
-    name: 'DESERT_SUBTROPICAL',
-    precipitationMin: 1,
-    precipitationMax: 100,
-    temperatureMin: 18,
-    temperatureMax: 32,
-    solarModifier: 4,
-    windModifier: 4,
-    foodModifier: 1,
-    waterModifier: 1,
-    woodModifier: 1,
-    stoneModifier: 3,
-    oreModifier: 3,
-    plotsMin: 0,
-    plotsMax: 5,
-    plotAreaMin: 50,
-    plotAreaMax: 70,
-  },
-];
+    ...structureWithoutId,
+  };
+});
+
+/**
+ * Structure Requirements Data
+ * Maps structures to their resource costs (using names for lookup)
+ * Based on client/src/lib/game/structures.ts
+ */
+const structureRequirementsData = STRUCTURES.flatMap((structure) =>
+  Object.entries(structure.requirements)
+    .filter(([_, quantity]) => quantity && quantity > 0)
+    .map(([resourceKey, quantity]) => {
+      const resource = RESOURCES.find((r) => r.id === resourceKey);
+      if (!resource) {
+        throw new Error(
+          `Resource with id "${resourceKey}" not found for structure "${structure.name}"`
+        );
+      }
+      return {
+        structureName: structure.name,
+        resourceName: resource.name,
+        quantity: quantity,
+      };
+    })
+);
+
+/**
+ * Seed resources with upsert logic (create or update)
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _seedResources() {
+  logger.info(`[SEED] Starting resource seeding...`);
+
+  let created = 0;
+  let updated = 0;
+
+  for (const resource of resourcesData) {
+    try {
+      // Check if resource exists
+      const existing = await db.query.resources.findFirst({
+        where: eq(resources.name, resource.name),
+      });
+
+      if (existing) {
+        // Update existing resource (exclude id from update)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _id, ...resourceDataWithoutId } = resource;
+        await db
+          .update(resources)
+          .set(resourceDataWithoutId)
+          .where(eq(resources.name, resource.name));
+        updated++;
+        logger.info(`[SEED] Updated resource: ${resource.name}`);
+      } else {
+        // Insert new resource
+        await db.insert(resources).values(resource);
+        created++;
+        logger.info(`[SEED] Created resource: ${resource.name}`);
+      }
+    } catch (error) {
+      logger.error(`[SEED] Error seeding resource ${resource.name}:`, error);
+      throw error;
+    }
+  }
+
+  return { created, updated, total: resourcesData.length };
+}
+
+/**
+ * Seed structures with upsert logic (create or update)
+ */
+
+async function _seedStructures() {
+  logger.info(`[SEED] Starting structure seeding...`);
+
+  let created = 0;
+  let updated = 0;
+
+  for (const structure of structuresData) {
+    try {
+      // Check if structure exists
+      const existing = await db.query.structures.findFirst({
+        where: eq(structures.name, structure.name),
+      });
+
+      if (existing) {
+        // Update existing structure (exclude id from update)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _id, ...structureDataWithoutId } = structure;
+        await db
+          .update(structures)
+          .set(structureDataWithoutId)
+          .where(eq(structures.name, structure.name));
+        updated++;
+        logger.info(`[SEED] Updated structure: ${structure.name}`);
+      } else {
+        // Insert new structure
+        await db.insert(structures).values(structure);
+        created++;
+        logger.info(`[SEED] Created structure: ${structure.name}`);
+      }
+    } catch (error) {
+      logger.error(`[SEED] Error seeding structure ${structure.name}:`, error);
+      throw error;
+    }
+  }
+
+  return { created, updated, total: structuresData.length };
+}
+
+/**
+ * Seed structure requirements with upsert logic (create or update)
+ * Links structures to their resource costs using composite key lookup
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _seedStructureRequirements() {
+  logger.info(`[SEED] Starting structure requirements seeding...`);
+
+  let created = 0;
+  let updated = 0;
+
+  for (const req of structureRequirementsData) {
+    try {
+      // Look up structure and resource IDs by name
+      const structure = await db.query.structures.findFirst({
+        where: eq(structures.name, req.structureName),
+      });
+
+      const resource = await db.query.resources.findFirst({
+        where: eq(resources.name, req.resourceName),
+      });
+
+      if (!structure) {
+        logger.warn(`[SEED] Structure not found: ${req.structureName}`);
+        continue;
+      }
+
+      if (!resource) {
+        logger.warn(`[SEED] Resource not found: ${req.resourceName}`);
+        continue;
+      }
+
+      // Check if requirement exists (composite key: structureId + resourceId)
+      const existing = await db.query.structureRequirements.findFirst({
+        where: and(
+          eq(structureRequirements.structureId, structure.id),
+          eq(structureRequirements.resourceId, resource.id)
+        ),
+      });
+
+      if (existing) {
+        // Update existing requirement
+        await db
+          .update(structureRequirements)
+          .set({ quantity: req.quantity })
+          .where(
+            and(
+              eq(structureRequirements.structureId, structure.id),
+              eq(structureRequirements.resourceId, resource.id)
+            )
+          );
+        updated++;
+      } else {
+        // Insert new requirement
+        await db.insert(structureRequirements).values({
+          id: createId(),
+          structureId: structure.id,
+          resourceId: resource.id,
+          quantity: req.quantity,
+        });
+        created++;
+      }
+    } catch (error) {
+      logger.error(
+        `[SEED] Error seeding requirement ${req.structureName} -> ${req.resourceName}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  return { created, updated, total: structureRequirementsData.length };
+}
 
 /**
  * Seed biomes with upsert logic (create or update)
@@ -263,7 +252,8 @@ async function seedBiomes() {
 
       if (existing) {
         // Update existing biome (preserve existing ID)
-        const { id, ...biomeDataWithoutId } = biome;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id: _id, ...biomeDataWithoutId } = biome;
         await db.update(biomes).set(biomeDataWithoutId).where(eq(biomes.name, biome.name));
 
         logger.info(`[SEED] Updated biome: ${biome.name} [ID: ${existing.id}]`);
@@ -292,10 +282,18 @@ async function seedBiomes() {
 logger.info('[SEED] Starting database seeding...');
 
 try {
+  // Seed structures
+  const structureResult = await _seedStructures();
+
   // Seed biomes
   const biomeResult = await seedBiomes();
 
   logger.info('[SEED] ✅ Seeding completed successfully!', {
+    structures: {
+      created: structureResult.created,
+      updated: structureResult.updated,
+      total: structureResult.total,
+    },
     biomes: {
       created: biomeResult.created,
       updated: biomeResult.updated,

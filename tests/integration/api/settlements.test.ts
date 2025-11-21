@@ -275,7 +275,7 @@ describe('Settlements API Routes', () => {
         .expect(201);
 
       expect(response.body).toEqual(mockSettlement);
-      expect(db.db.insert).toHaveBeenCalledTimes(4); // profile, profileServerData, storage, settlement
+      expect(db.db.insert).toHaveBeenCalledTimes(5); // profile, profileServerData, storage, settlement, TENT structure (BLOCKER 1)
     });
 
     it('should create settlement without picture (default placeholder)', async () => {

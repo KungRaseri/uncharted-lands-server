@@ -20,13 +20,14 @@ export interface StorageCapacity {
 
 /**
  * Base storage capacity without any structures
+ * GDD Specification (Section 6.3): 1000 units per resource type
  */
 export const BASE_STORAGE_CAPACITY: StorageCapacity = {
   food: 1000,
   water: 1000,
-  wood: 500,
-  stone: 500,
-  ore: 250,
+  wood: 1000,
+  stone: 1000,
+  ore: 1000,
 };
 
 /**

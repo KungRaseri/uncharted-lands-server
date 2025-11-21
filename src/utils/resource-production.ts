@@ -118,7 +118,7 @@ export function getStructureLevelMultiplier(level: number): number {
 /**
  * Calculate the production rate for a plot
  *
- * Formula: baseRate × biomeEfficiency × structureLevel
+ * Formula: baseRate × biomeEfficiency × structureLevel × worldTemplateMultiplier
  *
  * Quality affects VALUE when trading/using, not production rate (for Tier 1 resources)
  */
@@ -127,8 +127,15 @@ export function calculateProductionRate(params: {
   extractorType: string;
   biomeName: string;
   structureLevel: number;
+  worldTemplateMultiplier?: number; // Phase 1D: World template production modifier
 }): number {
-  const { resourceType, extractorType, biomeName, structureLevel } = params;
+  const {
+    resourceType,
+    extractorType,
+    biomeName,
+    structureLevel,
+    worldTemplateMultiplier = 1,
+  } = params;
 
   // Get base rate for this resource/extractor combination
   const resourceRates = BASE_PRODUCTION_RATES[resourceType];
@@ -144,8 +151,8 @@ export function calculateProductionRate(params: {
   // Get structure level multiplier
   const levelMultiplier = getStructureLevelMultiplier(structureLevel);
 
-  // Calculate final rate
-  const productionRate = baseRate * biomeEfficiency * levelMultiplier;
+  // Calculate final rate with world template multiplier (Phase 1D)
+  const productionRate = baseRate * biomeEfficiency * levelMultiplier * worldTemplateMultiplier;
 
   return Math.round(productionRate * 100) / 100; // Round to 2 decimals
 }

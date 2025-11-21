@@ -25,12 +25,17 @@ import {
   updateSettlementStorage,
   getPlayerSettlements,
   createStructure,
+  getSettlementStructures,
 } from '../db/queries.js';
+import { getStructureCostByName, isValidStructure } from '../data/structure-costs.js';
+import { getStructureRequirements } from '../data/structure-requirements.js';
+import { getStructureModifiers } from '../data/structure-modifiers.js';
 import {
   calculateTimedProduction,
   addResources,
   subtractResources,
   hasEnoughResources,
+  type Resources,
 } from '../game/resource-calculator.js';
 import { registerPlayerSettlements, unregisterPlayerSettlements } from '../game/game-loop.js';
 import { createWorld } from '../game/world-creator.js';
@@ -73,6 +78,7 @@ export function registerEventHandlers(socket: Socket): void {
 async function handleAuthenticate(
   socket: Socket,
   data: AuthenticateData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -258,6 +264,7 @@ async function handleGameStateRequest(socket: Socket, data: GameStateRequest): P
 async function handleBuildStructure(
   socket: Socket,
   data: BuildStructureData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -311,77 +318,23 @@ async function handleBuildStructure(
       return callback ? callback(errorResponse) : undefined;
     }
 
-    // Define structure types and their costs
-    // In a real implementation, this would come from a configuration file or database
-    const structureTypes: Record<
-      string,
-      {
-        name: string;
-        description: string;
-        cost: { food: number; water: number; wood: number; stone: number; ore: number };
-        requirements: { area: number; solar: number; wind: number };
-        modifiers?: Array<{ name: string; description: string; value: number }>;
-      }
-    > = {
-      house: {
-        name: 'House',
-        description: 'A basic dwelling for settlers',
-        cost: { food: 0, water: 0, wood: 50, stone: 20, ore: 0 },
-        requirements: { area: 1, solar: 0, wind: 0 },
-        modifiers: [
-          { name: 'population_capacity', description: 'Increases population capacity', value: 5 },
-        ],
-      },
-      farm: {
-        name: 'Farm',
-        description: 'Produces food over time',
-        cost: { food: 0, water: 10, wood: 30, stone: 10, ore: 0 },
-        requirements: { area: 2, solar: 1, wind: 0 },
-        modifiers: [
-          { name: 'food_production', description: 'Increases food production', value: 10 },
-        ],
-      },
-      well: {
-        name: 'Well',
-        description: 'Provides access to water',
-        cost: { food: 0, water: 0, wood: 20, stone: 40, ore: 5 },
-        requirements: { area: 1, solar: 0, wind: 0 },
-        modifiers: [
-          { name: 'water_production', description: 'Increases water production', value: 15 },
-        ],
-      },
-      lumbermill: {
-        name: 'Lumber Mill',
-        description: 'Processes wood more efficiently',
-        cost: { food: 0, water: 5, wood: 40, stone: 30, ore: 10 },
-        requirements: { area: 2, solar: 0, wind: 1 },
-        modifiers: [
-          { name: 'wood_production', description: 'Increases wood production', value: 12 },
-        ],
-      },
-      quarry: {
-        name: 'Quarry',
-        description: 'Extracts stone from the ground',
-        cost: { food: 0, water: 10, wood: 30, stone: 20, ore: 15 },
-        requirements: { area: 3, solar: 0, wind: 0 },
-        modifiers: [
-          { name: 'stone_production', description: 'Increases stone production', value: 8 },
-        ],
-      },
-      mine: {
-        name: 'Mine',
-        description: 'Extracts ore from deep underground',
-        cost: { food: 0, water: 15, wood: 50, stone: 60, ore: 20 },
-        requirements: { area: 3, solar: 0, wind: 0 },
-        modifiers: [{ name: 'ore_production', description: 'Increases ore production', value: 5 }],
-      },
-    };
-
-    const structureConfig = structureTypes[data.structureType.toLowerCase()];
-    if (!structureConfig) {
+    // Validate structure type exists in our centralized config
+    const normalizedStructureType = data.structureType.toUpperCase();
+    if (!isValidStructure(normalizedStructureType)) {
       const errorResponse = {
         success: false,
         error: `Unknown structure type: ${data.structureType}`,
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Get structure configuration from centralized source (GDD-accurate costs)
+    const structureConfig = getStructureCostByName(normalizedStructureType);
+    if (!structureConfig) {
+      const errorResponse = {
+        success: false,
+        error: `Structure configuration not found: ${data.structureType}`,
         timestamp: Date.now(),
       };
       return callback ? callback(errorResponse) : undefined;
@@ -396,12 +349,21 @@ async function handleBuildStructure(
       ore: storage.ore,
     };
 
-    const hasResources = hasEnoughResources(currentResources, structureConfig.cost);
+    // Convert optional costs to required Resources type with defaults
+    const requiredResources: Resources = {
+      food: structureConfig.costs.food ?? 0,
+      water: structureConfig.costs.water ?? 0,
+      wood: structureConfig.costs.wood ?? 0,
+      stone: structureConfig.costs.stone ?? 0,
+      ore: structureConfig.costs.ore ?? 0,
+    };
+
+    const hasResources = hasEnoughResources(currentResources, requiredResources);
     if (!hasResources) {
       const errorResponse = {
         success: false,
         error: 'Insufficient resources to build structure',
-        required: structureConfig.cost,
+        required: requiredResources,
         current: currentResources,
         timestamp: Date.now(),
       };
@@ -409,23 +371,29 @@ async function handleBuildStructure(
     }
 
     // Deduct resources
-    const newResources = subtractResources(currentResources, structureConfig.cost);
+    const newResources = subtractResources(currentResources, requiredResources);
     await updateSettlementStorage(storage.id, newResources);
 
-    // Create the structure
+    // Get structure requirements and modifiers from separate configs
+    const requirements = getStructureRequirements(structureConfig.name);
+    const modifiers = getStructureModifiers(structureConfig.name);
+
+    // Create the structure with all required data
     const structureResult = await createStructure(
       data.settlementId,
       structureConfig.name,
       structureConfig.description,
       {
-        ...structureConfig.requirements,
-        food: structureConfig.cost.food,
-        water: structureConfig.cost.water,
-        wood: structureConfig.cost.wood,
-        stone: structureConfig.cost.stone,
-        ore: structureConfig.cost.ore,
+        area: requirements.area,
+        solar: requirements.solar,
+        wind: requirements.wind,
+        food: requiredResources.food,
+        water: requiredResources.water,
+        wood: requiredResources.wood,
+        stone: requiredResources.stone,
+        ore: requiredResources.ore,
       },
-      structureConfig.modifiers
+      modifiers
     );
 
     const response = {
@@ -487,6 +455,7 @@ async function handleBuildStructure(
 async function handleCollectResources(
   socket: Socket,
   data: CollectResourcesData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   callback?: (response: any) => void
 ): Promise<void> {
   try {
@@ -557,10 +526,29 @@ async function handleCollectResources(
       return callback ? callback(errorResponse) : undefined;
     }
 
+    // Fetch settlement structures to get extractors
+    const structureData = await getSettlementStructures(data.settlementId);
+
+    // Filter for extractor structures
+    const extractors = structureData
+      .filter((s) => s.structureDef?.category === 'EXTRACTOR')
+      .map((s) => ({
+        ...s.structure,
+        category: s.structureDef?.category || '',
+        extractorType: s.structureDef?.extractorType || '',
+      }));
+
     // Calculate production since last update
     // Using updatedAt as last collection time
     const lastCollectionTime = settlementData.settlement.updatedAt?.getTime() || Date.now();
-    const production = calculateTimedProduction(plot, lastCollectionTime);
+    const biomeName = settlementData.biome?.name;
+    const production = calculateTimedProduction(
+      plot,
+      extractors,
+      lastCollectionTime,
+      Date.now(),
+      biomeName
+    );
 
     // Add production to current storage
     const newResources = addResources(
@@ -910,30 +898,36 @@ async function handleRequestRegion(
         temperatureMap: region.temperatureMap,
         tiles:
           data.includeTiles && 'tiles' in region && Array.isArray(region.tiles)
-            ? region.tiles.map((t: any) => ({
-                id: t.id,
-                biomeId: t.biomeId,
-                regionId: t.regionId,
-                elevation: t.elevation,
-                temperature: t.temperature,
-                precipitation: t.precipitation,
-                type: t.type,
-                plots:
-                  'plots' in t && Array.isArray(t.plots)
-                    ? t.plots.map((p: any) => ({
-                        id: p.id,
-                        tileId: p.tileId,
-                        area: p.area,
-                        solar: p.solar,
-                        wind: p.wind,
-                        food: p.food,
-                        water: p.water,
-                        wood: p.wood,
-                        stone: p.stone,
-                        ore: p.ore,
-                      }))
-                    : undefined,
-              }))
+            ? region.tiles.map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (t: any) => ({
+                  id: t.id,
+                  biomeId: t.biomeId,
+                  regionId: t.regionId,
+                  elevation: t.elevation,
+                  temperature: t.temperature,
+                  precipitation: t.precipitation,
+                  type: t.type,
+                  plots:
+                    'plots' in t && Array.isArray(t.plots)
+                      ? t.plots.map(
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          (p: any) => ({
+                            id: p.id,
+                            tileId: p.tileId,
+                            area: p.area,
+                            solar: p.solar,
+                            wind: p.wind,
+                            food: p.food,
+                            water: p.water,
+                            wood: p.wood,
+                            stone: p.stone,
+                            ore: p.ore,
+                          })
+                        )
+                      : undefined,
+                })
+              )
             : undefined,
       },
       timestamp: Date.now(),

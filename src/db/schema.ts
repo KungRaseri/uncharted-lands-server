@@ -10,6 +10,26 @@ import {
   index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { createId } from '@paralleldrive/cuid2';
+
+// ===========================
+// TYPES
+// ===========================
+
+export interface WorldTemplateConfig {
+  magicLevel?: 'NONE' | 'LOW' | 'HIGH';
+  difficulty?: 'CASUAL' | 'NORMAL' | 'HARDCORE' | 'EXTREME';
+  resourceAbundance?: 'SCARCE' | 'NORMAL' | 'ABUNDANT' | 'EXTREME_SCARCITY';
+  depletionEnabled?: boolean;
+  depletionRate?: number;
+  disasterFrequency?: 'RARE' | 'NORMAL' | 'FREQUENT' | 'CONSTANT';
+  disasterSeverity?: 'MILD' | 'NORMAL' | 'CATASTROPHIC';
+  specialResourcesEnabled?: boolean;
+  npcSettlementsEnabled?: boolean;
+  productionMultiplier?: number;
+  consumptionMultiplier?: number;
+  populationGrowthRate?: number;
+}
 
 // ===========================
 // ENUMS
@@ -38,6 +58,7 @@ export const resourceTypeEnum = pgEnum('ResourceType', [
 export const structureCategoryEnum = pgEnum('StructureCategory', ['EXTRACTOR', 'BUILDING']);
 export const extractorTypeEnum = pgEnum('ExtractorType', [
   'FARM',
+  'WELL',
   'LUMBER_MILL',
   'QUARRY',
   'MINE',
@@ -55,9 +76,155 @@ export const buildingTypeEnum = pgEnum('BuildingType', [
   'WALL',
 ]);
 
+// Disaster system enums (Phase 4 - November 2025)
+export const disasterTypeEnum = pgEnum('DisasterType', [
+  // Weather Disasters
+  'DROUGHT',
+  'FLOOD',
+  'BLIZZARD',
+  'HURRICANE',
+  'TORNADO',
+  'SANDSTORM',
+  'HEATWAVE',
+  // Geological Disasters
+  'EARTHQUAKE',
+  'VOLCANO',
+  'LANDSLIDE',
+  'AVALANCHE',
+  // Environmental Disasters
+  'WILDFIRE',
+  'INSECT_PLAGUE',
+  'BLIGHT',
+  'LOCUST_SWARM',
+]);
+
+export const disasterStatusEnum = pgEnum('DisasterStatus', [
+  'SCHEDULED', // Disaster scheduled, not yet announced
+  'WARNING', // Warning issued, players can prepare
+  'IMPACT', // Disaster actively causing damage
+  'AFTERMATH', // Recovery phase
+  'RESOLVED', // Fully resolved
+]);
+
+export const disasterSeverityEnum = pgEnum('DisasterSeverity', [
+  'MILD', // 20% production reduction
+  'MODERATE', // 40% production reduction
+  'MAJOR', // 60% production reduction
+  'CATASTROPHIC', // 80% production reduction
+]);
+
+export const biomeTypeEnum = pgEnum('BiomeType', [
+  'GRASSLAND',
+  'FOREST',
+  'DESERT',
+  'MOUNTAIN',
+  'TUNDRA',
+  'SWAMP',
+  'COASTAL',
+  'OCEAN',
+]);
+
+// ==================== DISASTER CONFIGURATION ====================
+
+/**
+ * Biome-specific disaster mappings (from GDD Section 5.3)
+ *
+ * Each biome has different disaster vulnerabilities:
+ * - highRisk: 60% chance of selection
+ * - moderateRisk: 30% chance of selection
+ * - lowRisk: 10% chance of selection
+ *
+ * Single source of truth for disaster-biome relationships.
+ * No duplication - disaster-scheduler.ts imports this constant.
+ */
+export const BIOME_DISASTER_MAP = {
+  GRASSLAND: {
+    highRisk: ['DROUGHT', 'TORNADO', 'LOCUST_SWARM'],
+    moderateRisk: ['FLOOD', 'WILDFIRE', 'HEATWAVE'],
+    lowRisk: ['EARTHQUAKE'],
+  },
+  FOREST: {
+    highRisk: ['WILDFIRE', 'INSECT_PLAGUE', 'BLIGHT'],
+    moderateRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
+    lowRisk: ['EARTHQUAKE', 'HEATWAVE'],
+  },
+  DESERT: {
+    highRisk: ['DROUGHT', 'SANDSTORM', 'HEATWAVE', 'LOCUST_SWARM'],
+    moderateRisk: ['WILDFIRE'],
+    lowRisk: ['FLOOD', 'BLIZZARD'],
+  },
+  MOUNTAIN: {
+    highRisk: ['EARTHQUAKE', 'AVALANCHE', 'LANDSLIDE', 'VOLCANO'],
+    moderateRisk: ['BLIZZARD', 'WILDFIRE'],
+    lowRisk: ['FLOOD', 'TORNADO', 'DROUGHT'],
+  },
+  TUNDRA: {
+    highRisk: ['BLIZZARD', 'AVALANCHE'],
+    moderateRisk: ['EARTHQUAKE'],
+    lowRisk: ['WILDFIRE', 'DROUGHT', 'HEATWAVE'],
+  },
+  SWAMP: {
+    highRisk: ['FLOOD', 'INSECT_PLAGUE', 'BLIGHT'],
+    moderateRisk: ['WILDFIRE', 'TORNADO'],
+    lowRisk: ['DROUGHT', 'EARTHQUAKE'],
+  },
+  COASTAL: {
+    highRisk: ['HURRICANE', 'FLOOD'],
+    moderateRisk: ['EARTHQUAKE', 'TORNADO', 'WILDFIRE'],
+    lowRisk: ['DROUGHT', 'BLIZZARD'],
+  },
+  OCEAN: {
+    highRisk: [],
+    moderateRisk: ['HURRICANE'],
+    lowRisk: [],
+  },
+} as const;
+
+/**
+ * Type-safe biome type extracted from schema enum
+ */
+export type BiomeType = (typeof biomeTypeEnum.enumValues)[number];
+
+/**
+ * Type-safe disaster type extracted from schema enum
+ */
+export type DisasterType = (typeof disasterTypeEnum.enumValues)[number];
+
+/**
+ * Type-safe disaster severity extracted from schema enum
+ */
+export type DisasterSeverity = (typeof disasterSeverityEnum.enumValues)[number];
+
 // ===========================
 // TABLES
 // ===========================
+
+// Master structure definitions table
+export const structures = pgTable('Structure', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: structureCategoryEnum('category').notNull(),
+  extractorType: extractorTypeEnum('extractorType'),
+  buildingType: buildingTypeEnum('buildingType'),
+  maxLevel: integer('maxLevel').notNull().default(10),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// Master resource definitions table
+export const resources = pgTable('Resource', {
+  id: text('id')
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: text('category').notNull(), // 'BASE', 'SPECIAL'
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+});
 
 export const accounts = pgTable('Account', {
   id: text('id').primaryKey(),
@@ -90,9 +257,7 @@ export const servers = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    hostnamePortIdx: uniqueIndex('Server_hostname_port_key').on(table.hostname, table.port),
-  })
+  (table) => [uniqueIndex('Server_hostname_port_key').on(table.hostname, table.port)]
 );
 
 export const profileServerData = pgTable(
@@ -105,14 +270,11 @@ export const profileServerData = pgTable(
       .notNull()
       .references(() => servers.id, { onDelete: 'cascade' }),
   },
-  (table) => ({
-    profileIdIdx: uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
-    serverIdIdx: uniqueIndex('ProfileServerData_serverId_key').on(table.serverId),
-    profileServerIdx: uniqueIndex('ProfileServerData_profileId_serverId_key').on(
-      table.profileId,
-      table.serverId
-    ),
-  })
+  (table) => [
+    uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
+    uniqueIndex('ProfileServerData_serverId_key').on(table.serverId),
+    uniqueIndex('ProfileServerData_profileId_serverId_key').on(table.profileId, table.serverId),
+  ]
 );
 
 export const worlds = pgTable(
@@ -124,15 +286,15 @@ export const worlds = pgTable(
     precipitationSettings: json('precipitationSettings').notNull(),
     temperatureSettings: json('temperatureSettings').notNull(),
     status: text('status').notNull().default('generating'), // 'generating', 'ready', 'failed'
+    worldTemplateType: text('worldTemplateType').notNull().default('STANDARD'),
+    worldTemplateConfig: json('worldTemplateConfig').$type<WorldTemplateConfig>(),
     serverId: text('serverId')
       .notNull()
       .references(() => servers.id, { onDelete: 'cascade' }),
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    nameServerIdx: uniqueIndex('World_name_serverId_key').on(table.name, table.serverId),
-  })
+  (table) => [uniqueIndex('World_name_serverId_key').on(table.name, table.serverId)]
 );
 
 export const regions = pgTable(
@@ -149,15 +311,11 @@ export const regions = pgTable(
       .notNull()
       .references(() => worlds.id, { onDelete: 'cascade' }),
   },
-  (table) => ({
-    nameWorldIdx: uniqueIndex('Region_name_worldId_key').on(table.name, table.worldId),
-    worldCoordsIdx: index('Region_worldId_xCoord_yCoord_idx').on(
-      table.worldId,
-      table.xCoord,
-      table.yCoord
-    ),
-    coordsIdx: index('Region_xCoord_yCoord_idx').on(table.xCoord, table.yCoord),
-  })
+  (table) => [
+    uniqueIndex('Region_name_worldId_key').on(table.name, table.worldId),
+    index('Region_worldId_xCoord_yCoord_idx').on(table.worldId, table.xCoord, table.yCoord),
+    index('Region_xCoord_yCoord_idx').on(table.xCoord, table.yCoord),
+  ]
 );
 
 export const biomes = pgTable('Biome', {
@@ -207,14 +365,17 @@ export const tiles = pgTable(
     // @ts-expect-error - Circular reference
     settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'set null' }),
     plotSlots: integer('plotSlots').notNull().default(5),
+    // Base production modifier for disaster impacts (Type 2: resource depletion)
+    // Default 1.0 = normal production, 0.4 = 60% drought, etc.
+    baseProductionModifier: doublePrecision('baseProductionModifier').notNull().default(1),
   },
-  (table) => ({
-    regionIdx: index('Tile_regionId_idx').on(table.regionId),
-    biomeIdx: index('Tile_biomeId_idx').on(table.biomeId),
-    typeIdx: index('Tile_type_idx').on(table.type),
-    coordIdx: index('Tile_coords_idx').on(table.xCoord, table.yCoord),
-    settlementIdx: index('Tile_settlementId_idx').on(table.settlementId),
-  })
+  (table) => [
+    index('Tile_regionId_idx').on(table.regionId),
+    index('Tile_biomeId_idx').on(table.biomeId),
+    index('Tile_type_idx').on(table.type),
+    index('Tile_coords_idx').on(table.xCoord, table.yCoord),
+    index('Tile_settlementId_idx').on(table.settlementId),
+  ]
 );
 
 // @ts-expect-error - Circular reference with tiles and settlementStructures is expected and works at runtime
@@ -244,8 +405,7 @@ export const plots = pgTable(
     wood: integer('wood').notNull().default(1),
     stone: integer('stone').notNull().default(1),
     ore: integer('ore').notNull().default(1),
-    // Links to structures and settlements
-    // @ts-expect-error - Circular reference
+    // @ts-expect-error - Circular reference with settlementStructures is expected and works at runtime
     structureId: text('structureId').references(() => settlementStructures.id, {
       onDelete: 'set null',
     }),
@@ -253,19 +413,37 @@ export const plots = pgTable(
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    tileIdx: index('Plot_tileId_idx').on(table.tileId),
-    settlementIdx: index('Plot_settlementId_idx').on(table.settlementId),
-  })
+  (table) => [
+    index('Plot_tileId_idx').on(table.tileId),
+    index('Plot_settlementId_idx').on(table.settlementId),
+  ]
 );
 
-export const settlementStorage = pgTable('SettlementStorage', {
+export const settlementStorage = pgTable(
+  'SettlementStorage',
+  {
+    id: text('id').primaryKey(),
+    settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'cascade' }),
+    food: integer('food').notNull(),
+    water: integer('water').notNull(),
+    wood: integer('wood').notNull(),
+    stone: integer('stone').notNull(),
+    ore: integer('ore').notNull(),
+  },
+  (table) => [index('SettlementStorage_settlementId_idx').on(table.settlementId)]
+);
+
+export const settlementPopulation = pgTable('SettlementPopulation', {
   id: text('id').primaryKey(),
-  food: integer('food').notNull(),
-  water: integer('water').notNull(),
-  wood: integer('wood').notNull(),
-  stone: integer('stone').notNull(),
-  ore: integer('ore').notNull(),
+  settlementId: text('settlementId')
+    .notNull()
+    .unique()
+    .references(() => settlements.id, { onDelete: 'cascade' }),
+  currentPopulation: integer('currentPopulation').notNull().default(10),
+  happiness: integer('happiness').notNull().default(50),
+  lastGrowthTick: timestamp('lastGrowthTick', { mode: 'date' }).defaultNow().notNull(),
+  createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
 // @ts-expect-error - Circular reference with plots is expected and works at runtime
@@ -286,49 +464,87 @@ export const settlements = pgTable(
       .unique()
       .references(() => settlementStorage.id, { onDelete: 'cascade' }),
     name: text('name').notNull().default('Home Settlement'),
+    resilience: integer('resilience').notNull().default(0), // Disaster survival resilience score (0-100)
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
-  (table) => ({
-    playerProfileIdx: index('Settlement_playerProfileId_idx').on(table.playerProfileId),
-    plotIdx: index('Settlement_plotId_idx').on(table.plotId),
-  })
+  (table) => [
+    index('Settlement_playerProfileId_idx').on(table.playerProfileId),
+    index('Settlement_plotId_idx').on(table.plotId),
+  ]
 );
 
-export const structureRequirements = pgTable('StructureRequirements', {
-  id: text('id').primaryKey(),
-  area: integer('area').notNull().default(1),
-  solar: integer('solar').notNull().default(1),
-  wind: integer('wind').notNull().default(1),
-  food: integer('food').notNull().default(1),
-  water: integer('water').notNull().default(1),
-  wood: integer('wood').notNull().default(1),
-  stone: integer('stone').notNull().default(1),
-  ore: integer('ore').notNull().default(1),
-});
+// Normalized structure costs table
+export const structureRequirements = pgTable(
+  'StructureRequirement',
+  {
+    id: text('id').primaryKey(),
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'cascade' }),
+    resourceId: text('resourceId')
+      .notNull()
+      .references(() => resources.id, { onDelete: 'cascade' }),
+    quantity: integer('quantity').notNull(),
+  },
+  (table) => [
+    index('StructureRequirement_structureId_idx').on(table.structureId),
+    index('StructureRequirement_resourceId_idx').on(table.resourceId),
+  ]
+);
 
-// @ts-expect-error - Circular reference with settlements and plots is expected and works at runtime
-export const settlementStructures = pgTable('SettlementStructure', {
-  id: text('id').primaryKey(),
-  structureRequirementsId: text('structureRequirementsId')
-    .notNull()
-    .unique()
-    .references(() => structureRequirements.id, { onDelete: 'cascade' }),
-  settlementId: text('settlementId')
-    .notNull()
-    // @ts-expect-error - Circular reference
-    .references(() => settlements.id, { onDelete: 'cascade' }),
-  // Structure classification
-  category: structureCategoryEnum('category').notNull().default('BUILDING'),
-  extractorType: extractorTypeEnum('extractorType'),
-  buildingType: buildingTypeEnum('buildingType'),
-  level: integer('level').notNull().default(1),
-  // Plot linkage for extractors
-  // @ts-expect-error - Circular reference
-  plotId: text('plotId').references(() => plots.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  description: text('description').notNull(),
-});
+// Structure prerequisites table - Option B1 (two nullable columns with FK constraints)
+export const structurePrerequisites = pgTable(
+  'StructurePrerequisite',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'cascade' }),
+    // ONE of these per row (not both) - enforced by CHECK constraint
+    requiredStructureId: text('requiredStructureId').references(() => structures.id, {
+      onDelete: 'cascade',
+    }),
+    requiredResearchId: text('requiredResearchId'), // FK to research table when it exists
+    requiredLevel: integer('requiredLevel').notNull().default(1),
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('StructurePrerequisite_structureId_idx').on(table.structureId),
+    index('StructurePrerequisite_requiredStructureId_idx').on(table.requiredStructureId),
+  ]
+);
+
+// @ts-expect-error - Circular reference with plots is expected and works at runtime
+export const settlementStructures = pgTable(
+  'SettlementStructure',
+  {
+    id: text('id').primaryKey(),
+    structureId: text('structureId')
+      .notNull()
+      .references(() => structures.id, { onDelete: 'restrict' }),
+    settlementId: text('settlementId')
+      .notNull()
+      // @ts-expect-error - Circular reference with plots
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+    level: integer('level').notNull().default(1),
+    // Plot linkage for extractors
+    plotId: text('plotId')
+      // @ts-expect-error - Circular reference with plots
+      .references(() => plots.id, { onDelete: 'cascade' }),
+    // Population assignment for structure staffing
+    populationAssigned: integer('populationAssigned').notNull().default(0),
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('SettlementStructure_settlementId_idx').on(table.settlementId),
+    index('SettlementStructure_structureId_idx').on(table.structureId),
+    index('SettlementStructure_plotId_idx').on(table.plotId),
+  ]
+);
 
 export const structureModifiers = pgTable('StructureModifier', {
   id: text('id').primaryKey(),
@@ -343,6 +559,17 @@ export const structureModifiers = pgTable('StructureModifier', {
 // ===========================
 // RELATIONS
 // ===========================
+
+export const structuresRelations = relations(structures, ({ many }) => ({
+  requirements: many(structureRequirements),
+  prerequisites: many(structurePrerequisites, { relationName: 'structurePrerequisites' }),
+  requiredBy: many(structurePrerequisites, { relationName: 'requiredStructure' }),
+  instances: many(settlementStructures),
+}));
+
+export const resourcesRelations = relations(resources, ({ many }) => ({
+  requirements: many(structureRequirements),
+}));
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   profile: one(profiles, {
@@ -454,16 +681,33 @@ export const settlementsRelations = relations(settlements, ({ one, many }) => ({
 }));
 
 export const structureRequirementsRelations = relations(structureRequirements, ({ one }) => ({
-  settlementStructure: one(settlementStructures, {
-    fields: [structureRequirements.id],
-    references: [settlementStructures.structureRequirementsId],
+  structure: one(structures, {
+    fields: [structureRequirements.structureId],
+    references: [structures.id],
+  }),
+  resource: one(resources, {
+    fields: [structureRequirements.resourceId],
+    references: [resources.id],
+  }),
+}));
+
+export const structurePrerequisitesRelations = relations(structurePrerequisites, ({ one }) => ({
+  structure: one(structures, {
+    fields: [structurePrerequisites.structureId],
+    references: [structures.id],
+    relationName: 'structurePrerequisites',
+  }),
+  requiredStructure: one(structures, {
+    fields: [structurePrerequisites.requiredStructureId],
+    references: [structures.id],
+    relationName: 'requiredStructure',
   }),
 }));
 
 export const settlementStructuresRelations = relations(settlementStructures, ({ one, many }) => ({
-  buildRequirements: one(structureRequirements, {
-    fields: [settlementStructures.structureRequirementsId],
-    references: [structureRequirements.id],
+  structure: one(structures, {
+    fields: [settlementStructures.structureId],
+    references: [structures.id],
   }),
   settlement: one(settlements, {
     fields: [settlementStructures.settlementId],
@@ -484,8 +728,132 @@ export const structureModifiersRelations = relations(structureModifiers, ({ one 
 }));
 
 // ===========================
+// DISASTER SYSTEM (Phase 4 - November 2025)
+// ===========================
+
+// Disaster events table
+export const disasterEvents = pgTable(
+  'DisasterEvent',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    worldId: text('worldId')
+      .notNull()
+      .references(() => worlds.id, { onDelete: 'cascade' }),
+
+    // Disaster properties
+    type: disasterTypeEnum('type').notNull(),
+    severity: integer('severity').notNull(), // 0-100 numeric value
+    severityLevel: disasterSeverityEnum('severityLevel').notNull(), // MILD/MODERATE/MAJOR/CATASTROPHIC
+
+    // Affected area (nullable for world-scale disasters)
+    affectedRegionId: text('affectedRegionId').references(() => regions.id),
+    affectedBiomes: json('affectedBiomes').$type<string[]>(), // Array of biome names
+
+    // Timing
+    scheduledAt: timestamp('scheduledAt', { mode: 'date' }).notNull(), // When disaster will start
+    warningTime: integer('warningTime').notNull().default(7200), // Seconds of advance warning (default 2 hours)
+    impactDuration: integer('impactDuration').notNull().default(3600), // Seconds of impact phase (default 1 hour)
+
+    // State tracking
+    status: disasterStatusEnum('status').notNull().default('SCHEDULED'),
+    warningIssuedAt: timestamp('warningIssuedAt', { mode: 'date' }),
+    impactStartedAt: timestamp('impactStartedAt', { mode: 'date' }),
+    impactEndedAt: timestamp('impactEndedAt', { mode: 'date' }),
+
+    // Flags
+    imminentWarningIssued: integer('imminentWarningIssued').notNull().default(0), // Boolean: 0 = false, 1 = true
+
+    // Metadata
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('disaster_world_idx').on(table.worldId),
+    index('disaster_status_idx').on(table.status),
+    index('disaster_scheduled_idx').on(table.scheduledAt),
+    index('disaster_active_idx').on(table.worldId, table.status),
+  ]
+);
+
+// Disaster history table (records disaster impact per settlement)
+export const disasterHistory = pgTable(
+  'DisasterHistory',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    settlementId: text('settlementId')
+      .notNull()
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+    disasterId: text('disasterId')
+      .notNull()
+      .references(() => disasterEvents.id, { onDelete: 'cascade' }),
+
+    // Impact data
+    casualties: integer('casualties').notNull().default(0), // Population lost
+    structuresDamaged: integer('structuresDamaged').notNull().default(0), // Structures with health < 100%
+    structuresDestroyed: integer('structuresDestroyed').notNull().default(0), // Structures at 0% health
+    resourcesLost: json('resourcesLost').$type<{
+      food?: number;
+      water?: number;
+      wood?: number;
+      stone?: number;
+      ore?: number;
+    }>(), // Resources lost from damaged storage
+
+    // Recovery
+    resilienceGained: integer('resilienceGained').notNull().default(5), // Resilience bonus from surviving
+
+    // Metadata
+    timestamp: timestamp('timestamp', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('disaster_history_settlement_idx').on(table.settlementId),
+    index('disaster_history_disaster_idx').on(table.disasterId),
+  ]
+);
+
+// Relations
+export const disasterEventsRelations = relations(disasterEvents, ({ one, many }) => ({
+  world: one(worlds, {
+    fields: [disasterEvents.worldId],
+    references: [worlds.id],
+  }),
+  affectedRegion: one(regions, {
+    fields: [disasterEvents.affectedRegionId],
+    references: [regions.id],
+  }),
+  history: many(disasterHistory),
+}));
+
+export const disasterHistoryRelations = relations(disasterHistory, ({ one }) => ({
+  settlement: one(settlements, {
+    fields: [disasterHistory.settlementId],
+    references: [settlements.id],
+  }),
+  disaster: one(disasterEvents, {
+    fields: [disasterHistory.disasterId],
+    references: [disasterEvents.id],
+  }),
+}));
+
+// ===========================
 // TYPE EXPORTS
 // ===========================
+
+export type Structure = typeof structures.$inferSelect;
+export type NewStructure = typeof structures.$inferInsert;
+
+export type Resource = typeof resources.$inferSelect;
+export type NewResource = typeof resources.$inferInsert;
+
+export type StructureRequirement = typeof structureRequirements.$inferSelect;
+export type NewStructureRequirement = typeof structureRequirements.$inferInsert;
+
+export type StructurePrerequisite = typeof structurePrerequisites.$inferSelect;
+export type NewStructurePrerequisite = typeof structurePrerequisites.$inferInsert;
 
 export type Account = typeof accounts.$inferSelect;
 export type NewAccount = typeof accounts.$inferInsert;
@@ -520,11 +888,14 @@ export type NewSettlementStorage = typeof settlementStorage.$inferInsert;
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;
 
-export type StructureRequirements = typeof structureRequirements.$inferSelect;
-export type NewStructureRequirements = typeof structureRequirements.$inferInsert;
-
 export type SettlementStructure = typeof settlementStructures.$inferSelect;
 export type NewSettlementStructure = typeof settlementStructures.$inferInsert;
 
 export type StructureModifier = typeof structureModifiers.$inferSelect;
 export type NewStructureModifier = typeof structureModifiers.$inferInsert;
+
+export type DisasterEvent = typeof disasterEvents.$inferSelect;
+export type NewDisasterEvent = typeof disasterEvents.$inferInsert;
+
+export type DisasterHistory = typeof disasterHistory.$inferSelect;
+export type NewDisasterHistory = typeof disasterHistory.$inferInsert;

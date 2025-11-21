@@ -501,9 +501,9 @@ describe('Storage Calculator', () => {
 
       expect(summary.utilization.food).toBe(50);
       expect(summary.utilization.water).toBe(100);
-      expect(summary.utilization.wood).toBe(50);
-      expect(summary.utilization.stone).toBe(100);
-      expect(summary.utilization.ore).toBe(100);
+      expect(summary.utilization.wood).toBe(25); // 250/1000 = 25%
+      expect(summary.utilization.stone).toBe(50); // 500/1000 = 50%
+      expect(summary.utilization.ore).toBe(25); // 250/1000 = 25%
     });
   });
 });

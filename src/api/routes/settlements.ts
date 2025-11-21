@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import {
   settlements,
   settlementStorage,
+  settlementStructures,
   profiles,
   profileServerData,
   tiles,
@@ -89,7 +90,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Ensure each structure has a modifiers array
-    settlement.structures = settlement.structures.map((structure: any) => ({
+    settlement.structures = settlement.structures.map((structure: { modifiers?: unknown[] }) => ({
       ...structure,
       modifiers: structure.modifiers || [],
     }));
@@ -198,14 +199,14 @@ router.post('/', authenticate, async (req, res) => {
       serverId,
     });
 
-    // Step 4: Create storage
+    // Step 4: Create storage with starting resources
     const storageId = createId();
     await db.insert(settlementStorage).values({
       id: storageId,
-      food: 5,
-      water: 5,
-      wood: 10,
-      stone: 5,
+      food: 50, // ~2.5 hours for 10 population at GDD rates
+      water: 100, // ~2.5 hours for 10 population
+      wood: 50, // Can build 2 FARMs (20 wood each) + WAREHOUSE (40 wood)
+      stone: 30, // Can build 2 FARMs (10 stone each)
       ore: 0,
     });
 
@@ -222,6 +223,20 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     logger.info(`[SETTLEMENT CREATE] Created settlement ${settlementId} for profile ${profileId}`);
+
+    const tentId = createId();
+    await db.insert(settlementStructures).values({
+      id: tentId,
+      settlementId: settlementId,
+      plotId: chosenPlot.id,
+      category: 'BUILDING',
+      buildingType: 'TENT',
+      level: 1,
+      name: 'Starting Shelter',
+      description: 'Your first shelter in the new world',
+    });
+
+    logger.info(`[SETTLEMENT CREATE] Created starting TENT structure ${tentId}`);
 
     // Fetch and return the complete settlement
     const newSettlement = await db.query.settlements.findFirst({

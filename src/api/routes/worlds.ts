@@ -12,6 +12,12 @@ import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
 import { createWorld } from '../../game/world-creator.js';
+import { startSpan } from '../../utils/sentry.js';
+import {
+  isValidWorldTemplateType,
+  type WorldTemplateType,
+  getWorldTemplateConfig,
+} from '../../types/world-templates.js';
 
 const router = Router();
 
@@ -55,27 +61,38 @@ router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const world = await db.query.worlds.findFirst({
-      where: eq(worlds.id, id),
-      with: {
-        server: true,
-        regions: {
-          orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
+    // Use Sentry span for database query performance tracking
+    const world = await startSpan(
+      {
+        op: 'db.query',
+        name: 'Find World with Details',
+        attributes: { worldId: id },
+      },
+      async (span) => {
+        const result = await db.query.worlds.findFirst({
+          where: eq(worlds.id, id),
           with: {
-            tiles: {
-              // Order tiles by their coordinates (x=row, y=column) to match creation order
-              orderBy: (tilesTable: typeof tiles, { asc }: any) => [
-                asc(tilesTable.xCoord),
-                asc(tilesTable.yCoord),
-              ],
+            server: true,
+            regions: {
+              orderBy: (regions, { asc }) => [asc(regions.xCoord), asc(regions.yCoord)],
               with: {
-                biome: true,
-                plots: {
+                tiles: {
+                  // Order tiles by their coordinates (x=row, y=column) to match creation order
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  orderBy: (tilesTable: typeof tiles, { asc }: any) => [
+                    asc(tilesTable.xCoord),
+                    asc(tilesTable.yCoord),
+                  ],
                   with: {
-                    settlement: {
-                      columns: {
-                        id: true,
-                        name: true,
+                    biome: true,
+                    plots: {
+                      with: {
+                        settlement: {
+                          columns: {
+                            id: true,
+                            name: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -83,9 +100,15 @@ router.get('/:id', authenticate, async (req, res) => {
               },
             },
           },
-        },
-      },
-    });
+        });
+
+        if (result) {
+          span?.setAttribute('regions', result.regions?.length || 0);
+        }
+
+        return result;
+      }
+    );
 
     if (!world) {
       return sendNotFoundError(res, 'World not found');
@@ -110,6 +133,7 @@ router.get('/:id', authenticate, async (req, res) => {
  * Helper function to calculate world statistics
  * Extracted to reduce cognitive complexity
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function calculateWorldStatistics(regions: any[]) {
   let landTilesCount = 0;
   let oceanTilesCount = 0;
@@ -159,6 +183,7 @@ function calculateWorldStatistics(regions: any[]) {
 /**
  * Helper function to process a single tile
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function processTile(tile: any) {
   const landTiles = tile.type === 'LAND' ? 1 : 0;
   const oceanTiles = tile.type === 'OCEAN' ? 1 : 0;
@@ -189,6 +214,9 @@ function processTile(tile: any) {
  * }
  */
 router.post('/', authenticateAdmin, async (req, res) => {
+  const reqLogger = req.logger || logger;
+  const startTime = Date.now();
+
   try {
     const {
       name,
@@ -204,22 +232,52 @@ router.post('/', authenticateAdmin, async (req, res) => {
       width,
       height,
       elevationSeed,
+      // World template
+      worldTemplateType,
     } = req.body;
+
+    reqLogger.info('[WORLD CREATE] Request received', {
+      userId: req.user?.id,
+      name,
+      serverId,
+      generate,
+      dimensions: generate ? `${width}x${height}` : 'n/a',
+    });
 
     // Validation
     if (!name || !serverId) {
+      reqLogger.warn('[WORLD CREATE] Missing required fields', {
+        name: !!name,
+        serverId: !!serverId,
+      });
       return sendBadRequestError(res, 'Missing required fields: name and serverId');
+    }
+
+    // Validate world template type if provided
+    if (worldTemplateType && !isValidWorldTemplateType(worldTemplateType)) {
+      reqLogger.warn('[WORLD CREATE] Invalid world template type', {
+        worldTemplateType,
+      });
+      return sendBadRequestError(
+        res,
+        'Invalid world template type. Must be one of: SURVIVAL, STANDARD, RELAXED, FANTASY, APOCALYPSE'
+      );
     }
 
     // Server-side generation mode (FULL world with tiles and plots)
     if (generate && width && height) {
-      logger.info(`[API] Generating complete world server-side`, {
+      reqLogger.info(`[WORLD CREATE] Starting server-side generation`, {
         name,
         serverId,
         dimensions: `${width}x${height}`,
+        estimatedTime: `${Math.round((width * height) / 100)}s`,
       });
 
       // First, create the world record with 'generating' status
+      const templateConfig = worldTemplateType
+        ? getWorldTemplateConfig(worldTemplateType as WorldTemplateType)
+        : getWorldTemplateConfig('STANDARD');
+
       const [newWorld] = await db
         .insert(worlds)
         .values({
@@ -229,41 +287,79 @@ router.post('/', authenticateAdmin, async (req, res) => {
           elevationSettings: elevationSettings || {},
           precipitationSettings: precipitationSettings || {},
           temperatureSettings: temperatureSettings || {},
+          worldTemplateType: worldTemplateType || 'STANDARD',
+          worldTemplateConfig: templateConfig,
           status: 'generating',
         })
         .returning();
 
-      logger.info(`[API] Created world record: ${newWorld.id} - ${newWorld.name}`);
+      reqLogger.info(`[WORLD CREATE] World record created`, {
+        worldId: newWorld.id,
+        name: newWorld.name,
+        status: 'generating',
+      });
 
       try {
-        const result = await createWorld({
-          serverId,
-          worldName: name,
-          worldId: newWorld.id, // Pass the existing world ID
-          width,
-          height,
-          seed: elevationSeed || Date.now(),
-          elevationOptions: {
-            amplitude: elevationSettings?.amplitude || 1,
-            persistence: elevationSettings?.persistence || 0.5,
-            frequency: elevationSettings?.frequency || 0.05,
-            octaves: elevationSettings?.octaves || 8,
-            scale: (x: number) => x * (elevationSettings?.scale || 1),
+        reqLogger.startTimer(`world-generation-${newWorld.id}`);
+
+        // Use Sentry span for performance monitoring
+        const result = await startSpan(
+          {
+            op: 'world.generation',
+            name: `Generate World: ${name}`,
+            attributes: {
+              worldId: newWorld.id,
+              worldName: name,
+              width,
+              height,
+              totalSize: width * height,
+            },
           },
-          precipitationOptions: {
-            amplitude: precipitationSettings?.amplitude || 1,
-            persistence: precipitationSettings?.persistence || 0.5,
-            frequency: precipitationSettings?.frequency || 0.05,
-            octaves: precipitationSettings?.octaves || 8,
-            scale: (x: number) => x * (precipitationSettings?.scale || 1),
-          },
-          temperatureOptions: {
-            amplitude: temperatureSettings?.amplitude || 1,
-            persistence: temperatureSettings?.persistence || 0.5,
-            frequency: temperatureSettings?.frequency || 0.05,
-            octaves: temperatureSettings?.octaves || 8,
-            scale: (x: number) => x * (temperatureSettings?.scale || 1),
-          },
+          async (span) => {
+            const result = await createWorld({
+              serverId,
+              worldName: name,
+              worldId: newWorld.id, // Pass the existing world ID
+              width,
+              height,
+              seed: elevationSeed || Date.now(),
+              elevationOptions: {
+                amplitude: elevationSettings?.amplitude || 1,
+                persistence: elevationSettings?.persistence || 0.5,
+                frequency: elevationSettings?.frequency || 0.05,
+                octaves: elevationSettings?.octaves || 8,
+                scale: (x: number) => x * (elevationSettings?.scale || 1),
+              },
+              precipitationOptions: {
+                amplitude: precipitationSettings?.amplitude || 1,
+                persistence: precipitationSettings?.persistence || 0.5,
+                frequency: precipitationSettings?.frequency || 0.05,
+                octaves: precipitationSettings?.octaves || 8,
+                scale: (x: number) => x * (precipitationSettings?.scale || 1),
+              },
+              temperatureOptions: {
+                amplitude: temperatureSettings?.amplitude || 1,
+                persistence: temperatureSettings?.persistence || 0.5,
+                frequency: temperatureSettings?.frequency || 0.05,
+                octaves: temperatureSettings?.octaves || 8,
+                scale: (x: number) => x * (temperatureSettings?.scale || 1),
+              },
+            });
+
+            // Add metrics to span
+            span?.setAttribute('regions', result.regionCount);
+            span?.setAttribute('tiles', result.tileCount);
+            span?.setAttribute('plots', result.plotCount);
+
+            return result;
+          }
+        );
+
+        const generationDuration = reqLogger.endTimer(`world-generation-${newWorld.id}`, {
+          worldId: newWorld.id,
+          regions: result.regionCount,
+          tiles: result.tileCount,
+          plots: result.plotCount,
         });
 
         // Update world status to 'ready'
@@ -272,12 +368,14 @@ router.post('/', authenticateAdmin, async (req, res) => {
           .set({ status: 'ready', updatedAt: new Date() })
           .where(eq(worlds.id, newWorld.id));
 
-        logger.info(`[API] World generation complete`, {
+        reqLogger.info(`[WORLD CREATE] Generation complete`, {
           worldId: result.worldId,
+          status: 'ready',
           regions: result.regionCount,
           tiles: result.tileCount,
           plots: result.plotCount,
-          duration: `${(result.duration / 1000).toFixed(2)}s`,
+          duration: generationDuration,
+          totalDuration: Date.now() - startTime,
         });
 
         // Fetch the updated world to return
@@ -287,18 +385,27 @@ router.post('/', authenticateAdmin, async (req, res) => {
 
         return res.status(201).json(createdWorld);
       } catch (error) {
+        reqLogger.error('[WORLD CREATE] Generation failed', error, {
+          worldId: newWorld.id,
+          name: newWorld.name,
+          dimensions: `${width}x${height}`,
+        });
+
         // Update world status to 'failed' on error
         await db
           .update(worlds)
           .set({ status: 'failed', updatedAt: new Date() })
           .where(eq(worlds.id, newWorld.id));
 
-        logger.error(`[API] Failed to generate world`, { worldId: newWorld.id, error });
         return sendServerError(res, error, 'Failed to generate world data', 'GENERATION_FAILED');
       }
     }
 
     // Legacy mode: Manual world creation (regions only, no tiles/plots)
+    const templateConfig = worldTemplateType
+      ? getWorldTemplateConfig(worldTemplateType as WorldTemplateType)
+      : getWorldTemplateConfig('STANDARD');
+
     const [newWorld] = await db
       .insert(worlds)
       .values({
@@ -308,6 +415,9 @@ router.post('/', authenticateAdmin, async (req, res) => {
         elevationSettings: elevationSettings || {},
         precipitationSettings: precipitationSettings || {},
         temperatureSettings: temperatureSettings || {},
+        worldTemplateType: worldTemplateType || 'STANDARD',
+        worldTemplateConfig: templateConfig,
+        status: 'pending', // Set to pending when not generating immediately
       })
       .returning();
 
@@ -409,5 +519,154 @@ router.delete('/:id', authenticateAdmin, async (req, res) => {
     sendServerError(res, error, 'Failed to delete world', 'DELETE_FAILED');
   }
 });
+
+/**
+ * POST /api/worlds/:id/generate
+ * Start async world generation for an existing world record
+ * Updates world status and triggers background generation
+ */
+router.post('/:id/generate', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { width, height, seed, elevationOptions, precipitationOptions, temperatureOptions } =
+      req.body;
+
+    // Validate required fields
+    if (
+      !width ||
+      !height ||
+      !seed ||
+      !elevationOptions ||
+      !precipitationOptions ||
+      !temperatureOptions
+    ) {
+      return sendBadRequestError(res, 'Missing required generation settings');
+    }
+
+    // Check if world exists
+    const existing = await db.query.worlds.findFirst({
+      where: eq(worlds.id, id),
+    });
+
+    if (!existing) {
+      return sendNotFoundError(res, 'World not found');
+    }
+
+    // Update world status to 'generating'
+    await db
+      .update(worlds)
+      .set({
+        status: 'generating',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, id));
+
+    logger.info(`[API] Starting generation for world: ${id} - ${existing.name}`);
+
+    // Start async generation (don't await - fire and forget)
+    // This runs in the background and updates status when complete
+    generateWorldInBackground(id, existing.name, existing.serverId, {
+      width,
+      height,
+      seed,
+      elevationOptions,
+      precipitationOptions,
+      temperatureOptions,
+    }).catch((error) => {
+      logger.error(`[API] Background generation failed for world ${id}:`, error);
+      // Update status to failed
+      db.update(worlds)
+        .set({
+          status: 'failed',
+          updatedAt: new Date(),
+        })
+        .where(eq(worlds.id, id))
+        .catch((updateError) => {
+          logger.error(`[API] Failed to update world status to failed:`, updateError);
+        });
+    });
+
+    // Return immediately - client will poll for status
+    res.json({
+      success: true,
+      message: 'World generation started',
+      status: 'generating',
+    });
+  } catch (error) {
+    sendServerError(res, error, 'Failed to start world generation', 'GENERATE_FAILED');
+  }
+});
+
+/**
+ * Background world generation process
+ * Runs asynchronously and updates world status when complete
+ */
+async function generateWorldInBackground(
+  worldId: string,
+  worldName: string,
+  serverId: string | null,
+  settings: {
+    width: number;
+    height: number;
+    seed: number;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    elevationOptions: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    precipitationOptions: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    temperatureOptions: any;
+  }
+) {
+  try {
+    logger.info(`[BACKGROUND] Starting generation for world ${worldId}`);
+
+    // Transform options to ensure scale is a function
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transformOptions = (opts: any) => ({
+      amplitude: opts.amplitude || 1,
+      persistence: opts.persistence || 0.5,
+      frequency: opts.frequency || 0.05,
+      octaves: opts.octaves || 8,
+      scale: typeof opts.scale === 'function' ? opts.scale : (x: number) => x * (opts.scale || 1),
+    });
+
+    // Call createWorld with the existing worldId
+    await createWorld({
+      serverId,
+      worldName,
+      worldId, // Pass existing ID so it doesn't create a new world record
+      width: settings.width,
+      height: settings.height,
+      seed: settings.seed,
+      elevationOptions: transformOptions(settings.elevationOptions),
+      precipitationOptions: transformOptions(settings.precipitationOptions),
+      temperatureOptions: transformOptions(settings.temperatureOptions),
+    });
+
+    // Update world status to 'ready'
+    await db
+      .update(worlds)
+      .set({
+        status: 'ready',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, worldId));
+
+    logger.info(`[BACKGROUND] Successfully generated world ${worldId}`);
+  } catch (error) {
+    logger.error(`[BACKGROUND] Generation failed for world ${worldId}:`, error);
+
+    // Update world status to 'failed'
+    await db
+      .update(worlds)
+      .set({
+        status: 'failed',
+        updatedAt: new Date(),
+      })
+      .where(eq(worlds.id, worldId));
+
+    throw error; // Re-throw so the caller's catch block can log it
+  }
+}
 
 export default router;

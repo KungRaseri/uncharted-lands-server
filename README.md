@@ -4,6 +4,27 @@ Real-time multiplayer game server using Socket.IO and TypeScript.
 
 ---
 
+## 📚 Game Design Documentation
+
+Complete game design documentation is available on the [GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki):
+
+- **📖 [Design Docs Quick Start](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Quick-Start)** - Start here to understand the documentation system
+- **📚 [Game Design Document (GDD)](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-HOME)** - Complete specifications for all game systems
+- **📊 [Implementation Tracker](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Implementation-Tracker)** - Current status of features (✅/🚧/📋)
+- **🔧 [Feature Spec Template](https://github.com/KungRaseri/uncharted-lands/wiki/Feature-Spec-Template)** - Template for new feature implementations
+
+**When implementing server-side features:**
+
+1. Check the GDD for game mechanics, formulas, and Socket.IO event specifications
+2. Review the Implementation Tracker for current status and missing implementations
+3. Refer to feature spec in `../client/docs/features/[feature-name].md`
+4. Implement using Socket.IO + Drizzle ORM patterns below
+5. Update the tracker when complete
+
+**Local Documentation**: The source files are also available in `../client/docs/game-design/` for offline reference.
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -40,10 +61,10 @@ The server uses **strongly-typed Socket.IO** for type safety:
 ```typescript
 // All events are typed
 const io = new Server<
-  ClientToServerEvents,    // Events client can send
-  ServerToClientEvents,    // Events server can send
-  InterServerEvents,       // Events between server instances
-  SocketData              // Data attached to each socket
+  ClientToServerEvents, // Events client can send
+  ServerToClientEvents, // Events server can send
+  InterServerEvents, // Events between server instances
+  SocketData // Data attached to each socket
 >(httpServer, options);
 ```
 
@@ -64,6 +85,7 @@ Client ← Socket.IO ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
 ### Event Handlers
 
 Organized in `events/handlers.ts`:
+
 - `authenticate` - Player authentication
 - `join-world` / `leave-world` - World management
 - `request-game-state` - State synchronization
@@ -270,7 +292,7 @@ const socket = io('http://localhost:3001');
 
 socket.on('connected', (data) => {
   console.log('Connected:', data);
-  
+
   socket.emit('authenticate', { playerId: 'test123' }, (response) => {
     console.log('Auth response:', response);
   });
@@ -310,6 +332,7 @@ GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -323,6 +346,7 @@ Response:
 ### Logging
 
 Structured logs with levels:
+
 - `DEBUG` - Detailed debugging info
 - `INFO` - General information
 - `WARN` - Warnings (non-critical)
@@ -346,6 +370,7 @@ const stats = getStats();
 ## 🚧 TODO
 
 ### Phase 1: Foundation (Current)
+
 - ✅ Socket.IO setup with TypeScript
 - ✅ Event handlers
 - ✅ Middleware (auth, logging, errors)
@@ -353,28 +378,47 @@ const stats = getStats();
 - ✅ Graceful shutdown
 
 ### Phase 2: Game Loop
-- ⏳ Implement 60Hz game loop
-- ⏳ Resource production/consumption
-- ⏳ Settlement processing
-- ⏳ State management
+
+- ✅ Implemented 60Hz game loop
+- ✅ Resource production/consumption
+- ✅ Settlement processing
+- ✅ Population growth system
+- ✅ State management
 
 ### Phase 3: Database Integration
-- ⏳ Prisma client setup
-- ⏳ Share schema with client
-- ⏳ Query optimization
-- ⏳ Transaction handling
+
+- ✅ Drizzle ORM setup
+- ✅ Complete schema (14 tables)
+- ✅ Query helpers library
+- ✅ Migration system
+- ⏳ Transaction handling optimization
 
 ### Phase 4: Caching
+
 - ⏳ Redis integration
 - ⏳ State caching
 - ⏳ Session management
 - ⏳ Pub/sub for multi-server
 
 ### Phase 5: Production
+
 - ⏳ JWT authentication
 - ⏳ Rate limiting
 - ⏳ Monitoring/metrics
 - ⏳ Horizontal scaling
+
+---
+
+## 📖 Documentation
+
+- **[GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki)** - Complete documentation hub
+- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Monolith)** - Complete game specifications
+- **[Implementation Tracker](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Implementation-Tracker)** - Feature status
+- **[Server Architecture](https://github.com/KungRaseri/uncharted-lands/wiki/Server-Architecture)** - Server design details
+- **[WebSocket API](https://github.com/KungRaseri/uncharted-lands/wiki/WebSocket-API)** - Socket.IO event reference
+- **[Database Guide](https://github.com/KungRaseri/uncharted-lands/wiki/Database-Guide)** - Drizzle ORM usage
+
+**Local Documentation**: Server-specific docs are in `./docs/` folder.
 
 ---
 
@@ -407,10 +451,13 @@ const stats = getStats();
 
 ## 📚 Resources
 
+- **[Game Design Document](https://github.com/KungRaseri/uncharted-lands/wiki/GDD-Monolith)** - Complete game specifications
+- **[GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki)** - All documentation
 - [Socket.IO Documentation](https://socket.io/docs/v4/)
+- [Drizzle ORM Documentation](https://orm.drizzle.team/docs/overview)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
 - [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
 
 ---
 
-*For more documentation, see the [Wiki](./docs/README.md)*
+_For more documentation, see the [GitHub Wiki](https://github.com/KungRaseri/uncharted-lands/wiki) and [Server Docs](./docs/)_

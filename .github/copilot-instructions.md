@@ -51,6 +51,155 @@ This file provides context and guidelines for GitHub Copilot when working on the
 
 ---
 
+## 📚 Game Design Documentation
+
+**All game design documentation is centralized in the client docs wiki.**
+
+- **🏠 [GDD Home](../../client/docs/game-design/GDD-HOME.md)** - Design docs overview and quick navigation
+- **📖 [Design Docs Quick Start](../../client/docs/game-design/GDD-Quick-Start.md)** - Start here! Explains how to use all design docs
+- **📚 [Game Design Document (GDD)](../../client/docs/game-design/GDD-Monolith.md)** - Complete specifications for all game systems
+- **📊 [Implementation Tracker](../../client/docs/game-design/GDD-Implementation-Tracker.md)** - Current status of all features (✅/🚧/📋)
+- **� [Table of Contents](../../client/docs/game-design/GDD-Table-of-Contents.md)** - Complete design document index
+- **�🔧 [Feature Spec Template](../../client/docs/templates/Feature-Spec-Template.md)** - Template for implementing new features
+
+**When implementing server-side game features:**
+1. **Check GDD Monolith** for game mechanics, formulas, and balance values
+2. **Review Implementation Tracker** for current status and missing backend pieces
+3. **Refer to feature spec** in `client/docs/features/[feature-name].md` for technical details
+4. **Implement** Socket.IO events and game logic following patterns below
+5. **Update tracker** when complete (mark server-side portion as ✅)
+
+**Key GDD Sections for Server Development:**
+- **Core Systems** (Resources, Population, Settlements) - For game loop calculations
+- **Technical Architecture** - For Socket.IO event design
+- **Content & Balance** - For production rates, formulas, and balance values
+- **Detailed Features** - For specific feature implementations
+
+### 🎯 When to Reference the GDD
+
+**Game Logic Implementation:**
+- Resource production calculations → GDD 3.1 + GDD 6 (formulas and balance values)
+- Population growth formulas → GDD 3.3 (happiness, housing, consumption rates)
+- Structure costs/requirements → GDD 3.2 + GDD 6 (building costs and prerequisites)
+- Disaster damage calculations → GDD 4.5 (severity formulas and effects)
+- Tech tree unlocks → GDD 4.2 (research requirements and bonuses)
+
+**Socket.IO Event Design:**
+- Event naming conventions → GDD 5.2 (Technical Architecture)
+- Data structures for events → GDD appendices (type definitions)
+- Broadcasting patterns → GDD 5.2 (room-based multiplayer)
+- Authentication flow → GDD 5.3 (Security Architecture)
+
+**Database Schema:**
+- Table relationships → GDD 5.1 (Database Architecture)
+- Required fields → GDD feature sections (data requirements)
+- Validation rules → GDD 6 (balance constraints)
+- Migration planning → Check Implementation Tracker for schema changes
+
+**Game Balance:**
+- Production rates → GDD 6.1 (Resource Balance)
+- Building costs → GDD 6.2 (Structure Balance)
+- Population limits → GDD 6.3 (Population Balance)
+- Disaster severity → GDD 6.5 (Disaster Balance)
+
+**Common Server Questions Answered by GDD:**
+- "What's the resource production formula?" → GDD 3.1 + 6.1
+- "How does happiness affect population?" → GDD 3.3
+- "What triggers a disaster?" → GDD 4.5 (frequency, conditions, warnings)
+- "What Socket.IO events are defined?" → GDD 5.2 + Implementation Tracker
+- "What's the game loop tick rate?" → GDD 5.2 (60Hz/second)
+
+---
+
+## 🚨 CRITICAL DEVELOPMENT PRINCIPLES
+
+### **NEVER Leave Partial Implementations**
+
+When implementing server-side features:
+
+1. ❌ **DON'T** remove database operations and leave TODO comments
+2. ❌ **DON'T** create placeholder validation that will "be done later"
+3. ❌ **DON'T** make partial API changes that break functionality
+4. ✅ **DO** implement features fully, from database to Socket.IO events
+5. ✅ **DO** ask for clarification if game mechanics are unclear
+6. ✅ **DO** consult the GDD for complete specifications
+
+**Example of WRONG approach:**
+```typescript
+// ❌ BAD: Removing validation with comment
+// TODO: In future, implement structure requirements validation
+const structure = await db.insert(structures).values({
+  settlementId,
+  type: structureType
+}).returning();
+```
+
+**Example of CORRECT approach:**
+```typescript
+// ✅ GOOD: Full implementation
+const requirements = await db
+  .select()
+  .from(structureRequirements)
+  .where(eq(structureRequirements.structureType, structureType));
+
+if (!hasResources(settlement, requirements)) {
+  throw new Error('Insufficient resources');
+}
+
+const [structure] = await db.transaction(async (tx) => {
+  // Deduct resources
+  await tx.update(settlementStorage)
+    .set({ wood: settlement.wood - cost.wood, stone: settlement.stone - cost.stone })
+    .where(eq(settlementStorage.id, settlement.storageId));
+  
+  // Create structure
+  return tx.insert(structures)
+    .values({ settlementId, type: structureType })
+    .returning();
+});
+
+// Emit Socket.IO event
+io.to(`world:${worldId}`).emit('structure-built', {
+  settlementId,
+  structure
+});
+```
+
+### **Full-Stack Implementation Required**
+
+Every backend feature must be implemented across:
+
+1. **Database Schema** - Tables, relations, indexes in `src/db/schema.ts`
+2. **Backend Logic** - Business rules, validation in `src/game/*.ts` or `src/api/routes/*.ts`
+3. **API Endpoints** - REST routes with proper error handling (if applicable)
+4. **Socket.IO Events** - Real-time updates defined in `src/types/socket-events.ts`
+5. **Database Queries** - Efficient queries in `src/db/queries.ts` (for reusable patterns)
+6. **Testing** - Unit tests for logic, integration tests for events
+7. **Logging** - Structured logging with context for debugging
+
+**When you identify missing backend functionality:**
+- Check the GDD for the complete specification
+- Implement the full feature with database operations, validation, and events
+- If the GDD doesn't specify the feature, ask the user before proceeding
+- Update the Implementation Tracker when complete
+
+### **Backend Feature Implementation Checklist**
+
+Before considering a server-side feature "done":
+- [ ] Database schema matches GDD specifications (tables, columns, indexes)
+- [ ] Backend validation and business logic complete (game rules enforced)
+- [ ] Database operations use transactions where appropriate
+- [ ] Error handling covers all failure cases
+- [ ] Socket.IO events emitted for real-time updates
+- [ ] Room-based broadcasting targets correct players
+- [ ] Structured logging added with relevant context
+- [ ] Tests written and passing (unit + integration)
+- [ ] Documentation updated (GDD Tracker, API docs)
+- [ ] **No TODO comments left in production code**
+- [ ] Code formatted (Prettier) and linted (ESLint)
+
+---
+
 ## Documentation Policy
 
 **⚠️ CRITICAL: ALL project documentation MUST be placed in the `docs/` directory.**
@@ -61,13 +210,13 @@ This file provides context and guidelines for GitHub Copilot when working on the
    - ✅ CORRECT: `docs/Server-Architecture.md`
    - ❌ WRONG: `SERVER_ARCHITECTURE.md` (root level)
    - ❌ WRONG: `src/docs/guide.md` (inside src)
-   
+
 2. **Root-Level Exceptions**: Only these files are allowed in the project root:
    - `README.md` - Project overview and getting started
    - `LICENSE` - License file
    - `CHANGELOG.md` - Version history (if needed)
-   
-3. **Summary Documents**: 
+
+3. **Summary Documents**:
    - ⚠️ **DO NOT** create summary documents unless explicitly requested by the user
    - User must specifically ask: "Create a summary of changes", "Document the migration", etc.
    - Most changes should be documented in existing files or commit messages
@@ -277,7 +426,7 @@ async function handleMessage(socket, data) {
 
 ```typescript
 // ✅ Typed Socket.IO events
-import type { 
+import type {
   ClientToServerEvents,
   ServerToClientEvents
 } from './types/socket-events';
@@ -292,16 +441,16 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer);
 ```typescript
 io.on('connection', (socket) => {
   logger.info('[CONNECTION] Client connected', { socketId: socket.id });
-  
+
   // Authentication check
   if (!socket.data.authenticated) {
     socket.disconnect();
     return;
   }
-  
+
   // Register event handlers
   registerEventHandlers(socket);
-  
+
   // Track connection
   socket.on('disconnect', (reason) => {
     logger.info('[DISCONNECT]', { socketId: socket.id, reason });
@@ -384,7 +533,7 @@ const settlement = await db
 const [newSettlement] = await db
   .insert(settlements)
   .values({
-    id: generateId(),
+    id: createId(),
     playerProfileId: profileId,
     plotId: plotId,
     settlementStorageId: storageId,
@@ -518,7 +667,7 @@ const socket = io('ws://localhost:3001');
 
 socket.on('connect', () => {
   console.log('Connected:', socket.id);
-  
+
   socket.emit('authenticate', {
     playerId: 'player-123',
     token: 'auth-token'
@@ -553,13 +702,13 @@ export function handleNewEvent(socket: Socket, data: NewEventData): Promise<void
       if (!data.settlementId) {
         throw new Error('Settlement ID required');
       }
-      
+
       // Database query
       const settlement = await getSettlementWithDetails(data.settlementId);
-      
+
       // Business logic
       // ...
-      
+
       // Respond
       socket.emit('new-event-response', { success: true });
       resolve();
@@ -596,7 +745,7 @@ export async function getNewData(id: string) {
       .from(tableName)
       .where(eq(tableName.id, id))
       .limit(1);
-    
+
     return result[0] || null;
   } catch (error) {
     logger.error('[QUERY ERROR]', error);
@@ -659,7 +808,7 @@ const socket = io('ws://localhost:3001');
 
 socket.on('connect', () => {
   console.log('Connected:', socket.id);
-  
+
   // Test authentication
   socket.emit('authenticate', {
     playerId: 'test-player',
@@ -667,7 +816,7 @@ socket.on('connect', () => {
   }, (response) => {
     console.log('Auth response:', response);
   });
-  
+
   // Test resource collection
   socket.emit('collect-resources', {
     settlementId: 'settlement-123'
@@ -719,6 +868,8 @@ Invoke-WebRequest -Uri http://localhost:3001/health
 
 ### ✅ DO
 
+- **Reference the GDD first** before implementing any game feature
+- Use GDD for formulas, balance values, and game mechanics
 - Use ES modules (import/export)
 - Type all function parameters and return values
 - Use Socket.IO event acknowledgments for responses
@@ -734,6 +885,8 @@ Invoke-WebRequest -Uri http://localhost:3001/health
 
 ### ❌ DON'T
 
+- **Don't implement game features without checking the GDD first**
+- Don't hardcode balance values (use GDD specifications)
 - Don't use CommonJS (require/module.exports)
 - Don't use `any` type without good reason
 - Don't ignore Socket.IO errors
@@ -826,51 +979,9 @@ npm test                 # Run tests (if configured)
 
 ---
 
-## Current Migration Status
+## Implementation Reference
 
-### ✅ Completed
-
-**Phase 1: Drizzle ORM Setup**
-- Installed Drizzle ORM, postgres driver, drizzle-kit
-- Converted Prisma schema to Drizzle (14 tables)
-- Generated and applied migrations
-- Fixed PostgreSQL float underflow (real → doublePrecision)
-- Created database connection with pooling
-- Built query helper library (15+ functions)
-
-**Phase 2: Socket.IO Implementation**
-- Migrated from native WebSocket (ws) to Socket.IO
-- Implemented typed event system (ClientToServerEvents, ServerToClientEvents)
-- Created middleware pipeline (authentication, logging, error handling)
-- Built authentication with real database token validation
-- Implemented settlement resource collection
-- Created resource calculator system
-- Added game state request handler
-
-**Phase 3: Server Architecture**
-- Server running on port 3001
-- HTTP health endpoint (/health)
-- Winston logging with structured logs
-- Graceful shutdown handling
-- Connection pooling (10 max connections)
-- Database cleanup on shutdown
-
-### 🔄 In Progress
-
-**Phase 4: Game Mechanics**
-- Build structure handler (TODO)
-- 60Hz game loop for automatic resource generation (TODO)
-- World generation server-side (TODO)
-- Population and consumption system (TODO)
-
-**Phase 5: Client Integration**
-- Client still using Prisma for direct database access
-- Need to migrate all client queries to use Socket.IO events
-- Remove Prisma from client after migration complete
-
-### 📋 Implementation Reference
-
-Key files to reference when continuing migration:
+Key files for understanding the current architecture:
 
 1. **Database**:
    - `src/db/schema.ts` - Complete Drizzle schema (14 tables)
@@ -884,11 +995,8 @@ Key files to reference when continuing migration:
 
 3. **Game Logic**:
    - `src/game/resource-calculator.ts` - Production/consumption calculations
-
-4. **Documentation**:
-   - `DRIZZLE_MIGRATION_PLAN.md` - Full migration strategy
-   - `MIGRATION_PROGRESS.md` - Detailed progress report
-   - `NEXT_STEPS.md` - Quick start for next phase
+   - `src/game/game-loop.ts` - 60Hz game loop
+   - `src/game/population-calculator.ts` - Population system
 
 ---
 
@@ -918,19 +1026,133 @@ Key files to reference when continuing migration:
 
 ---
 
-## Questions or Unsure?
+These examples should be used as guidance when configuring Sentry functionality within a project.
 
-1. **Check Socket.IO docs**: https://socket.io/docs/v4/
-2. **Review Drizzle docs**: https://orm.drizzle.team/docs/
-3. **Check existing implementations**: See `src/events/handlers.ts` for patterns
-4. **Review migration docs**: See `DRIZZLE_MIGRATION_PLAN.md` and `MIGRATION_PROGRESS.md`
-5. **Ask the team** - Don't make assumptions!
+# Error / Exception Tracking
+
+Use `Sentry.captureException(error)` to capture an exception and log the error in Sentry.
+Use this in try catch blocks or areas where exceptions are expected
+
+# Tracing Examples
+
+Spans should be created for meaningful actions within an applications like button clicks, API calls, and function calls
+Ensure you are creating custom spans with meaningful names and operations
+Use the `Sentry.startSpan` function to create a span
+Child spans can exist within a parent span
+
+## Custom Span instrumentation in component actions
+
+```javascript
+function TestComponent() {
+  const handleTestButtonClick = () => {
+    // Create a transaction/span to measure performance
+    Sentry.startSpan(
+      {
+        op: "ui.click",
+        name: "Test Button Click",
+      },
+      (span) => {
+        const value = "some config";
+        const metric = "some metric";
+
+        // Metrics can be added to the span
+        span.setAttribute("config", value);
+        span.setAttribute("metric", metric);
+
+        doSomething();
+      },
+    );
+  };
+
+  return (
+    <button type="button" onClick={handleTestButtonClick}>
+      Test Sentry
+    </button>
+  );
+}
+```
+
+## Custom span instrumentation in API calls
+
+```javascript
+async function fetchUserData(userId) {
+  return Sentry.startSpan(
+    {
+      op: "http.client",
+      name: `GET /api/users/${userId}`,
+    },
+    async () => {
+      const response = await fetch(`/api/users/${userId}`);
+      const data = await response.json();
+      return data;
+    },
+  );
+}
+```
+
+# Logs
+
+Where logs are used, ensure they are imported using `import * as Sentry from "@sentry/node"`
+Enable logging in Sentry using `Sentry.init({ enableLogs: true })`
+Reference the logger using `const { logger } = Sentry`
+Sentry offers a consoleLoggingIntegration that can be used to log specific console error types automatically without instrumenting the individual logger calls
+
+## Configuration
+
+In Node.js the Sentry initialization is typically in `instrumentation.ts`
+
+### Baseline
+
+```javascript
+import * as Sentry from "@sentry/node";
+
+Sentry.init({
+  dsn: "https://0a128684927db4409d51d0848f4d3666@o4504635308638208.ingest.us.sentry.io/4510353298292736",
+
+  // Send structured logs to Sentry
+  enableLogs: true,
+});
+```
+
+### Logger Integration
+
+```javascript
+Sentry.init({
+  dsn: "https://0a128684927db4409d51d0848f4d3666@o4504635308638208.ingest.us.sentry.io/4510353298292736",
+  integrations: [
+    // send console.log, console.warn, and console.error calls as logs to Sentry
+    Sentry.consoleLoggingIntegration({ levels: ["log", "warn", "error"] }),
+  ],
+});
+```
+
+## Logger Examples
+
+`logger.fmt` is a template literal function that should be used to bring variables into the structured logs.
+
+```javascript
+logger.trace("Starting database connection", { database: "users" });
+logger.debug(logger.fmt`Cache miss for user: ${userId}`);
+logger.info("Updated profile", { profileId: 345 });
+logger.warn("Rate limit reached for endpoint", {
+  endpoint: "/api/results/",
+  isEnterprise: false,
+});
+logger.error("Failed to process payment", {
+  orderId: "order_123",
+  amount: 99.99,
+});
+logger.fatal("Database connection pool exhausted", {
+  database: "users",
+  activeConnections: 100,
+});
+```
 
 ---
 
-**Last Updated**: January 2025  
-**Status**: Drizzle migration complete, Socket.IO implemented, game mechanics in progress  
-**Tech Stack**: TypeScript + Socket.IO + Drizzle ORM + PostgreSQL + Node.js 22.x  
+**Last Updated**: November 13, 2025
+**Status**: Production-ready game server with real-time multiplayer features
+**Tech Stack**: TypeScript + Socket.IO + Drizzle ORM + PostgreSQL + Node.js 22.x
 **Deployment**: Railway/Render with persistent connections
 
 ````

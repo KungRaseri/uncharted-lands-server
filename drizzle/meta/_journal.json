@@ -36,6 +36,62 @@
       "when": 1762928746007,
       "tag": "0004_heavy_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1763057470361,
+      "tag": "0005_outgoing_jean_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1763350894375,
+      "tag": "0006_daffy_mordo",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1763351227376,
+      "tag": "0007_open_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763436493155,
+      "tag": "0008_curious_loners",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1763437256555,
+      "tag": "0009_special_purple_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1763658643327,
+      "tag": "0010_far_jocasta",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1763666582812,
+      "tag": "0011_mushy_living_tribunal",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1763697710172,
+      "tag": "0012_absurd_maximus",
+      "breakpoints": true
     }
   ]
 }

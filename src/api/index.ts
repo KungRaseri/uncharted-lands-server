@@ -17,6 +17,7 @@ import accountRouter from './routes/account.js';
 import plotsRouter from './routes/plots.js';
 import structuresRouter from './routes/structures.js';
 import configRouter from './routes/config.js';
+import testHelpersRouter from './routes/test-helpers.js';
 
 const router = Router();
 
@@ -41,7 +42,8 @@ router.use((req: Request, res: Response, next: NextFunction) => {
       method: req.method,
       path: req.path,
       status: res.statusCode,
-      duration: `${duration}ms`,
+      durationMs: duration,
+      durationFormatted: `${duration}ms`,
     });
   });
 
@@ -60,6 +62,7 @@ router.use('/settlements', settlementsRouter);
 router.use('/plots', plotsRouter);
 router.use('/structures', structuresRouter);
 router.use('/admin', adminRouter);
+router.use('/test', testHelpersRouter); // Test cleanup endpoints (test/dev only)
 
 // Health check for API
 router.get('/health', (req, res) => {
