@@ -10,7 +10,7 @@
  */
 
 import type { Server as SocketIOServer } from 'socket.io';
-import { eq } from 'drizzle-orm';
+import { eq, or, and } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 import {
   getPlayerSettlements,
@@ -27,6 +27,7 @@ import {
   hasResourcesForPopulation,
   type Structure,
 } from './consumption-calculator.js';
+import { calculateAllDisasterModifiers } from './disaster-damage-calculator.js';
 import { getWorldTemplateConfig, type WorldTemplateType } from '../types/world-templates.js';
 import {
   calculatePopulationState,
@@ -48,7 +49,7 @@ import {
 } from './population-assignment.js';
 import { processHourlyDisasterChecks } from './disaster-scheduler.js';
 import { processDisasters } from './disaster-processor.js';
-import { settlementStructures } from '../db/schema.js';
+import { settlementStructures, disasterEvents } from '../db/schema.js';
 import { db } from '../db/index.js';
 
 // Game loop configuration
@@ -298,9 +299,37 @@ async function processSettlement(
       productionMultiplier
     );
 
+    // Query active disasters affecting this world (IMPACT or AFTERMATH phases)
+    const activeDisasters = await db.query.disasterEvents.findMany({
+      where: and(
+        eq(disasterEvents.worldId, world?.id || ''),
+        or(eq(disasterEvents.status, 'IMPACT'), eq(disasterEvents.status, 'AFTERMATH'))
+      ),
+    });
+
+    // Calculate disaster production modifiers (GDD Section 3.5.4)
+    const currentTime = Date.now();
+    const disasterModifiers = calculateAllDisasterModifiers(
+      activeDisasters.map((d) => ({
+        type: d.type,
+        status: d.status,
+        impactEndedAt: d.impactEndedAt ?? undefined,
+      })),
+      settlement,
+      currentTime
+    );
+
+    // Apply disaster penalties to base production
+    let production = {
+      food: baseProduction.food * disasterModifiers.resourceModifiers.food,
+      water: baseProduction.water * disasterModifiers.resourceModifiers.water,
+      wood: baseProduction.wood * disasterModifiers.resourceModifiers.wood,
+      stone: baseProduction.stone * disasterModifiers.resourceModifiers.stone,
+      ore: baseProduction.ore * disasterModifiers.resourceModifiers.ore,
+    };
+
     // Apply staffing bonuses to extractor production
     // Map extractors to their bonuses and apply them
-    const production = { ...baseProduction };
     for (const extractor of extractors) {
       const bonus = staffingBonuses.get(extractor.id) || 1;
       const extractorType = extractor.extractorType;

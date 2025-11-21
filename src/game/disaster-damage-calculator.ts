@@ -105,6 +105,158 @@ const DISASTER_CASUALTY_MULTIPLIERS: Record<string, number> = {
 };
 
 /**
+ * Production penalty multipliers per disaster type
+ * Each value is a multiplier (1.0 = no penalty, 0.5 = -50% production)
+ *
+ * GDD Reference: Section 3.5.4 (Disaster Effects on Resources)
+ */
+const DISASTER_PRODUCTION_PENALTIES: Record<
+  string,
+  {
+    food?: number;
+    water?: number;
+    wood?: number;
+    stone?: number;
+    ore?: number;
+  }
+> = {
+  // Environmental disasters
+  DROUGHT: { food: 0.5, water: 0.7 }, // Severe food/water shortage
+  WILDFIRE: { wood: 0.6, food: 0.8 }, // Burns forests, destroys crops
+  FLOOD: { food: 0.7, water: 0.7, wood: 0.7, stone: 0.7, ore: 0.7 }, // Widespread damage
+  BLIZZARD: { food: 0.6, water: 0.8, wood: 0.9 }, // Freeze crops, hinder access
+  HEATWAVE: { food: 0.7, water: 0.6 }, // Crops wilt, water evaporates
+
+  // Geological disasters
+  EARTHQUAKE: { stone: 0.5, ore: 0.5, wood: 0.8 }, // Mine collapse, quarry damage
+  VOLCANIC_ERUPTION: { food: 0.4, water: 0.6, stone: 0.7 }, // Ash destroys crops
+  LANDSLIDE: { stone: 0.6, wood: 0.7 }, // Buries quarries/forests
+  SINKHOLE: { stone: 0.7, ore: 0.7 }, // Mining hazards
+  AVALANCHE: { stone: 0.6, wood: 0.6 }, // Mountain resources blocked
+
+  // Storm disasters
+  HURRICANE: { food: 0.7, wood: 0.6, water: 0.8 }, // Wind damage
+  TORNADO: { food: 0.6, wood: 0.5, stone: 0.8 }, // Extreme localized damage
+  TSUNAMI: { food: 0.5, water: 0.8, wood: 0.6 }, // Coastal devastation
+  MONSOON: { food: 0.7, wood: 0.8 }, // Heavy rain damage
+  SANDSTORM: { food: 0.8, water: 0.8, stone: 0.9 }, // Reduced visibility
+
+  // Biological disasters
+  PLAGUE: { food: 0.8, water: 0.9 }, // Labor shortage (sick workers)
+  LOCUST_SWARM: { food: 0.3 }, // Devour crops (-70%)
+  BLIGHT: { food: 0.4 }, // Disease kills crops (-60%)
+
+  // Rare disasters
+  METEOR_STRIKE: { food: 0.5, water: 0.6, wood: 0.6, stone: 0.6, ore: 0.6 }, // Catastrophic
+  COLD_SNAP: { food: 0.6, water: 0.8 }, // Sudden freeze
+  SUPERSTORM: { food: 0.6, water: 0.7, wood: 0.5, stone: 0.8, ore: 0.9 }, // Extreme weather
+  MEGAQUAKE: { stone: 0.4, ore: 0.4, wood: 0.6, food: 0.7, water: 0.8 }, // Massive seismic
+  APOCALYPSE: { food: 0.3, water: 0.3, wood: 0.3, stone: 0.3, ore: 0.3 }, // World-ending
+};
+
+/**
+ * Calculate production modifiers from all active disasters affecting a settlement
+ *
+ * Combines multiple disaster effects multiplicatively and applies time-based
+ * intensity based on disaster phase (IMPACT = full penalty, AFTERMATH = decaying)
+ *
+ * @param activeDisasters - Disasters currently in IMPACT or AFTERMATH phase
+ * @param settlement - Settlement being affected (for future biome-specific logic)
+ * @param currentTime - Current game timestamp (milliseconds)
+ * @returns Resource multipliers and total penalty percentage
+ *
+ * @example
+ * // Single DROUGHT disaster in IMPACT phase
+ * const result = calculateAllDisasterModifiers([drought], settlement, Date.now());
+ * // result.resourceModifiers.food = 0.5 (50% production)
+ * // result.resourceModifiers.water = 0.7 (70% production)
+ *
+ * @example
+ * // Two disasters (DROUGHT + WILDFIRE) in IMPACT phase
+ * const result = calculateAllDisasterModifiers([drought, wildfire], settlement, Date.now());
+ * // result.resourceModifiers.food = 0.5 × 0.8 = 0.4 (40% production)
+ */
+export function calculateAllDisasterModifiers(
+  activeDisasters: Array<{ type: string; status: string; impactEndedAt?: Date; resolvedAt?: Date }>,
+  settlement: unknown, // For future use (biome-specific modifiers)
+  currentTime: number
+): {
+  resourceModifiers: {
+    food: number;
+    water: number;
+    wood: number;
+    stone: number;
+    ore: number;
+  };
+  totalPenalty: number;
+} {
+  // Start with no penalties (1 = 100% production)
+  const modifiers = {
+    food: 1,
+    water: 1,
+    wood: 1,
+    stone: 1,
+    ore: 1,
+  };
+
+  // No disasters = no penalties
+  if (!activeDisasters || activeDisasters.length === 0) {
+    return { resourceModifiers: modifiers, totalPenalty: 0 };
+  }
+
+  // Apply each disaster's effects (multiplicative combination)
+  for (const disaster of activeDisasters) {
+    // Only affect disasters in IMPACT or AFTERMATH phases
+    if (disaster.status !== 'IMPACT' && disaster.status !== 'AFTERMATH') {
+      continue;
+    }
+
+    // Calculate time-based intensity (100% = full penalty)
+    let intensity = 1;
+
+    if (disaster.status === 'AFTERMATH') {
+      // AFTERMATH phase: Decay from 100% to 0% over duration
+      const aftermathStart = disaster.impactEndedAt?.getTime() || currentTime;
+      const aftermathDuration =
+        (disaster.resolvedAt?.getTime() || currentTime + 2592000000) - aftermathStart; // Default 30 days if no resolvedAt
+      const timeInAftermath = currentTime - aftermathStart;
+
+      // Linear decay: 100% → 0%
+      intensity = Math.max(0, Math.min(1, 1 - timeInAftermath / aftermathDuration));
+    }
+
+    // Get disaster-specific penalties
+    const penalties = DISASTER_PRODUCTION_PENALTIES[disaster.type] || {};
+
+    // Apply penalties to each resource (multiplicative)
+    // Formula: newModifier = currentModifier × (1 - ((1 - penalty) × intensity))
+    // Example: 0.7 penalty at 100% intensity = multiply by 0.7
+    // Example: 0.7 penalty at 50% intensity = multiply by 0.85
+    if (penalties.food !== undefined) {
+      modifiers.food *= 1 - (1 - penalties.food) * intensity;
+    }
+    if (penalties.water !== undefined) {
+      modifiers.water *= 1 - (1 - penalties.water) * intensity;
+    }
+    if (penalties.wood !== undefined) {
+      modifiers.wood *= 1 - (1 - penalties.wood) * intensity;
+    }
+    if (penalties.stone !== undefined) {
+      modifiers.stone *= 1 - (1 - penalties.stone) * intensity;
+    }
+    if (penalties.ore !== undefined) {
+      modifiers.ore *= 1 - (1 - penalties.ore) * intensity;
+    }
+  }
+
+  // Calculate average penalty across all resources
+  const totalPenalty =
+    1 - (modifiers.food + modifiers.water + modifiers.wood + modifiers.stone + modifiers.ore) / 5;
+
+  return { resourceModifiers: modifiers, totalPenalty };
+}
+
+/**
  * Calculate damage for a single settlement affected by disaster
  */
 export async function calculateSettlementDamage(
