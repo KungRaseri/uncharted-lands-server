@@ -3,6 +3,10 @@
  *
  * Manages the 60Hz tick system for automatic resource generation
  * and other time-based game mechanics
+ *
+ * DISASTER SYSTEM INTEGRATION (November 2025 - Phase 4):
+ * - Hourly disaster checks at tick % (TICK_RATE * 3600) === 0
+ * - Disaster event processing at 10Hz (every 6 ticks)
  */
 
 import type { Server as SocketIOServer } from 'socket.io';
@@ -42,6 +46,8 @@ import {
   calculateAllStaffingBonuses,
   type StructureWithType,
 } from './population-assignment.js';
+import { processHourlyDisasterChecks } from './disaster-scheduler.js';
+import { processDisasters } from './disaster-processor.js';
 import { settlementStructures } from '../db/schema.js';
 import { db } from '../db/index.js';
 
@@ -136,6 +142,23 @@ async function processTick(io: SocketIOServer): Promise<void> {
       connections: io.engine.clientsCount,
     });
     lastStatusLog = currentTick;
+  }
+
+  // ===== DISASTER SYSTEM PROCESSING (Phase 4 - November 2025) =====
+
+  // Process disaster events at 10Hz (every 6 ticks)
+  // GDD Reference: Section 5.6.4 (Disaster Event Processing)
+  if (currentTick % 6 === 0) {
+    const currentTime = Date.now();
+    await processDisasters(io, currentTime);
+  }
+
+  // Check for new disasters hourly (every 3600 seconds)
+  // GDD Reference: Section 3.5.4 (Disaster System)
+  const HOURLY_TICKS = TICK_RATE * 3600; // 60 ticks/sec × 3600 sec = 216,000 ticks
+  if (currentTick % HOURLY_TICKS === 0) {
+    const currentTime = Date.now();
+    await processHourlyDisasterChecks(currentTime);
   }
 
   // Update every 60 ticks (once per second)

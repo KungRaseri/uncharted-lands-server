@@ -50,6 +50,18 @@ export interface ServerToClientEvents {
   'population-state': (data: PopulationStateData) => void;
   'player-joined': (data: PlayerEventData) => void;
   'player-left': (data: PlayerEventData) => void;
+  // Disaster Events (Phase 4)
+  'disaster-warning': (data: DisasterWarningData) => void;
+  'disaster-imminent': (data: DisasterImminentData) => void;
+  'disaster-impact-start': (data: DisasterImpactStartData) => void;
+  'disaster-damage-update': (data: DisasterDamageUpdateData) => void;
+  'disaster-impact-end': (data: DisasterImpactEndData) => void;
+  'structure-damaged': (data: StructureDamagedData) => void;
+  'structure-destroyed': (data: StructureDestroyedData) => void;
+  'casualties-report': (data: CasualtiesReportData) => void;
+  'disaster-aftermath': (data: DisasterAftermathData) => void;
+  'emergency-aid-received': (data: EmergencyAidReceivedData) => void;
+  'disaster-resolved': (data: DisasterResolvedData) => void;
   error: (data: ErrorData) => void;
 }
 
@@ -373,5 +385,142 @@ export interface RegionDataResponse {
     }>;
   };
   error?: string;
+  timestamp: number;
+}
+
+// ============================================================================
+// Disaster Event Data Types (Phase 4)
+// ============================================================================
+
+/**
+ * Disaster Warning Event
+ * Issued when a disaster is detected (2-4 hours before impact)
+ */
+export interface DisasterWarningData {
+  disasterId: string;
+  type: string; // DisasterType enum value
+  severity: number; // 0-100
+  severityLevel: string; // 'MILD' | 'MODERATE' | 'MAJOR' | 'CATASTROPHIC'
+  affectedRegion?: string | null;
+  affectedBiomes: string[];
+  timeRemaining: number; // Milliseconds until impact
+  recommendedActions: string[];
+  timestamp: number;
+}
+
+/**
+ * Disaster Imminent Event
+ * Issued 30 minutes before impact as final warning
+ */
+export interface DisasterImminentData {
+  disasterId: string;
+  type: string;
+  severity: number;
+  impactIn: number; // Milliseconds until impact
+  timestamp: number;
+}
+
+/**
+ * Disaster Impact Start Event
+ * Issued when disaster begins causing damage
+ */
+export interface DisasterImpactStartData {
+  disasterId: string;
+  type: string;
+  severity: number;
+  duration: number; // Impact duration in milliseconds
+  timestamp: number;
+}
+
+/**
+ * Disaster Damage Update Event
+ * Broadcast every 10 minutes during impact phase
+ */
+export interface DisasterDamageUpdateData {
+  disasterId: string;
+  progress: number; // 0-100 percentage complete
+  timestamp: number;
+}
+
+/**
+ * Disaster Impact End Event
+ * Issued when disaster impact phase completes
+ */
+export interface DisasterImpactEndData {
+  disasterId: string;
+  type: string;
+  casualties: number;
+  structuresDamaged: number;
+  structuresDestroyed: number;
+  resourcesLost: ResourceAmounts;
+  timestamp: number;
+}
+
+/**
+ * Structure Damaged Event
+ * Individual structure took damage during disaster
+ */
+export interface StructureDamagedData {
+  settlementId: string;
+  structureId: string;
+  health: number; // 0-100
+  disasterType: string;
+  timestamp: number;
+}
+
+/**
+ * Structure Destroyed Event
+ * Structure reached 0% health
+ */
+export interface StructureDestroyedData {
+  settlementId: string;
+  structureId: string;
+  disasterType: string;
+  timestamp: number;
+}
+
+/**
+ * Casualties Report Event
+ * Population casualties from disaster
+ */
+export interface CasualtiesReportData {
+  settlementId: string;
+  casualties: number;
+  remainingPopulation: number;
+  disasterType: string;
+  timestamp: number;
+}
+
+/**
+ * Disaster Aftermath Event
+ * Recovery phase begins
+ */
+export interface DisasterAftermathData {
+  disasterId: string;
+  type: string;
+  emergencyRepairDiscount: boolean; // 48-hour 50% discount active
+  timestamp: number;
+}
+
+/**
+ * Emergency Aid Received Event
+ * Ally sent resources during/after disaster
+ */
+export interface EmergencyAidReceivedData {
+  settlementId: string;
+  fromPlayerId: string;
+  resources: ResourceAmounts;
+  timestamp: number;
+}
+
+/**
+ * Disaster Resolved Event
+ * Disaster fully resolved (30 days after impact)
+ */
+export interface DisasterResolvedData {
+  settlementId: string;
+  disasterType: string;
+  resilienceGain: number;
+  newResilience: number;
   timestamp: number;
 }

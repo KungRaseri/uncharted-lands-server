@@ -464,6 +464,7 @@ export const settlements = pgTable(
       .unique()
       .references(() => settlementStorage.id, { onDelete: 'cascade' }),
     name: text('name').notNull().default('Home Settlement'),
+    resilience: integer('resilience').notNull().default(0), // Disaster survival resilience score (0-100)
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
