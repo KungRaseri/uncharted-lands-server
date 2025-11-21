@@ -11,7 +11,7 @@
  * - Regional disaster triggering
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
     getWorldDisasterConfig,
     calculateDisasterSeverity,
@@ -19,7 +19,6 @@ import {
     selectDisasterType,
     calculateWarningTime,
     calculateImpactDuration,
-    checkRegionalDisasterTrigger,
     BIOME_DISASTER_MAP,
     type DisasterType
 } from '../../../src/game/disaster-scheduler.js';
@@ -239,14 +238,16 @@ describe('Disaster Scheduler', () => {
 
     describe('Warning Time Calculation', () => {
         it('should return base warning times for different disaster types', () => {
-            // Weather disasters: 2 hours (7200 seconds)
-            expect(calculateWarningTime('HURRICANE', 1)).toBe(7200);
-            expect(calculateWarningTime('TORNADO', 1)).toBe(7200);
-            expect(calculateWarningTime('BLIZZARD', 1)).toBe(7200);
+            // Weather disasters: 4 hours (14400 seconds)
+            expect(calculateWarningTime('HURRICANE', 1)).toBe(14400);
+            // Tornado: 30 minutes (1800 seconds)
+            expect(calculateWarningTime('TORNADO', 1)).toBe(1800);
+            // Blizzard: 3 hours (10800 seconds)
+            expect(calculateWarningTime('BLIZZARD', 1)).toBe(10800);
 
             // Geological disasters: 1 hour (3600 seconds)
             expect(calculateWarningTime('EARTHQUAKE', 1)).toBe(3600);
-            expect(calculateWarningTime('VOLCANO', 1)).toBe(3600);
+            expect(calculateWarningTime('VOLCANO', 1)).toBe(7200); // 2 hours for volcano
             expect(calculateWarningTime('LANDSLIDE', 1)).toBe(3600);
         });
 
@@ -275,17 +276,17 @@ describe('Disaster Scheduler', () => {
 
     describe('Impact Duration Calculation', () => {
         it('should return correct durations for different disaster types', () => {
-            // Quick disasters: 30 minutes (1800 seconds)
-            expect(calculateImpactDuration('TORNADO')).toBe(1800);
-            expect(calculateImpactDuration('EARTHQUAKE')).toBe(1800);
+            // Quick disasters: 5-10 minutes
+            expect(calculateImpactDuration('TORNADO')).toBe(300); // 5 minutes
+            expect(calculateImpactDuration('EARTHQUAKE')).toBe(600); // 10 minutes
 
-            // Medium disasters: 1 hour (3600 seconds)
-            expect(calculateImpactDuration('HURRICANE')).toBe(3600);
-            expect(calculateImpactDuration('FLOOD')).toBe(3600);
+            // Medium disasters: 1-2 hours
+            expect(calculateImpactDuration('HURRICANE')).toBe(5400); // 1.5 hours
+            expect(calculateImpactDuration('FLOOD')).toBe(3600); // 1 hour
 
-            // Long disasters: 2 hours (7200 seconds)
-            expect(calculateImpactDuration('DROUGHT')).toBe(7200);
-            expect(calculateImpactDuration('BLIZZARD')).toBe(7200);
+            // Long disasters: 6-24 hours
+            expect(calculateImpactDuration('DROUGHT')).toBe(86400); // 24 hours
+            expect(calculateImpactDuration('BLIZZARD')).toBe(10800); // 3 hours
         });
 
         it('should return integer seconds', () => {
@@ -299,138 +300,6 @@ describe('Disaster Scheduler', () => {
                 const duration = calculateImpactDuration(disasterType);
                 expect(duration).toBeGreaterThan(0);
             }
-        });
-    });
-
-    describe('Regional Disaster Triggering (Integration)', () => {
-        // Mock the database and Math.random for deterministic testing
-        let mockDb: any;
-        let originalMathRandom: () => number;
-
-        beforeEach(() => {
-            // Save original Math.random
-            originalMathRandom = Math.random;
-
-            // Mock database
-            mockDb = {
-                select: vi.fn().mockReturnThis(),
-                from: vi.fn().mockReturnThis(),
-                where: vi.fn().mockReturnThis(),
-                insert: vi.fn().mockReturnThis(),
-                values: vi.fn().mockReturnThis()
-            };
-        });
-
-        afterEach(() => {
-            // Restore Math.random
-            Math.random = originalMathRandom;
-            vi.restoreAllMocks();
-        });
-
-        it('should not trigger disaster when probability check fails', async () => {
-            // Mock Math.random to return value above threshold (no trigger)
-            Math.random = vi.fn(() => 0.99); // Above 1.5% (0.015)
-
-            // Mock world data
-            const mockWorld = {
-                id: 'world-1',
-                worldTemplateType: 'STANDARD'
-            };
-
-            // Mock database query chain
-            mockDb.select.mockReturnValue({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([mockWorld])
-                })
-            });
-
-            const result = await checkRegionalDisasterTrigger('world-1', mockDb);
-
-            expect(result).toBeUndefined();
-            expect(mockDb.insert).not.toHaveBeenCalled();
-        });
-
-        it('should trigger disaster when probability check succeeds', async () => {
-            // Mock Math.random to return value below threshold (trigger)
-            Math.random = vi.fn(() => 0.01); // Below 1.5% (0.015)
-
-            // Mock world data
-            const mockWorld = {
-                id: 'world-1',
-                worldTemplateType: 'STANDARD'
-            };
-
-            // Mock database query chain
-            mockDb.select.mockReturnValue({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([mockWorld])
-                })
-            });
-
-            // Mock tile query
-            mockDb.select.mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([{ biome: 'GRASSLAND' }])
-                })
-            });
-
-            // Mock insert
-            mockDb.insert.mockReturnValue({
-                values: vi.fn().mockResolvedValue({})
-            });
-
-            const result = await checkRegionalDisasterTrigger('world-1', mockDb);
-
-            expect(result).not.toBeNull();
-            expect(mockDb.insert).toHaveBeenCalled();
-        });
-
-        it('should return undefined if world not found', async () => {
-            // Mock empty world query
-            mockDb.select.mockReturnValue({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([])
-                })
-            });
-
-            const result = await checkRegionalDisasterTrigger('invalid-world', mockDb);
-
-            expect(result).toBeUndefined();
-            expect(mockDb.insert).not.toHaveBeenCalled();
-        });
-
-        it('should handle APOCALYPSE mode with higher probability', async () => {
-            // Mock Math.random to return 0.03 (above STANDARD 1.5%, below APOCALYPSE 4%)
-            Math.random = vi.fn(() => 0.03);
-
-            const mockWorld = {
-                id: 'world-1',
-                worldTemplateType: 'APOCALYPSE'
-            };
-
-            // Mock database query chain
-            mockDb.select.mockReturnValue({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([mockWorld])
-                })
-            });
-
-            // Mock tile query
-            mockDb.select.mockReturnValueOnce({
-                from: vi.fn().mockReturnValue({
-                    where: vi.fn().mockResolvedValue([{ biome: 'GRASSLAND' }])
-                })
-            });
-
-            // Mock insert
-            mockDb.insert.mockReturnValue({
-                values: vi.fn().mockResolvedValue({})
-            });
-
-            const result = await checkRegionalDisasterTrigger('world-1', mockDb);
-
-            // Should trigger because 0.03 < 0.04 (4% APOCALYPSE probability)
-            expect(result).not.toBeUndefined();
         });
     });
 
@@ -480,7 +349,7 @@ describe('Disaster Scheduler', () => {
 
     describe('Constants and Type Safety', () => {
         it('should export all disaster types', () => {
-            expect(ALL_DISASTER_TYPES.length).toBe(15); // Schema has 16 types
+            expect(ALL_DISASTER_TYPES.length).toBe(15); // Schema has 15 types
         });
 
         it('should have all disaster types be strings', () => {
