@@ -536,6 +536,10 @@ export const settlementStructures = pgTable(
       .references(() => plots.id, { onDelete: 'cascade' }),
     // Population assignment for structure staffing
     populationAssigned: integer('populationAssigned').notNull().default(0),
+    // Structure health system (0-100, for disaster damage tracking)
+    health: integer('health').notNull().default(100),
+    damagedAt: timestamp('damagedAt', { mode: 'date' }),
+    lastRepairedAt: timestamp('lastRepairedAt', { mode: 'date' }),
     createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
     updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
   },
