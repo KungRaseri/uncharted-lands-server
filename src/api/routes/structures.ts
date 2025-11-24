@@ -85,9 +85,10 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
     const structure = await db.query.settlementStructures.findFirst({
       where: eq(settlementStructures.id, id),
       with: {
-        buildRequirements: true,
+        structure: true,
         settlement: true,
         plot: true,
+        modifiers: true,
       },
     });
 
@@ -99,7 +100,18 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    return res.json(structure);
+    // Flatten master structure fields into response
+    const response = {
+      ...structure,
+      name: structure.structure?.name,
+      description: structure.structure?.description,
+      category: structure.structure?.category,
+      buildingType: structure.structure?.buildingType,
+      extractorType: structure.structure?.extractorType,
+      maxLevel: structure.structure?.maxLevel,
+    };
+
+    return res.json(response);
   } catch (error) {
     logger.error('[API] Failed to fetch structure', { error, structureId: req.params.id });
     return res.status(500).json({
@@ -259,6 +271,7 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
     const structure = await db.query.settlementStructures.findFirst({
       where: eq(settlementStructures.id, id),
       with: {
+        structure: true,
         settlement: true,
       },
     });
@@ -286,13 +299,12 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
       .update(settlementStructures)
       .set({
         level: nextLevel,
-        name: structure.name.replace(/Level \d+/, `Level ${nextLevel}`),
       })
       .where(eq(settlementStructures.id, id))
       .returning();
 
     // If it's an extractor, also update the plot's production rate
-    if (structure.category === 'EXTRACTOR' && structure.plotId) {
+    if (structure.structure?.category === 'EXTRACTOR' && structure.plotId) {
       const plot = await db.query.plots.findFirst({
         where: eq(plots.id, structure.plotId),
         with: {
@@ -304,7 +316,7 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
         },
       });
 
-      if (plot?.resourceType && structure.extractorType) {
+      if (plot?.resourceType && structure.structure.extractorType) {
         const { calculateProductionRate } = await import('../../utils/resource-production.js');
 
         // Phase 1D: Load world template for production multiplier
@@ -318,7 +330,7 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
 
         const newProductionRate = calculateProductionRate({
           resourceType: plot.resourceType,
-          extractorType: structure.extractorType,
+          extractorType: structure.structure.extractorType,
           biomeName: plot.tile?.biome?.name || '',
           structureLevel: nextLevel,
           worldTemplateMultiplier: worldTemplate.productionMultiplier,
@@ -337,7 +349,7 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
     logger.info('[API] Structure upgraded', {
       structureId: id,
       level: nextLevel,
-      category: structure.category,
+      category: structure.structure?.category,
     });
 
     return res.json(upgraded);
@@ -362,12 +374,24 @@ router.get('/by-settlement/:settlementId', authenticate, async (req: Request, re
     const structureList = await db.query.settlementStructures.findMany({
       where: eq(settlementStructures.settlementId, settlementId),
       with: {
+        structure: true,
         plot: true,
-        buildRequirements: true,
+        modifiers: true,
       },
     });
 
-    return res.json(structureList);
+    // Flatten master structure fields for each structure
+    const flattenedList = structureList.map((s) => ({
+      ...s,
+      name: s.structure?.name,
+      description: s.structure?.description,
+      category: s.structure?.category,
+      buildingType: s.structure?.buildingType,
+      extractorType: s.structure?.extractorType,
+      maxLevel: s.structure?.maxLevel,
+    }));
+
+    return res.json(flattenedList);
   } catch (error) {
     logger.error('[API] Failed to fetch structures by settlement', {
       error,
@@ -392,6 +416,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     const structure = await db.query.settlementStructures.findFirst({
       where: eq(settlementStructures.id, id),
       with: {
+        structure: true,
         settlement: true,
       },
     });
@@ -419,12 +444,12 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     logger.info('[API] Structure demolished', {
       structureId: id,
       settlementId: structure.settlementId,
-      type: structure.category,
+      type: structure.structure?.category,
     });
 
     return res.json({
       success: true,
-      message: `${structure.name} demolished`,
+      message: `${structure.structure?.name || 'Structure'} demolished`,
     });
   } catch (error) {
     logger.error('[API] Failed to demolish structure', { error, structureId: req.params.id });
