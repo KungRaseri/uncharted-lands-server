@@ -6,6 +6,7 @@
 
 import type { Plot, SettlementStructure } from '../db/schema.js';
 import { getBiomeEfficiency } from '../config/biome-config.js';
+import { getEffectiveness } from './structure-effectiveness.js';
 
 /**
  * Resource types in the game
@@ -169,8 +170,12 @@ export function calculateProduction(
     const quality = plot.qualityMultiplier || 1;
     const resourceBiomeEfficiency = biomeEfficiency[resourceType];
 
+    // Get structure health effectiveness (Part 6.5)
+    // Damaged structures produce less resources based on health
+    const effectiveness = getEffectiveness(extractor.health);
+
     // BLOCKER 2 FIX: Direct calculation using test formula
-    // Formula: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
+    // Formula: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Effectiveness × Ticks
     // Note: Removed the 0.2 multiplier and extractor tier system to match test expectations
     const levelMultiplier = 1 + (structureLevel - 1) * 0.2; // Level 1 = 1.0x, Level 2 = 1.2x, etc.
 
@@ -180,6 +185,7 @@ export function calculateProduction(
       quality *
       resourceBiomeEfficiency *
       levelMultiplier *
+      effectiveness * // Part 6.5: Structure health affects production
       tickCount *
       worldTemplateMultiplier;
 
