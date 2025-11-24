@@ -15,33 +15,31 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { createId } from '@paralleldrive/cuid2';
 import { db } from '../../src/db/index.js';
-import { settlements, settlementStructures, worlds, servers, settlementStorage, accounts, profiles, regions, tiles, plots, biomes, structures } from '../../src/db/schema.js';
+import { settlementStructures, structures } from '../../src/db/schema.js';
 import { processPassiveRepairs } from '../../src/game/passive-repair.js';
 import { eq } from 'drizzle-orm';
+import { createTestSettlement, cleanupTestChain, type TestEntityChain } from '../helpers/integration-test-factory.js';
 
 describe('Passive Repair System - Integration Tests', () => {
-    let testServerId: string;
+    let testChain: TestEntityChain | undefined;
     let testWorldId: string;
     let testSettlementId: string;
-    let testStorageId: string;
-    let testAccountId: string;
-    let testProfileId: string;
-    let testBiomeId: string;
-    let testRegionId: string;
-    let testTileId: string;
-    let testPlotId: string;
     let testWorkshopStructureId: string;
     let testFarmStructureId: string;
     let testMineStructureId: string;
     let testQuarryStructureId: string;
 
     beforeEach(async () => {
-        // Get first biome (needed for tile creation)
-        const firstBiome = await db.query.biomes.findFirst();
-        if (!firstBiome) throw new Error('No biomes found in database');
-        testBiomeId = firstBiome.id;
+        // Create test settlement using factory (no structures initially)
+        testChain = await createTestSettlement({
+            settlementName: 'Passive Repair Test Settlement',
+        });
 
-        // Get structure types (needed for settlementStructure creation)
+        // Extract IDs from chain
+        testWorldId = testChain.world.id;
+        testSettlementId = testChain.settlement.id;
+
+        // Get structure type IDs (needed for creating settlement structures)
         const workshopStructure = await db.query.structures.findFirst({
             where: eq(structures.name, 'Workshop'),
         });
@@ -65,177 +63,11 @@ describe('Passive Repair System - Integration Tests', () => {
         });
         if (!quarryStructure) throw new Error('Quarry structure not found in database');
         testQuarryStructureId = quarryStructure.id;
-
-        // Create test account
-        const accountId = createId();
-        const [account] = await db
-            .insert(accounts)
-            .values({
-                id: accountId,
-                email: `passive-repair-test-${accountId}@example.com`,
-                passwordHash: 'hashed-password',
-                userAuthToken: `token-passive-repair-${accountId}`,
-                role: 'MEMBER',
-            })
-            .returning();
-        testAccountId = account.id;
-
-        // Create test profile
-        const profileId = createId();
-        const [profile] = await db
-            .insert(profiles)
-            .values({
-                id: profileId,
-                accountId: testAccountId,
-                username: `PassiveRepairUser-${profileId}`,
-                picture: 'https://example.com/avatar.jpg',
-            })
-            .returning();
-        testProfileId = profile.id;
-
-        // Create test server first (required FK for world)
-        const serverId = createId();
-        const [server] = await db
-            .insert(servers)
-            .values({
-                id: serverId,
-                name: `Test Server - Passive Repair - ${serverId}`,
-                hostname: 'localhost',
-                port: Math.floor(Math.random() * (6000 - 5000 + 1)) + 5000,
-                status: 'ONLINE',
-            })
-            .returning();
-        testServerId = server.id;
-
-        // Create test world with unique name
-        const worldId = createId();
-        const [world] = await db
-            .insert(worlds)
-            .values({
-                id: worldId,
-                name: `Test World - Passive Repair Integration - ${worldId}`,
-                serverId: testServerId,
-                status: 'READY',
-                worldTemplateType: 'STANDARD',
-                elevationSettings: {},
-                precipitationSettings: {},
-                temperatureSettings: {},
-            })
-            .returning();
-        testWorldId = world.id;
-
-        // Create test region
-        const regionId = createId();
-        const [region] = await db
-            .insert(regions)
-            .values({
-                id: regionId,
-                worldId: testWorldId,
-                xCoord: 0,
-                yCoord: 0,
-                name: `Passive Repair Region - ${regionId}`,
-                elevationMap: {},
-                precipitationMap: {},
-                temperatureMap: {},
-            })
-            .returning();
-        testRegionId = region.id;
-
-        // Create test tile
-        const tileId = createId();
-        const [tile] = await db
-            .insert(tiles)
-            .values({
-                id: tileId,
-                regionId: testRegionId,
-                biomeId: testBiomeId,
-                xCoord: 0,
-                yCoord: 0,
-                elevation: 15,
-                temperature: 20,
-                precipitation: 200,
-                type: 'LAND',
-            })
-            .returning();
-        testTileId = tile.id;
-
-        // Create test plot
-        const plotId = createId();
-        const [plot] = await db
-            .insert(plots)
-            .values({
-                id: plotId,
-                tileId: testTileId,
-                position: 0,
-                food: 50,
-                water: 50,
-                wood: 50,
-                stone: 50,
-                ore: 50,
-            })
-            .returning();
-        testPlotId = plot.id;
-
-        // Create settlement storage first (required FK for settlement)
-        const storageId = createId();
-        await db
-            .insert(settlementStorage)
-            .values({
-                id: storageId,
-                food: 1000,
-                water: 1000,
-                wood: 1000,
-                stone: 1000,
-                ore: 1000,
-            });
-        testStorageId = storageId;
-
-        // Create test settlement
-        const [settlement] = await db
-            .insert(settlements)
-            .values({
-                id: createId(),
-                playerProfileId: testProfileId,
-                worldId: testWorldId,
-                plotId: testPlotId,
-                name: `Test Settlement - ${createId()}`,
-                settlementStorageId: testStorageId,
-                resilience: 0,
-            })
-            .returning();
-        testSettlementId = settlement.id;
     });
 
     afterEach(async () => {
-        // Clean up test data in reverse order (due to FK constraints)
-        if (testSettlementId) {
-            await db.delete(settlementStructures).where(eq(settlementStructures.settlementId, testSettlementId));
-            await db.delete(settlements).where(eq(settlements.id, testSettlementId));
-        }
-        if (testStorageId) {
-            await db.delete(settlementStorage).where(eq(settlementStorage.id, testStorageId));
-        }
-        if (testPlotId) {
-            await db.delete(plots).where(eq(plots.id, testPlotId));
-        }
-        if (testTileId) {
-            await db.delete(tiles).where(eq(tiles.id, testTileId));
-        }
-        if (testRegionId) {
-            await db.delete(regions).where(eq(regions.id, testRegionId));
-        }
-        if (testWorldId) {
-            await db.delete(worlds).where(eq(worlds.id, testWorldId));
-        }
-        if (testServerId) {
-            await db.delete(servers).where(eq(servers.id, testServerId));
-        }
-        if (testProfileId) {
-            await db.delete(profiles).where(eq(profiles.id, testProfileId));
-        }
-        if (testAccountId) {
-            await db.delete(accounts).where(eq(accounts.id, testAccountId));
-        }
+        // Factory cleanup handles all entities in correct order
+        await cleanupTestChain(testChain);
     });
 
     describe('Workshop Prerequisite', () => {
