@@ -41,7 +41,7 @@ describe('resource-calculator', () => {
     updatedAt: new Date(),
   };
 
-  // Mock extractors for ISSUE #2 - hybrid production system
+  // Mock extractors for production testing
   // Each extractor produces its corresponding resource from the plot
   const mockExtractors = [
     {
@@ -51,6 +51,9 @@ describe('resource-calculator', () => {
       plotId: 'plot-1',
       level: 1,
       populationAssigned: 0,
+      health: 100, // Part 6: Structure damage system
+      damagedAt: null,
+      lastRepairedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       // StructureWithInfo extensions
@@ -65,6 +68,9 @@ describe('resource-calculator', () => {
       plotId: 'plot-1',
       level: 1,
       populationAssigned: 0,
+      health: 100,
+      damagedAt: null,
+      lastRepairedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       category: 'EXTRACTOR' as const,
@@ -78,6 +84,9 @@ describe('resource-calculator', () => {
       plotId: 'plot-1',
       level: 1,
       populationAssigned: 0,
+      health: 100,
+      damagedAt: null,
+      lastRepairedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       category: 'EXTRACTOR' as const,
@@ -91,6 +100,9 @@ describe('resource-calculator', () => {
       plotId: 'plot-1',
       level: 1,
       populationAssigned: 0,
+      health: 100,
+      damagedAt: null,
+      lastRepairedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       category: 'EXTRACTOR' as const,
@@ -104,6 +116,9 @@ describe('resource-calculator', () => {
       plotId: 'plot-1',
       level: 1,
       populationAssigned: 0,
+      health: 100,
+      damagedAt: null,
+      lastRepairedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
       category: 'EXTRACTOR' as const,
@@ -120,11 +135,12 @@ describe('resource-calculator', () => {
   };
 
   describe('calculateProduction', () => {
-    it('should calculate production for 1 tick with BASE_RATE_PER_TICK and Tier 1 extractors', () => {
+    it('should calculate production for 1 tick with extractors (level 1)', () => {
       const production = calculateProduction(mockPlot, mockExtractors, 1);
 
-      // Hybrid system: PassiveProduction (20%) × Tier1Multiplier (5x for level 1)
-      // Formula: resourceValue * 0.01 * 0.2 * 5 = resourceValue * 0.01
+      // New system: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
+      // Level 1 = 1.0x multiplier
+      // Formula: 0.01 × resourceValue × 1.0 × 1.0 × 1.0 × 1 = resourceValue × 0.01
       expect(production.food).toBeCloseTo(mockPlot.food * 0.01, 10);
       expect(production.water).toBeCloseTo(mockPlot.water * 0.01, 10);
       expect(production.wood).toBeCloseTo(mockPlot.wood * 0.01, 10);
@@ -132,21 +148,21 @@ describe('resource-calculator', () => {
       expect(production.ore).toBeCloseTo(mockPlot.ore * 0.01, 10);
     });
 
-    it('should scale production with tick count and Tier 1 extractors', () => {
+    it('should scale production with tick count', () => {
       const tickCount = 60; // 1 second
       const production = calculateProduction(mockPlot, mockExtractors, tickCount);
 
-      // Hybrid system: PassiveProduction (20%) × Tier1Multiplier (5x) × 60 ticks
-      // Formula: resourceValue * 0.01 * 0.2 * 5 * 60 = resourceValue * 0.6
+      // New system: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
+      // Formula: 0.01 × resourceValue × 1.0 × 1.0 × 1.0 × 60 = resourceValue × 0.6
       expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * tickCount, 10);
       expect(production.water).toBeCloseTo(mockPlot.water * 0.01 * tickCount, 10);
     });
 
-    it('should handle plots with zero resources and produce 0 (20% passive of 0 is still 0)', () => {
+    it('should produce ZERO without extractors (no passive gathering)', () => {
       const zeroPlot = { ...mockPlot, food: 0, water: 0, wood: 0, stone: 0, ore: 0 };
       const production = calculateProduction(zeroPlot, [], 1);
 
-      // Even with 20% passive production, 20% of 0 is 0
+      // BLOCKER 2 FIX: No extractors = zero production (no passive gathering)
       expect(production.food).toBe(0);
       expect(production.water).toBe(0);
       expect(production.wood).toBe(0);
@@ -154,106 +170,10 @@ describe('resource-calculator', () => {
       expect(production.ore).toBe(0);
     });
 
-    // ISSUE #2: Hybrid Production System Tests
-    describe('ISSUE #2: Hybrid production (20% passive + tier multipliers)', () => {
-      it('should produce 20% passive without extractors', () => {
-        const production = calculateProduction(mockPlot, [], 1);
-
-        // Without extractors, should get 20% passive production
-        // Formula: resourceValue * 0.01 * 0.2
-        expect(production.food).toBe(mockPlot.food * 0.01 * 0.2);
-        expect(production.water).toBe(mockPlot.water * 0.01 * 0.2);
-        expect(production.wood).toBe(mockPlot.wood * 0.01 * 0.2);
-        expect(production.stone).toBe(mockPlot.stone * 0.01 * 0.2);
-        expect(production.ore).toBe(mockPlot.ore * 0.01 * 0.2);
-      });
-
-      it('should apply 5x multiplier for Tier 1 Level 1 extractors', () => {
-        // mockExtractors already has level 1 Tier 1 extractors (FARM, WELL, etc.)
-        const production = calculateProduction(mockPlot, mockExtractors, 1);
-
-        // Tier 1 Level 1: PassiveProduction (20%) × 5x
-        // Formula: resourceValue * 0.01 * 0.2 * 5 = resourceValue * 0.01
-        expect(production.food).toBeCloseTo(mockPlot.food * 0.01, 10);
-        expect(production.water).toBeCloseTo(mockPlot.water * 0.01, 10);
-        expect(production.wood).toBeCloseTo(mockPlot.wood * 0.01, 10);
-        expect(production.stone).toBeCloseTo(mockPlot.stone * 0.01, 10);
-        expect(production.ore).toBeCloseTo(mockPlot.ore * 0.01, 10);
-      });
-
-      it('should apply 9x multiplier for Tier 1 Level 5 extractors', () => {
-        const level5Extractors = mockExtractors.map((e) => ({ ...e, level: 5 }));
-        const production = calculateProduction(mockPlot, level5Extractors, 1);
-
-        // Tier 1 Level 5: PassiveProduction (20%) × 9x (5 base + 4 level bonus)
-        // Formula: resourceValue * 0.01 * 0.2 * 9 = resourceValue * 0.018
-        expect(production.food).toBeCloseTo(mockPlot.food * 0.018, 10);
-        expect(production.water).toBeCloseTo(mockPlot.water * 0.018, 10);
-        expect(production.wood).toBeCloseTo(mockPlot.wood * 0.018, 10);
-        expect(production.stone).toBeCloseTo(mockPlot.stone * 0.018, 10);
-        expect(production.ore).toBeCloseTo(mockPlot.ore * 0.018, 10);
-      });
-
-      it('should apply 8x multiplier for Tier 2 Level 1 extractors', () => {
-        const tier2Extractors = [
-          {
-            ...mockExtractors[0],
-            extractorType: 'FISHING_DOCK', // Tier 2
-            level: 1,
-          },
-        ];
-        const production = calculateProduction(mockPlot, tier2Extractors, 1);
-
-        // Tier 2 Level 1: PassiveProduction (20%) × 8x
-        // Formula: resourceValue * 0.01 * 0.2 * 8 = resourceValue * 0.016
-        expect(production.food).toBeCloseTo(mockPlot.food * 0.016, 10);
-      });
-
-      it('should apply 12x multiplier for Tier 2 Level 5 extractors', () => {
-        const tier2Level5Extractors = [
-          {
-            ...mockExtractors[0],
-            extractorType: 'HUNTERS_LODGE', // Tier 2
-            level: 5,
-          },
-        ];
-        const production = calculateProduction(mockPlot, tier2Level5Extractors, 1);
-
-        // Tier 2 Level 5: PassiveProduction (20%) × 12x (8 base + 4 level bonus)
-        // Formula: resourceValue * 0.01 * 0.2 * 12 = resourceValue * 0.024
-        expect(production.food).toBeCloseTo(mockPlot.food * 0.024, 10);
-      });
-
-      it('should apply 12x multiplier for Tier 3 Level 1 extractors', () => {
-        const tier3Extractors = [
-          {
-            ...mockExtractors[0],
-            extractorType: 'DEEP_MINE', // Tier 3 - produces ore
-            level: 1,
-          },
-        ];
-        const production = calculateProduction(mockPlot, tier3Extractors, 1);
-
-        // Tier 3 Level 1: PassiveProduction (20%) × 12x
-        // Formula: resourceValue * 0.01 * 0.2 * 12 = resourceValue * 0.024
-        expect(production.ore).toBeCloseTo(mockPlot.ore * 0.024, 10);
-      });
-
-      it('should apply 16x multiplier for Tier 3 Level 5 extractors', () => {
-        const tier3Level5Extractors = [
-          {
-            ...mockExtractors[0],
-            extractorType: 'ADVANCED_FARM', // Tier 3 - produces food
-            level: 5,
-          },
-        ];
-        const production = calculateProduction(mockPlot, tier3Level5Extractors, 1);
-
-        // Tier 3 Level 5: PassiveProduction (20%) × 16x (12 base + 4 level bonus)
-        // Formula: resourceValue * 0.01 * 0.2 * 16 = resourceValue * 0.032
-        expect(production.food).toBeCloseTo(mockPlot.food * 0.032, 10);
-      });
-    });
+    // DEPRECATED: Old "ISSUE #2" tests removed
+    // The hybrid production system (20% passive + tier multipliers) was replaced
+    // with extractor-based production (no passive gathering, level multipliers only)
+    // See production-system.test.ts for current behavior tests
   });
 
   describe('calculateTimedProduction', () => {

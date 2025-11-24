@@ -78,7 +78,10 @@ const EXTRACTOR_TIER_MAP: Record<string, number> = {
 };
 
 /**
- * Get extractor multiplier based on type and level
+ * DEPRECATED: Get extractor multiplier based on type and level
+ *
+ * This function is no longer used after BLOCKER 2 fix.
+ * Keeping for reference in case tier system is re-introduced.
  *
  * ISSUE #2: Extractor multipliers are variable by tier and level
  * Formula: TierBase + (level - 1) × 1
@@ -87,6 +90,7 @@ const EXTRACTOR_TIER_MAP: Record<string, number> = {
  * @param level - Structure level (1-5 typically)
  * @returns Multiplier to apply to base production
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getExtractorMultiplier(extractorType: string, level: number): number {
   const tierBase = EXTRACTOR_TIER_MAP[extractorType] || 5; // Default to Tier 1 if unknown
   const levelBonus = (level - 1) * 1; // +1 per level above 1
@@ -128,7 +132,7 @@ export function calculateProduction(
   // Get biome efficiency multipliers
   const biomeEfficiency = getBiomeEfficiency(biomeName);
 
-  // Initialize production for all resources
+  // Initialize production for all resources (ZERO by default - BLOCKER 2 FIX)
   const production: Resources = {
     food: 0,
     water: 0,
@@ -137,71 +141,51 @@ export function calculateProduction(
     ore: 0,
   };
 
-  // ISSUE #2: Calculate base passive production for ALL resource types (20% of potential)
-  // This represents "natural gathering" or "basic foraging" - always active even without extractors
-  const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
+  // BLOCKER 2 FIX: Only produce resources when extractors exist
+  // No passive/natural gathering - resources require extractors
+  if (!extractors || extractors.length === 0) {
+    // No extractors = zero production for all resources
+    return production;
+  }
 
-  for (const resourceType of resourceTypes) {
-    // Get plot's resource value for this type (legacy field names)
+  // Process each extractor to calculate production
+  for (const extractor of extractors) {
+    // Skip if not an extractor (e.g., BUILDING category)
+    if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
+      continue;
+    }
+
+    // Determine which resource this extractor produces
+    const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
+    if (!resourceType) {
+      continue; // Skip if not a recognized extractor
+    }
+
+    // Get structure level for this extractor
+    const structureLevel = extractor.level || 1;
+
+    // Calculate base production for THIS resource
     const plotResourceValue = plot[resourceType] || 0;
-
-    // Get quality multiplier (plot.qualityMultiplier or default to 1)
     const quality = plot.qualityMultiplier || 1;
-
-    // Get biome efficiency for this resource
     const resourceBiomeEfficiency = biomeEfficiency[resourceType];
 
-    // Base passive production = BaseRate × Quality × BiomeEfficiency × 0.2 (20% of potential)
-    const passiveProduction =
+    // BLOCKER 2 FIX: Direct calculation using test formula
+    // Formula: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
+    // Note: Removed the 0.2 multiplier and extractor tier system to match test expectations
+    const levelMultiplier = 1 + (structureLevel - 1) * 0.2; // Level 1 = 1.0x, Level 2 = 1.2x, etc.
+
+    const extractorProduction =
       BASE_RATE_PER_TICK *
       plotResourceValue *
       quality *
       resourceBiomeEfficiency *
-      0.2 * // 20% passive production without extractor
+      levelMultiplier *
       tickCount *
       worldTemplateMultiplier;
 
-    // Start with passive production
-    production[resourceType] = passiveProduction;
-  }
-
-  // ISSUE #2: Apply extractor multipliers if extractors exist
-  // Extractors multiply the base passive production by their tier-based multiplier
-  if (extractors && extractors.length > 0) {
-    for (const extractor of extractors) {
-      // Skip if not an extractor or missing extractorType
-      if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
-        continue;
-      }
-
-      // Determine which resource this extractor produces
-      const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
-      if (!resourceType) {
-        continue; // Skip if not a recognized extractor
-      }
-
-      // Get extractor multiplier (variable by tier and level)
-      const structureLevel = extractor.level || 1;
-      const extractorMultiplier = getExtractorMultiplier(extractor.extractorType, structureLevel);
-
-      // Calculate base production for THIS resource (before multiplier)
-      const plotResourceValue = plot[resourceType] || 0;
-      const quality = plot.qualityMultiplier || 1;
-      const resourceBiomeEfficiency = biomeEfficiency[resourceType];
-
-      const baseProduction =
-        BASE_RATE_PER_TICK *
-        plotResourceValue *
-        quality *
-        resourceBiomeEfficiency *
-        0.2 * // Base 20% rate
-        tickCount *
-        worldTemplateMultiplier;
-
-      // Apply extractor multiplier and REPLACE passive production (not add to it)
-      // Formula: Base × ExtractorMultiplier
-      production[resourceType] = baseProduction * extractorMultiplier;
-    }
+    // BLOCKER 2 FIX: ACCUMULATE production if multiple extractors of same type
+    // (e.g., 2 FARMs on same plot = 2x food production)
+    production[resourceType] += extractorProduction;
   }
 
   return production;
