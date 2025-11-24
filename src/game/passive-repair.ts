@@ -8,7 +8,7 @@
  */
 
 import { db } from '../db/index.js';
-import { settlements, settlementStructures } from '../db/schema.js';
+import { settlementStructures } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 
@@ -18,12 +18,17 @@ import { logger } from '../utils/logger.js';
 interface SettlementWithStructures {
   id: string;
   name: string;
-  worldId: string;
   structures: Array<{
     id: string;
     structureId: string;
     health: number | null;
     lastRepairedAt: Date | null;
+    structure: {
+      id: string;
+      name: string;
+      buildingType: string | null;
+      extractorType: string | null;
+    };
   }>;
 }
 
@@ -81,20 +86,38 @@ export async function processPassiveRepairs(worldId: string): Promise<PassiveRep
   const startTime = Date.now();
 
   try {
-    // Get all settlements in this world
+    // Get all settlements in this world by querying through the relationship chain:
+    // settlements -> plot -> tile -> region -> world
     const worldSettlements = await db.query.settlements.findMany({
-      where: eq(settlements.worldId, worldId),
       with: {
-        structures: true,
+        structures: {
+          with: {
+            structure: true, // Load the Structure definition to get buildingType
+          },
+        },
+        plot: {
+          with: {
+            tile: {
+              with: {
+                region: true,
+              },
+            },
+          },
+        },
       },
     });
+
+    // Filter settlements that belong to the specified world
+    const filteredSettlements = worldSettlements.filter(
+      (settlement) => settlement.plot?.tile?.region?.worldId === worldId
+    );
 
     const settlementResults: PassiveRepairResult[] = [];
     let settlementsWithWorkshop = 0;
     let totalStructuresRepaired = 0;
 
     // Process each settlement
-    for (const settlement of worldSettlements) {
+    for (const settlement of filteredSettlements) {
       const result = await processSettlementPassiveRepair(settlement as SettlementWithStructures);
       settlementResults.push(result);
 
@@ -108,14 +131,14 @@ export async function processPassiveRepairs(worldId: string): Promise<PassiveRep
 
     logger.info('[PASSIVE REPAIR] Batch processing complete', {
       worldId,
-      settlementsProcessed: worldSettlements.length,
+      settlementsProcessed: filteredSettlements.length,
       settlementsWithWorkshop,
       totalStructuresRepaired,
       durationMs: duration,
     });
 
     return {
-      settlementsProcessed: worldSettlements.length,
+      settlementsProcessed: filteredSettlements.length,
       settlementsWithWorkshop,
       totalStructuresRepaired,
       settlementResults,
@@ -148,7 +171,9 @@ async function processSettlementPassiveRepair(
 
   // Check if settlement has a Workshop
   const hasWorkshop = settlement.structures.some(
-    (s) => s.structureId === PASSIVE_REPAIR_CONFIG.REQUIRED_STRUCTURE
+    (s) =>
+      s.structure.buildingType === PASSIVE_REPAIR_CONFIG.REQUIRED_STRUCTURE ||
+      s.structure.name === 'Workshop'
   );
 
   result.hasWorkshop = hasWorkshop;

@@ -49,6 +49,7 @@ import {
 } from './population-assignment.js';
 import { processHourlyDisasterChecks } from './disaster-scheduler.js';
 import { processDisasters } from './disaster-processor.js';
+import { processPassiveRepairs } from './passive-repair.js';
 import { settlementStructures, disasterEvents } from '../db/schema.js';
 import { db } from '../db/index.js';
 
@@ -160,6 +161,39 @@ async function processTick(io: SocketIOServer): Promise<void> {
   if (currentTick % HOURLY_TICKS === 0) {
     const currentTime = Date.now();
     await processHourlyDisasterChecks(currentTime);
+
+    // Process passive repairs (1% health per hour for structures 21-99% health with Workshop)
+    // GDD Reference: Section 3.4.6 (Passive Repair System)
+    try {
+      // Get all active worlds (same pattern as disaster checks)
+      const { worlds: worldsTable } = await import('../db/schema.js');
+      const activeWorlds = await db.query.worlds.findMany({
+        where: eq(worldsTable.status, 'READY'),
+      });
+
+      logger.info(
+        `[PASSIVE REPAIR] Processing hourly passive repairs for ${activeWorlds.length} worlds`
+      );
+
+      // Process each world independently
+      for (const world of activeWorlds) {
+        const repairResult = await processPassiveRepairs(world.id);
+        if (repairResult.totalStructuresRepaired > 0) {
+          logger.info('[PASSIVE REPAIR] Repairs completed', {
+            worldId: world.id,
+            worldName: world.name,
+            settlementsProcessed: repairResult.settlementsProcessed,
+            settlementsWithWorkshop: repairResult.settlementsWithWorkshop,
+            structuresRepaired: repairResult.totalStructuresRepaired,
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('[PASSIVE REPAIR] Error processing hourly passive repairs', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
   }
 
   // Update every 60 ticks (once per second)
