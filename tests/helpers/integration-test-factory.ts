@@ -307,6 +307,11 @@ export async function createTestSettlementEntity(
         name: options.settlementName || `Test Settlement - ${settlementId}`,
     }).returning();
 
+    // Update the tile to mark it as owned by this settlement
+    await db.update(tiles)
+        .set({ settlementId })
+        .where(eq(tiles.id, tileId));
+
     return { settlementId, settlement };
 }
 
@@ -394,6 +399,11 @@ export async function createTestSettlement(options: TestEntityOptions = {}): Pro
         chain.settlementStorageId,
         options
     );
+
+    // Update the plot to associate it with the settlement
+    await db.update(plots)
+        .set({ settlementId })
+        .where(eq(plots.id, chain.plotId));
 
     return {
         ...chain,
