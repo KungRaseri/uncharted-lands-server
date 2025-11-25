@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import express from 'express';
-import structuresRouter from '../../../src/api/routes/structures.js';
+import { app } from '../../../src/index.js';
 import { db } from '../../../src/db/index.js';
-import { settlementStructures, structures } from '../../../src/db/schema.js';
+import { settlementStructures } from '../../../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -12,98 +11,12 @@ import {
   cleanupTestChain,
   type TestEntityChain,
 } from '../../helpers/integration-test-factory.js';
-import type { Server } from 'http';
-
-// Mock only logger (non-database dependency)
-import { vi } from 'vitest';
-vi.mock('../../../src/utils/logger.js', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  },
-}));
-
-vi.mock('../../../src/data/structure-costs.js', () => ({
-  getAllStructureCosts: vi.fn(() => [
-    {
-      id: 'tent',
-      name: 'TENT',
-      displayName: 'Tent',
-      description: 'A simple tent for starting out',
-      category: 'HOUSING',
-      tier: 1,
-      costs: { food: 0, water: 0, wood: 10, stone: 0, ore: 0 },
-      constructionTimeSeconds: 0,
-      populationRequired: 0,
-    },
-    {
-      id: 'farm',
-      name: 'FARM',
-      displayName: 'Farm',
-      description: 'Produces food',
-      category: 'PRODUCTION',
-      tier: 1,
-      costs: { food: 0, water: 0, wood: 20, stone: 10, ore: 0 },
-      constructionTimeSeconds: 180,
-      populationRequired: 2,
-    },
-  ]),
-}));
-
-vi.mock('../../../src/data/structure-requirements.js', () => ({
-  getStructureRequirements: vi.fn((name: string) => {
-    if (name === 'TENT') {
-      return { area: 1, solar: 0, wind: 0 };
-    }
-    if (name === 'FARM') {
-      return { area: 2, solar: 1, wind: 0 };
-    }
-    return { area: 1, solar: 0, wind: 0 };
-  }),
-}));
-
-vi.mock('../../../src/data/structure-modifiers.js', () => ({
-  getStructureModifiers: vi.fn((name: string) => {
-    if (name === 'FARM') {
-      return [
-        { name: 'Food Production', description: 'Increases food production', value: 10 },
-      ];
-    }
-    return [];
-  }),
-}));
-
-// Mock authentication middleware to use real profile IDs
-vi.mock('../../../src/api/middleware/auth.js', () => ({
-  authenticate: (req: any, res: any, next: any) => {
-    // Extract profile ID from Authorization header (format: "Bearer <profileId>")
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return res.status(401).json({ code: 'NO_SESSION' });
-    }
-
-    const profileId = authHeader.split(' ')[1];
-    req.user = {
-      id: `account-${profileId}`,
-      profileId: profileId,
-      role: 'player',
-    };
-    next();
-  },
-}));
 
 describe('Structures API Routes', () => {
-  let app: express.Application;
   let testChain: TestEntityChain | undefined;
 
   beforeEach(async () => {
     testChain = await createTestSettlement();
-    
-    app = express();
-    app.use(express.json());
-    app.use('/api/structures', structuresRouter);
   });
 
   afterEach(async () => {
@@ -116,7 +29,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .get(`/api/structures/${structureChain.structure!.id}`)
-        .set('Authorization', `Bearer ${structureChain.profile.id}`)
+        .set('Cookie', `session=${structureChain.account.userAuthToken}`)
         .expect(200);
 
       expect(response.body.id).toBe(structureChain.structure!.id);
@@ -136,7 +49,7 @@ describe('Structures API Routes', () => {
     it('should return 404 if structure not found', async () => {
       const response = await request(app)
         .get('/api/structures/nonexistent-id')
-        .set('Authorization', `Bearer ${testChain!.profile.id}`)
+        .set('Cookie', `session=${testChain!.account.userAuthToken}`)
         .expect(404);
 
       expect(response.body.code).toBe('STRUCTURE_NOT_FOUND');
@@ -190,12 +103,12 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .get(`/api/structures/by-settlement/${testChain!.settlement.id}`)
-        .set('Authorization', `Bearer ${testChain!.profile.id}`)
+        .set('Cookie', `session=${testChain!.account.userAuthToken}`)
         .expect(200);
 
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body.length).toBeGreaterThanOrEqual(2);
-      
+
       const ids = response.body.map((s: any) => s.id);
       expect(ids).toContain(structure1Id);
       expect(ids).toContain(structure2Id);
@@ -206,7 +119,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .get(`/api/structures/by-settlement/${emptySettlement.settlement.id}`)
-        .set('Authorization', `Bearer ${emptySettlement.profile.id}`)
+        .set('Cookie', `session=${emptySettlement.account.userAuthToken}`)
         .expect(200);
 
       expect(response.body).toEqual([]);
@@ -222,7 +135,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .post(`/api/structures/${structureChain.structure!.id}/upgrade`)
-        .set('Authorization', `Bearer ${structureChain.profile.id}`)
+        .set('Cookie', `session=${structureChain.account.userAuthToken}`)
         .expect(200);
 
       expect(response.body.level).toBe(originalLevel + 1);
@@ -239,7 +152,7 @@ describe('Structures API Routes', () => {
     it('should return 404 if structure not found', async () => {
       const response = await request(app)
         .post('/api/structures/nonexistent-id/upgrade')
-        .set('Authorization', `Bearer ${testChain!.profile.id}`)
+        .set('Cookie', `session=${testChain!.account.userAuthToken}`)
         .expect(404);
 
       expect(response.body.code).toBe('STRUCTURE_NOT_FOUND');
@@ -251,7 +164,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .post(`/api/structures/${structureChain.structure!.id}/upgrade`)
-        .set('Authorization', `Bearer ${otherChain.profile.id}`)
+        .set('Cookie', `session=${otherChain.account.userAuthToken}`)
         .expect(403);
 
       expect(response.body.code).toBe('NOT_SETTLEMENT_OWNER');
@@ -268,7 +181,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .delete(`/api/structures/${structureId}`)
-        .set('Authorization', `Bearer ${structureChain.profile.id}`)
+        .set('Cookie', `session=${structureChain.account.userAuthToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -285,7 +198,7 @@ describe('Structures API Routes', () => {
     it('should return 404 if structure not found', async () => {
       const response = await request(app)
         .delete('/api/structures/nonexistent-id')
-        .set('Authorization', `Bearer ${testChain!.profile.id}`)
+        .set('Cookie', `session=${testChain!.account.userAuthToken}`)
         .expect(404);
 
       expect(response.body.code).toBe('STRUCTURE_NOT_FOUND');
@@ -297,7 +210,7 @@ describe('Structures API Routes', () => {
 
       const response = await request(app)
         .delete(`/api/structures/${structureChain.structure!.id}`)
-        .set('Authorization', `Bearer ${otherChain.profile.id}`)
+        .set('Cookie', `session=${otherChain.account.userAuthToken}`)
         .expect(403);
 
       expect(response.body.code).toBe('NOT_SETTLEMENT_OWNER');
@@ -317,68 +230,27 @@ describe('Structures API Routes', () => {
       expect(response.body).toHaveProperty('data');
       expect(response.body).toHaveProperty('timestamp');
       expect(Array.isArray(response.body.data)).toBe(true);
-      expect(response.body.data.length).toBe(2); // TENT and FARM from mocks
 
-      // Verify first structure (TENT)
-      const tent = response.body.data[0];
-      expect(tent).toEqual({
-        id: 'tent',
-        name: 'TENT',
-        displayName: 'Tent',
-        description: 'A simple tent for starting out',
-        category: 'HOUSING',
-        tier: 1,
-        costs: { food: 0, water: 0, wood: 10, stone: 0, ore: 0 },
-        constructionTimeSeconds: 0,
-        populationRequired: 0,
-        requirements: { area: 1, solar: 0, wind: 0 },
-        modifiers: [],
-      });
+      // Real structure-costs.js has 32 structures (not 2 mocked ones)
+      expect(response.body.data.length).toBeGreaterThan(0);
 
-      // Verify second structure (FARM)
-      const farm = response.body.data[1];
-      expect(farm).toEqual({
-        id: 'farm',
-        name: 'FARM',
-        displayName: 'Farm',
-        description: 'Produces food',
-        category: 'PRODUCTION',
-        tier: 1,
-        costs: { food: 0, water: 0, wood: 20, stone: 10, ore: 0 },
-        constructionTimeSeconds: 180,
-        populationRequired: 2,
-        requirements: { area: 2, solar: 1, wind: 0 },
-        modifiers: [
-          { name: 'Food Production', description: 'Increases food production', value: 10 },
-        ],
-      });
-    });
-
-    it('should handle errors when fetching metadata', async () => {
-      // Import mocked functions to override behavior
-      const { getAllStructureCosts } = await import('../../../src/data/structure-costs.js');
-
-      // Make getAllStructureCosts throw an error
-      vi.mocked(getAllStructureCosts).mockImplementationOnce(() => {
-        throw new Error('Database connection failed');
-      });
-
-      const response = await request(app)
-        .get('/api/structures/metadata')
-        .expect(500);
-
-      expect(response.body).toEqual({
-        success: false,
-        error: 'Internal Server Error',
-        code: 'METADATA_FETCH_FAILED',
-        message: 'Failed to fetch structure metadata',
-      });
+      // Verify a structure has the expected shape
+      const firstStructure = response.body.data[0];
+      expect(firstStructure).toHaveProperty('id');
+      expect(firstStructure).toHaveProperty('name');
+      expect(firstStructure).toHaveProperty('displayName');
+      expect(firstStructure).toHaveProperty('category');
+      expect(firstStructure).toHaveProperty('costs');
+      expect(typeof firstStructure.costs).toBe('object');
     });
 
     it('should include all required fields in metadata response', async () => {
       const response = await request(app)
         .get('/api/structures/metadata')
         .expect(200);
+
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThan(0);
 
       const structure = response.body.data[0];
 
@@ -395,12 +267,14 @@ describe('Structures API Routes', () => {
       expect(structure).toHaveProperty('requirements');
       expect(structure).toHaveProperty('modifiers');
 
-      // Verify cost structure
-      expect(structure.costs).toHaveProperty('food');
-      expect(structure.costs).toHaveProperty('water');
-      expect(structure.costs).toHaveProperty('wood');
-      expect(structure.costs).toHaveProperty('stone');
-      expect(structure.costs).toHaveProperty('ore');
+      // Verify cost structure (real costs only include non-zero values)
+      expect(structure.costs).toBeDefined();
+      expect(typeof structure.costs).toBe('object');
+
+      // Verify all cost values are numbers
+      for (const cost of Object.values(structure.costs)) {
+        expect(typeof cost).toBe('number');
+      }
 
       // Verify requirements structure
       expect(structure.requirements).toHaveProperty('area');

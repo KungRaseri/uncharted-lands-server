@@ -1,0 +1,1 @@
+ALTER TABLE "Settlement" DROP CONSTRAINT "Settlement_plotId_unique";

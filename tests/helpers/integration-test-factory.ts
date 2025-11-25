@@ -289,21 +289,20 @@ export async function createTestStorage(options: TestEntityOptions = {}) {
 }
 
 /**
- * Create a test settlement entity (requires plotId, profileId, worldId, storageId)
+ * Create a test settlement entity (requires tileId, profileId, storageId)
+ * NOTE: Schema change Bug #10 - Settlements are founded on tiles, not plots
  */
 export async function createTestSettlementEntity(
-    plotId: string,
+    tileId: string,
     profileId: string,
-    worldId: string,
     storageId: string,
     options: TestEntityOptions = {}
 ) {
     const settlementId = createId();
     const [settlement] = await db.insert(settlements).values({
         id: settlementId,
+        tileId, // Bug #10 fix: Use tileId instead of plotId
         playerProfileId: profileId,
-        worldId,
-        plotId,
         settlementStorageId: storageId,
         name: options.settlementName || `Test Settlement - ${settlementId}`,
     }).returning();
@@ -390,9 +389,8 @@ export async function createTestSettlement(options: TestEntityOptions = {}): Pro
     const chain = await createTestPlotChain(options);
 
     const { settlementId, settlement } = await createTestSettlementEntity(
-        chain.plotId,
+        chain.tileId, // Bug #10 fix: Pass tileId instead of plotId
         chain.profileId,
-        chain.worldId,
         chain.settlementStorageId,
         options
     );

@@ -6,9 +6,10 @@ import {
   settlementStructures,
   profiles,
   profileServerData,
+  plots,
   tiles,
 } from '../../db/schema.js';
-import { eq, and, gt, lt, gte, lte } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -29,13 +30,9 @@ router.get('/', async (req, res) => {
         ? eq(settlements.playerProfileId, playerProfileId as string)
         : undefined,
       with: {
-        plot: {
+        tile: {
           with: {
-            tile: {
-              with: {
-                biome: true,
-              },
-            },
+            biome: true,
           },
         },
         structures: true,
@@ -61,14 +58,10 @@ router.get('/:id', async (req, res) => {
     const settlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, id),
       with: {
-        plot: {
+        tile: {
           with: {
-            tile: {
-              with: {
-                biome: true,
-                region: true,
-              },
-            },
+            biome: true,
+            region: true,
           },
         },
         structures: {
@@ -126,72 +119,108 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    // Step 1: Find a suitable starting plot
-    logger.info(`[SETTLEMENT CREATE] Finding suitable plot for world ${worldId}`);
+    // Step 1: Find a suitable starting TILE (settlements claim tiles, not plots)
+    logger.info(`[SETTLEMENT CREATE] Finding suitable tile for world ${worldId}`);
 
-    const suitableTiles = await db.query.tiles.findMany({
-      where: and(
-        gt(tiles.elevation, 0), // Must be land (elevation > 0)
-        lt(tiles.elevation, 0.8), // Not too mountainous (< 0.8)
-        gte(tiles.precipitation, 0.3), // Adequate rainfall (>= 0.3)
-        lte(tiles.precipitation, 0.8), // Not too much (< 0.8)
-        gte(tiles.temperature, -0.3), // Warm enough (>= -0.3, which is "cool" range)
-        lte(tiles.temperature, 0.5) // Not too hot (<= 0.5, which is "warm" range)
-      ),
-      with: {
-        region: true,
-        plots: true,
-      },
-      limit: 100, // Get a sample of good tiles
+    // SCHEMA NOTE: Tiles don't have worldId directly, must query through regions
+    // First, get all regions in this world
+    const worldRegions = await db.query.regions.findMany({
+      where: (regions, { eq }) => eq(regions.worldId, worldId),
+      columns: { id: true },
     });
 
-    if (suitableTiles.length === 0) {
+    const regionIds = worldRegions.map((r) => r.id);
+    logger.info(`[SETTLEMENT CREATE] Found ${regionIds.length} regions in world ${worldId}`);
+
+    if (regionIds.length === 0) {
       return res.status(404).json({
-        error: 'No suitable plots found in this world',
-        code: 'NO_VIABLE_PLOTS',
+        error: 'World has no regions',
+        code: 'NO_REGIONS',
       });
     }
 
-    // Filter for plots with good resources
-    let viablePlots = suitableTiles
-      .filter((tile) => tile.region.worldId === worldId) // Ensure correct world
-      .flatMap((tile) => tile.plots)
-      .filter((plot) => plot.food >= 3 && plot.water >= 3 && plot.wood >= 3);
+    // Query unclaimed tiles in this world's regions
+    const suitableTiles = await db.query.tiles.findMany({
+      where: (tiles, { inArray, and, isNull }) =>
+        and(
+          inArray(tiles.regionId, regionIds), // In this world
+          isNull(tiles.settlementId) // Not already claimed
+        ),
+      with: {
+        region: true, // Include region for debugging
+      },
+      limit: 1000, // Get a large sample of tiles
+    });
 
-    // Fallback if no ideal plots
-    if (viablePlots.length === 0) {
-      logger.warn('[SETTLEMENT CREATE] No ideal plots, using relaxed criteria');
-      viablePlots = suitableTiles
-        .filter((tile) => tile.region.worldId === worldId)
-        .flatMap((tile) => tile.plots)
-        .filter((plot) => plot.food >= 2 && plot.water >= 2 && plot.wood >= 2);
-    }
-
-    if (viablePlots.length === 0) {
-      return res.status(404).json({
-        error: 'No viable plots with sufficient resources found',
-        code: 'INSUFFICIENT_RESOURCES',
-      });
-    }
-
-    // Pick a random plot
-    const chosenPlot = viablePlots[Math.floor(Math.random() * viablePlots.length)];
-
+    // DEBUG: Log sample tiles
     logger.info(
-      `[SETTLEMENT CREATE] Chosen plot ${chosenPlot.id} with food=${chosenPlot.food}, water=${chosenPlot.water}, wood=${chosenPlot.wood}`
+      `[SETTLEMENT CREATE] Found ${suitableTiles.length} unclaimed tiles in world, analyzing first 3...`
+    );
+    for (let i = 0; i < Math.min(3, suitableTiles.length); i++) {
+      const tile = suitableTiles[i];
+      logger.info(
+        `[SETTLEMENT CREATE] Tile ${i}: regionWorldId=${tile.region?.worldId}, elevation=${tile.elevation}, precipitation=${tile.precipitation}, temperature=${tile.temperature}`
+      );
+    }
+
+    // Filter for tiles with suitable terrain for settlement
+    // Per GDD: elevation is -100 to 100, precipitation 0-100, temperature -50 to 50
+    let viableTiles = suitableTiles.filter(
+      (tile) =>
+        (tile.elevation ?? -101) > 0 && // Land (elevation > 0, ocean is <= 0)
+        (tile.elevation ?? 101) < 80 && // Not too mountainous (< 80 out of 100)
+        (tile.precipitation ?? 0) >= 20 && // Some rainfall for crops
+        (tile.temperature ?? -100) > -20 // Not frozen tundra
     );
 
-    // Step 2: Create profile
-    const profileId = createId();
-    await db.insert(profiles).values({
-      id: profileId,
-      username,
-      picture:
-        picture || `https://via.placeholder.com/128x128?text=${username.charAt(0).toUpperCase()}`,
-      accountId,
+    logger.info(`[SETTLEMENT CREATE] Found ${viableTiles.length} ideal tiles (worldId=${worldId})`);
+
+    // Fallback if no ideal tiles
+    if (viableTiles.length === 0) {
+      logger.warn('[SETTLEMENT CREATE] No ideal tiles, using relaxed criteria');
+      viableTiles = suitableTiles.filter(
+        (tile) => (tile.elevation ?? -101) > 0 // Must still be land (elevation > 0)
+      );
+      logger.info(`[SETTLEMENT CREATE] Found ${viableTiles.length} relaxed tiles`);
+    }
+
+    if (viableTiles.length === 0) {
+      return res.status(404).json({
+        error: 'No viable tiles for settlement found',
+        code: 'NO_SUITABLE_TILES',
+      });
+    }
+
+    // Pick a random tile
+    const chosenTile = viableTiles[Math.floor(Math.random() * viableTiles.length)];
+
+    logger.info(
+      `[SETTLEMENT CREATE] Chosen tile ${chosenTile.id} with elevation=${chosenTile.elevation}, precipitation=${chosenTile.precipitation}, temperature=${chosenTile.temperature}`
+    );
+
+    // Step 2: Get or create profile
+    // PRODUCTION BUG #8 FIX: Check if profile exists before creating
+    let existingProfile = await db.query.profiles.findFirst({
+      where: (profiles, { eq }) => eq(profiles.accountId, accountId),
     });
 
-    logger.info(`[SETTLEMENT CREATE] Created profile ${profileId} for ${username}`);
+    let profileId: string;
+    if (existingProfile) {
+      profileId = existingProfile.id;
+      logger.info(
+        `[SETTLEMENT CREATE] Using existing profile ${profileId} for account ${accountId}`
+      );
+    } else {
+      profileId = createId();
+      await db.insert(profiles).values({
+        id: profileId,
+        username,
+        picture:
+          picture || `https://via.placeholder.com/128x128?text=${username.charAt(0).toUpperCase()}`,
+        accountId,
+      });
+      logger.info(`[SETTLEMENT CREATE] Created new profile ${profileId} for ${username}`);
+    }
 
     // Step 3: Create profile-server data
     await db.insert(profileServerData).values({
@@ -212,46 +241,97 @@ router.post('/', authenticate, async (req, res) => {
 
     logger.info(`[SETTLEMENT CREATE] Created storage ${storageId}`);
 
-    // Step 5: Create settlement
+    // Step 5: Create settlement ON THE TILE (not on a plot!)
     const settlementId = createId();
     await db.insert(settlements).values({
       id: settlementId,
       name: 'Home Settlement',
-      plotId: chosenPlot.id,
+      tileId: chosenTile.id, // Settlement claims the TILE
       playerProfileId: profileId,
       settlementStorageId: storageId,
     });
 
-    logger.info(`[SETTLEMENT CREATE] Created settlement ${settlementId} for profile ${profileId}`);
+    logger.info(
+      `[SETTLEMENT CREATE] Created settlement ${settlementId} for profile ${profileId} on tile ${chosenTile.id}`
+    );
 
+    // Step 6: Update Tile.settlementId to point back to settlement (bidirectional FK)
+    await db.update(tiles).set({ settlementId }).where(eq(tiles.id, chosenTile.id));
+
+    logger.info(
+      `[SETTLEMENT CREATE] Updated tile ${chosenTile.id} settlementId to ${settlementId}`
+    );
+
+    // Step 7: Auto-claim plots on the tile (user requested: "they should be auto-claimed when a settlement is founded")
+    // Get plots on this tile
+    const tileChildPlots = await db.query.plots.findMany({
+      where: (plots, { eq }) => eq(plots.tileId, chosenTile.id),
+      limit: 5, // Claim first 5 plots for starting settlement
+    });
+
+    if (tileChildPlots.length === 0) {
+      logger.warn(`[SETTLEMENT CREATE] No plots found on tile ${chosenTile.id}, creating one...`);
+      // Create at least one plot so we can build the tent
+      const plotId = createId();
+      await db.insert(plots).values({
+        id: plotId,
+        tileId: chosenTile.id,
+        settlementId, // Claim it for this settlement
+        food: 5, // Default resources
+        water: 5,
+        wood: 5,
+        stone: 5,
+        ore: 1,
+      });
+      tileChildPlots.push({ id: plotId } as (typeof tileChildPlots)[0]);
+      logger.info(`[SETTLEMENT CREATE] Created plot ${plotId} on tile ${chosenTile.id}`);
+    } else {
+      // Claim existing plots
+      const plotIds = tileChildPlots.map((p) => p.id);
+      await db.update(plots).set({ settlementId }).where(inArray(plots.id, plotIds));
+
+      logger.info(
+        `[SETTLEMENT CREATE] Claimed ${plotIds.length} plots for settlement ${settlementId}`
+      );
+    }
+
+    // Step 8: Create starting TENT structure on first plot
+    // First, look up the master "Tent" structure definition
+    const tentMaster = await db.query.structures.findFirst({
+      where: (structures, { eq }) => eq(structures.name, 'Tent'),
+    });
+
+    if (!tentMaster) {
+      return res.status(500).json({
+        error: 'Master TENT structure not found in database',
+        code: 'MISSING_MASTER_STRUCTURE',
+      });
+    }
+
+    const firstPlot = tileChildPlots[0];
     const tentId = createId();
     await db.insert(settlementStructures).values({
       id: tentId,
+      structureId: tentMaster.id, // FK to master structure definition
       settlementId: settlementId,
-      plotId: chosenPlot.id,
-      category: 'BUILDING',
-      buildingType: 'TENT',
+      plotId: firstPlot.id, // Structure built ON A PLOT
       level: 1,
-      name: 'Starting Shelter',
-      description: 'Your first shelter in the new world',
     });
 
-    logger.info(`[SETTLEMENT CREATE] Created starting TENT structure ${tentId}`);
+    logger.info(
+      `[SETTLEMENT CREATE] Created starting TENT structure ${tentId} on plot ${firstPlot.id}`
+    );
 
     // Fetch and return the complete settlement
     const newSettlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, settlementId),
       with: {
-        plot: {
+        tile: {
           with: {
-            tile: {
+            biome: true,
+            region: {
               with: {
-                biome: true,
-                region: {
-                  with: {
-                    world: true,
-                  },
-                },
+                world: true,
               },
             },
           },

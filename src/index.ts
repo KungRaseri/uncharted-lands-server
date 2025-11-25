@@ -43,7 +43,7 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') || ['http://localhost:
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Create Express app
-const app = express();
+export const app = express();
 
 // Express middleware
 app.use(
@@ -197,37 +197,40 @@ export function getStats() {
   };
 }
 
-// Start server
-httpServer.listen(PORT, HOST, () => {
-  const dbStatus = isDatabaseConnected();
+// Only start server if not in test mode
+if (NODE_ENV !== 'test') {
+  // Start server
+  httpServer.listen(PORT, HOST, () => {
+    const dbStatus = isDatabaseConnected();
 
-  logger.info('═'.repeat(60));
-  logger.info('  🎮 Uncharted Lands - Game Server');
-  logger.info('═'.repeat(60));
-  logger.info(`  Environment:  ${NODE_ENV}`);
-  logger.info(`  Node Version: ${process.version}`);
-  logger.info('─'.repeat(60));
-  logger.info(`  WebSocket:    ws://${HOST}:${PORT}`);
-  logger.info(`  REST API:     http://${HOST}:${PORT}/api`);
-  logger.info(`  Health Check: http://${HOST}:${PORT}/health`);
-  logger.info('─'.repeat(60));
-  logger.info(`  Database:     ${dbStatus ? '✓ Connected' : '✗ Disconnected'}`);
-  logger.info(`  CORS Origins: ${CORS_ORIGINS.length} configured`);
-  for (const origin of CORS_ORIGINS) {
-    logger.info(`    • ${origin}`);
-  }
-  logger.info('═'.repeat(60));
+    logger.info('═'.repeat(60));
+    logger.info('  🎮 Uncharted Lands - Game Server');
+    logger.info('═'.repeat(60));
+    logger.info(`  Environment:  ${NODE_ENV}`);
+    logger.info(`  Node Version: ${process.version}`);
+    logger.info('─'.repeat(60));
+    logger.info(`  WebSocket:    ws://${HOST}:${PORT}`);
+    logger.info(`  REST API:     http://${HOST}:${PORT}/api`);
+    logger.info(`  Health Check: http://${HOST}:${PORT}/health`);
+    logger.info('─'.repeat(60));
+    logger.info(`  Database:     ${dbStatus ? '✓ Connected' : '✗ Disconnected'}`);
+    logger.info(`  CORS Origins: ${CORS_ORIGINS.length} configured`);
+    for (const origin of CORS_ORIGINS) {
+      logger.info(`    • ${origin}`);
+    }
+    logger.info('═'.repeat(60));
 
-  if (dbStatus) {
-    logger.info('[STARTUP] ✓ All systems operational');
-  } else {
-    logger.warn('[STARTUP] ⚠️  Server started WITHOUT database connection');
-    logger.warn('[STARTUP] Database operations will fail until connection is restored');
-  }
+    if (dbStatus) {
+      logger.info('[STARTUP] ✓ All systems operational');
+    } else {
+      logger.warn('[STARTUP] ⚠️  Server started WITHOUT database connection');
+      logger.warn('[STARTUP] Database operations will fail until connection is restored');
+    }
 
-  // Start the game loop
-  startGameLoop(io);
-});
+    // Start the game loop
+    startGameLoop(io);
+  });
+} // End of if (NODE_ENV !== 'test')
 
 // Graceful shutdown
 const shutdown = async (signal: string) => {

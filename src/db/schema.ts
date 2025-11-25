@@ -446,16 +446,18 @@ export const settlementPopulation = pgTable('SettlementPopulation', {
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });
 
-// @ts-expect-error - Circular reference with plots is expected and works at runtime
+// @ts-expect-error - Circular reference with tiles is expected and works at runtime
 export const settlements = pgTable(
   'Settlement',
   {
     id: text('id').primaryKey(),
-    plotId: text('plotId')
+    // PRODUCTION BUG #10 FIX: Changed from plotId to tileId
+    // Settlements are founded on tiles, not plots. Plots are subdivisions of tiles.
+    // See: server/docs/settlement-tile-plot-relationship.md
+    tileId: text('tileId')
       .notNull()
-      .unique()
       // @ts-expect-error - Circular reference
-      .references(() => plots.id, { onDelete: 'cascade' }),
+      .references(() => tiles.id, { onDelete: 'cascade' }),
     playerProfileId: text('playerProfileId')
       .notNull()
       .references(() => profiles.id, { onDelete: 'cascade' }),
@@ -470,7 +472,7 @@ export const settlements = pgTable(
   },
   (table) => [
     index('Settlement_playerProfileId_idx').on(table.playerProfileId),
-    index('Settlement_plotId_idx').on(table.plotId),
+    index('Settlement_tileId_idx').on(table.tileId),
   ]
 );
 
@@ -671,16 +673,15 @@ export const settlementsRelations = relations(settlements, ({ one, many }) => ({
     fields: [settlements.settlementStorageId],
     references: [settlementStorage.id],
   }),
-  plot: one(plots, {
-    fields: [settlements.plotId],
-    references: [plots.id],
+  tile: one(tiles, {
+    fields: [settlements.tileId],
+    references: [tiles.id],
   }),
   playerProfile: one(profiles, {
     fields: [settlements.playerProfileId],
     references: [profiles.id],
   }),
   structures: many(settlementStructures),
-  tiles: many(tiles),
   plots: many(plots),
 }));
 
