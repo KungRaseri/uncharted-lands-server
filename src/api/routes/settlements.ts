@@ -4,6 +4,7 @@ import {
   settlements,
   settlementStorage,
   settlementStructures,
+  structureModifiers,
   profiles,
   profileServerData,
   plots,
@@ -228,15 +229,15 @@ router.post('/', authenticate, async (req, res) => {
       serverId,
     });
 
-    // Step 4: Create storage with starting resources
+    // Step 4: Create storage with starting resources (per GDD specification)
     const storageId = createId();
     await db.insert(settlementStorage).values({
       id: storageId,
       food: 50, // ~2.5 hours for 10 population at GDD rates
       water: 100, // ~2.5 hours for 10 population
-      wood: 50, // Can build 2 FARMs (20 wood each) + WAREHOUSE (40 wood)
-      stone: 30, // Can build 2 FARMs (10 stone each)
-      ore: 0,
+      wood: 50, // Can build 2 FARMs (20 wood each) or 5 TENTs (10 wood each)
+      stone: 30, // Can build 3 FARMs (10 stone each) or other structures
+      ore: 10, // Per GDD spec - starting ore for basic tools/equipment
     });
 
     logger.info(`[SETTLEMENT CREATE] Created storage ${storageId}`);
@@ -320,6 +321,20 @@ router.post('/', authenticate, async (req, res) => {
 
     logger.info(
       `[SETTLEMENT CREATE] Created starting TENT structure ${tentId} on plot ${firstPlot.id}`
+    );
+
+    // Step 9: Create structure modifier for TENT (+5 population capacity per GDD spec)
+    const tentModifierId = createId();
+    await db.insert(structureModifiers).values({
+      id: tentModifierId,
+      settlementStructureId: tentId,
+      name: 'Housing Capacity',
+      description: 'Provides shelter for 5 people',
+      value: 5,
+    });
+
+    logger.info(
+      `[SETTLEMENT CREATE] Created TENT modifier ${tentModifierId} (+5 population capacity)`
     );
 
     // Fetch and return the complete settlement

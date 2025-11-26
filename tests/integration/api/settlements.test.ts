@@ -210,7 +210,7 @@ describe('Settlements API Routes', () => {
           water: 100,
           wood: 50,
           stone: 30,
-          ore: 0,
+          ore: 10, // Fixed in BLOCKER 1 - GDD spec requires ore:10
         }),
         playerProfile: expect.objectContaining({
           username: expect.any(String), // Factory creates the profile
