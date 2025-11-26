@@ -1,7 +1,76 @@
 /**
  * Resource Calculator
  *
- * Calculates resource production rates and consumption for settlements
+ * Calculates resource production const EXTRACTOR_TIER_MAP: Record<string, number> = {
+  // Tier 1 Extractors (5x base)
+  FARM: 5,
+  WELL: 5,
+  LUMBER_MILL: 5,
+  QUARRY: 5,
+  MINE: 5,
+  // Tier 2 Extractors (8x base) - planned
+  FISHING_DOCK: 8,
+  HUNTERS_LODGE: 8,
+  HERB_GARDEN: 8,
+  // Tier 3 Extractors (12x base) - planned
+  DEEP_MINE: 12,
+  ADVANCED_FARM: 12,
+};
+
+/**
+ * Calculate base (passive) resource production from a plot
+ * This production happens even WITHOUT extractors (20% of max potential)
+ *
+ * Per GDD Section 3.1: "Base production = tileQuality × biomeEfficiency × 0.2"
+ *
+ * @param plot - Plot with quality and resource data
+ * @param biomeEfficiency - Biome efficiency for specific resource (0.5-2.0)
+ * @returns Base production rate (20% of max potential)
+ *
+ * @example
+ * // Plot with quality=50, grassland food efficiency 1.2
+ * calculateBaseProduction(plot, 1.2)
+ * // Returns: 50 × 1.2 × 0.2 = 12 units/tick
+ *
+ * @example
+ * // Plot with quality=80, forest wood efficiency 2.0
+ * calculateBaseProduction(plot, 2.0)
+ * // Returns: 80 × 2.0 × 0.2 = 32 units/tick
+ */
+function calculateBaseProduction(plot: Plot, biomeEfficiency: number): number {
+  const quality = plot.qualityMultiplier || 1;
+  return quality * biomeEfficiency * 0.2;
+}
+
+/**
+ * Get extractor tier multiplier based on structure level
+ *
+ * Per GDD Section 3.4: Tier-based multipliers for extractors
+ * - Tier 1 (Levels 1-3):  5x multiplier  (Basic extractors - FARM, MINE, etc.)
+ * - Tier 2 (Levels 4-6):  10x multiplier (Advanced extractors)
+ * - Tier 3 (Levels 7-10): 16x multiplier (Elite extractors)
+ *
+ * This replaces the old linear levelMultiplier = 1 + (level-1) × 0.2
+ *
+ * @param level - Extractor structure level (1-10)
+ * @returns Tier multiplier (5, 10, or 16)
+ *
+ * @example
+ * getExtractorTierMultiplier(1)  // Returns: 5  (Tier 1)
+ * getExtractorTierMultiplier(3)  // Returns: 5  (Tier 1)
+ * getExtractorTierMultiplier(4)  // Returns: 10 (Tier 2)
+ * getExtractorTierMultiplier(6)  // Returns: 10 (Tier 2)
+ * getExtractorTierMultiplier(9)  // Returns: 16 (Tier 3)
+ * getExtractorTierMultiplier(10) // Returns: 16 (Tier 3)
+ */
+function getExtractorTierMultiplier(level: number): number {
+  if (level <= 3) return 5; // Tier 1: Basic
+  if (level <= 6) return 10; // Tier 2: Advanced
+  return 16; // Tier 3: Elite
+}
+
+/**
+ * DEPRECATED: Old getExtractorMultiplier function with tier systemion for settlements
  */
 
 import type { Plot, SettlementStructure } from '../db/schema.js';
@@ -101,17 +170,19 @@ function getExtractorMultiplier(extractorType: string, level: number): number {
 /**
  * Calculate base production rates for a settlement based on its plot and extractors
  *
- * ISSUE #2: Hybrid Production System
+ * BLOCKER 2 FIX: Hybrid Production System (GDD Section 3.1)
  *
  * Formula:
- * - Base (Passive) = BaseRate × Quality × BiomeEfficiency × 0.20
- * - With Extractor = Base × ExtractorMultiplier
- * - ExtractorMultiplier = TierBase + (level - 1) × 1
+ * - Base Production = Quality × BiomeEfficiency × 0.20 (ALWAYS active, even without extractors)
+ * - Tier Multiplier = 5x (L1-3), 10x (L4-6), or 16x (L7-10) if extractor exists, else 1x
+ * - Health Modifier = StructureHealth / 100 (disaster damage impact)
+ * - Final Production = BaseProduction × TierMultiplier × HealthModifier × Ticks × WorldTemplate
  *
- * Example (Forest plot, 80% quality, 1.2 biome efficiency):
- * - No Extractor: 1.0 × 0.8 × 1.2 × 0.20 = 0.192 wood/tick (~692/hour)
- * - Tier 1 Lumber Mill (L1): 0.192 × 5 = 0.96 wood/tick (~3,456/hour)
- * - Tier 1 Lumber Mill (L5): 0.192 × 9 = 1.728 wood/tick (~6,221/hour)
+ * Example (Plot with quality=50, biome efficiency=1.2 for food):
+ * - No Extractor: 50 × 1.2 × 0.2 × 1 × 1.0 × 1 × 1 = 12 food/tick
+ * - Tier 1 Farm (L2): 50 × 1.2 × 0.2 × 5 × 1.0 × 1 × 1 = 60 food/tick
+ * - Tier 2 Farm (L5, 70% health): 50 × 1.2 × 0.2 × 10 × 0.7 × 1 × 1 = 84 food/tick
+ * - Tier 3 Farm (L9): 50 × 1.2 × 0.2 × 16 × 1.0 × 1 × 1 = 192 food/tick
  *
  * @param plot - The plot where the settlement is located
  * @param extractors - Extractor structures on this plot (must include category and extractorType)
@@ -127,13 +198,10 @@ export function calculateProduction(
   biomeName?: string | null,
   worldTemplateMultiplier: number = 1
 ): Resources {
-  // Base production per tick (60 ticks = 1 second)
-  const BASE_RATE_PER_TICK = 0.01; // 0.01 resource per resource point per tick
-
-  // Get biome efficiency multipliers
+  // Get biome efficiency multipliers for all resources
   const biomeEfficiency = getBiomeEfficiency(biomeName);
 
-  // Initialize production for all resources (ZERO by default - BLOCKER 2 FIX)
+  // Initialize production object
   const production: Resources = {
     food: 0,
     water: 0,
@@ -142,56 +210,46 @@ export function calculateProduction(
     ore: 0,
   };
 
-  // BLOCKER 2 FIX: Only produce resources when extractors exist
-  // No passive/natural gathering - resources require extractors
-  if (!extractors || extractors.length === 0) {
-    // No extractors = zero production for all resources
-    return production;
-  }
+  // BLOCKER 2 FIX: Process EACH resource type independently
+  // Base production (20%) happens even WITHOUT extractors
+  const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
 
-  // Process each extractor to calculate production
-  for (const extractor of extractors) {
-    // Skip if not an extractor (e.g., BUILDING category)
-    if (extractor.category !== 'EXTRACTOR' || !extractor.extractorType) {
-      continue;
+  for (const resourceType of resourceTypes) {
+    // Step 1: Calculate base production (20% of max potential - ALWAYS active)
+    const baseProduction = calculateBaseProduction(plot, biomeEfficiency[resourceType]);
+
+    // Step 2: Find extractor for this specific resource (if any)
+    // If multiple extractors of same type, use HIGHEST level only
+    const extractor = extractors
+      ?.filter(
+        (e) =>
+          e.category === 'EXTRACTOR' &&
+          e.extractorType &&
+          EXTRACTOR_RESOURCE_MAP[e.extractorType] === resourceType
+      )
+      .reduce(
+        (highest, current) => {
+          return !highest || (current.level || 1) > (highest.level || 1) ? current : highest;
+        },
+        undefined as StructureWithInfo | undefined
+      );
+
+    // Step 3: Determine tier multiplier
+    let tierMultiplier = 1; // Default: No extractor = 1x (base production only)
+    let healthModifier = 1; // Default: No structure = 100% health
+
+    if (extractor) {
+      // Apply tier-based multiplier (5x/10x/16x based on level)
+      tierMultiplier = getExtractorTierMultiplier(extractor.level || 1);
+
+      // Apply structure health modifier (disaster damage impact)
+      healthModifier = getEffectiveness(extractor.health);
     }
 
-    // Determine which resource this extractor produces
-    const resourceType = EXTRACTOR_RESOURCE_MAP[extractor.extractorType];
-    if (!resourceType) {
-      continue; // Skip if not a recognized extractor
-    }
-
-    // Get structure level for this extractor
-    const structureLevel = extractor.level || 1;
-
-    // Calculate base production for THIS resource
-    const plotResourceValue = plot[resourceType] || 0;
-    const quality = plot.qualityMultiplier || 1;
-    const resourceBiomeEfficiency = biomeEfficiency[resourceType];
-
-    // Get structure health effectiveness (Part 6.5)
-    // Damaged structures produce less resources based on health
-    const effectiveness = getEffectiveness(extractor.health);
-
-    // BLOCKER 2 FIX: Direct calculation using test formula
-    // Formula: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Effectiveness × Ticks
-    // Note: Removed the 0.2 multiplier and extractor tier system to match test expectations
-    const levelMultiplier = 1 + (structureLevel - 1) * 0.2; // Level 1 = 1.0x, Level 2 = 1.2x, etc.
-
-    const extractorProduction =
-      BASE_RATE_PER_TICK *
-      plotResourceValue *
-      quality *
-      resourceBiomeEfficiency *
-      levelMultiplier *
-      effectiveness * // Part 6.5: Structure health affects production
-      tickCount *
-      worldTemplateMultiplier;
-
-    // BLOCKER 2 FIX: ACCUMULATE production if multiple extractors of same type
-    // (e.g., 2 FARMs on same plot = 2x food production)
-    production[resourceType] += extractorProduction;
+    // Step 4: Calculate final production for this resource
+    // Formula: BaseProduction × TierMultiplier × HealthModifier × Ticks × WorldTemplate
+    production[resourceType] =
+      baseProduction * tierMultiplier * healthModifier * tickCount * worldTemplateMultiplier;
   }
 
   return production;

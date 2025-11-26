@@ -138,36 +138,40 @@ describe('resource-calculator', () => {
     it('should calculate production for 1 tick with extractors (level 1)', () => {
       const production = calculateProduction(mockPlot, mockExtractors, 1);
 
-      // New system: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
-      // Level 1 = 1.0x multiplier
-      // Formula: 0.01 × resourceValue × 1.0 × 1.0 × 1.0 × 1 = resourceValue × 0.01
-      expect(production.food).toBeCloseTo(mockPlot.food * 0.01, 10);
-      expect(production.water).toBeCloseTo(mockPlot.water * 0.01, 10);
-      expect(production.wood).toBeCloseTo(mockPlot.wood * 0.01, 10);
-      expect(production.stone).toBeCloseTo(mockPlot.stone * 0.01, 10);
-      expect(production.ore).toBeCloseTo(mockPlot.ore * 0.01, 10);
+      // BLOCKER 2 FIX: New hybrid production system
+      // Base = quality × biomeEff × 0.2 = 1 × 1 × 0.2 = 0.2
+      // Tier 1 (Level 1-3) = 5x multiplier
+      // Formula: 0.2 × 5 × 1 (health) × 1 (ticks) = 1.0 per tick
+      // Note: mockPlot has resourceValue=10, but that's stored value not quality
+      // Quality is plot.qualityMultiplier = 1
+      expect(production.food).toBeCloseTo(1, 10); // Base 0.2 × Tier1 5x
+      expect(production.water).toBeCloseTo(1, 10);
+      expect(production.wood).toBeCloseTo(1, 10);
+      expect(production.stone).toBeCloseTo(1, 10);
+      expect(production.ore).toBeCloseTo(1, 10);
     });
 
     it('should scale production with tick count', () => {
       const tickCount = 60; // 1 second
       const production = calculateProduction(mockPlot, mockExtractors, tickCount);
 
-      // New system: BaseRate × PlotResource × Quality × BiomeEfficiency × LevelMultiplier × Ticks
-      // Formula: 0.01 × resourceValue × 1.0 × 1.0 × 1.0 × 60 = resourceValue × 0.6
-      expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * tickCount, 10);
-      expect(production.water).toBeCloseTo(mockPlot.water * 0.01 * tickCount, 10);
+      // BLOCKER 2 FIX: Base 0.2 × Tier1 5x × 60 ticks = 60 per second
+      expect(production.food).toBeCloseTo(60, 10);
+      expect(production.water).toBeCloseTo(60, 10);
     });
 
-    it('should produce ZERO without extractors (no passive gathering)', () => {
-      const zeroPlot = { ...mockPlot, food: 0, water: 0, wood: 0, stone: 0, ore: 0 };
-      const production = calculateProduction(zeroPlot, [], 1);
+    it('should produce 20% BASE production without extractors (passive gathering)', () => {
+      const production = calculateProduction(mockPlot, [], 1);
 
-      // BLOCKER 2 FIX: No extractors = zero production (no passive gathering)
-      expect(production.food).toBe(0);
-      expect(production.water).toBe(0);
-      expect(production.wood).toBe(0);
-      expect(production.stone).toBe(0);
-      expect(production.ore).toBe(0);
+      // BLOCKER 2 FIX: No extractors = 20% base production (always active)
+      // Base = quality × biomeEff × 0.2 = 1 × 1 × 0.2 = 0.2
+      // No extractor = tierMultiplier 1x (base only)
+      // Formula: 0.2 × 1 × 1 (health) × 1 (ticks) = 0.2 per tick
+      expect(production.food).toBeCloseTo(0.2, 10);
+      expect(production.water).toBeCloseTo(0.2, 10);
+      expect(production.wood).toBeCloseTo(0.2, 10);
+      expect(production.stone).toBeCloseTo(0.2, 10);
+      expect(production.ore).toBeCloseTo(0.2, 10);
     });
 
     // DEPRECATED: Old "ISSUE #2" tests removed
@@ -188,10 +192,11 @@ describe('resource-calculator', () => {
         currentTime
       );
 
-      // In 1 second (60 ticks), each resource should produce resourceValue * 0.01 * 60
-      // Use 0 decimal places for comparison due to timing precision
-      expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * 60, 0);
-      expect(production.water).toBeCloseTo(mockPlot.water * 0.01 * 60, 0);
+      // BLOCKER 2 FIX: Base 0.2 × Tier1 5x × ticks = production
+      // Math.floor(1000ms / (1000/60)) = Math.floor(59.999...) = 59 ticks
+      // 0.2 × 5 × 59 = 59 per second (timing precision, not exactly 60)
+      expect(production.food).toBeCloseTo(59, 0);
+      expect(production.water).toBeCloseTo(59, 0);
     });
 
     it('should handle zero elapsed time', () => {
@@ -213,8 +218,8 @@ describe('resource-calculator', () => {
         currentTime
       );
 
-      // In 5 seconds (300 ticks)
-      expect(production.food).toBeCloseTo(mockPlot.food * 0.01 * 300, 1);
+      // BLOCKER 2 FIX: Base 0.2 × Tier1 5x × ~300 ticks = ~300 in 5 seconds
+      expect(production.food).toBeCloseTo(300, 2);
     });
   });
 
@@ -368,16 +373,16 @@ describe('resource-calculator', () => {
     it('should calculate positive net production', () => {
       const net = calculateNetProduction(mockPlot, mockExtractors, 0, 0, 60); // 1 second, no consumption
 
-      // Production: resourceValue * 0.01 * 60
-      expect(net.food).toBeCloseTo(mockPlot.food * 0.01 * 60, 10);
-      expect(net.water).toBeCloseTo(mockPlot.water * 0.01 * 60, 10);
+      // BLOCKER 2 FIX: Base 0.2 × Tier1 5x × 60 ticks = 60
+      expect(net.food).toBeCloseTo(60, 10);
+      expect(net.water).toBeCloseTo(60, 10);
     });
 
     it('should calculate net production with consumption', () => {
       const net = calculateNetProduction(mockPlot, mockExtractors, 10, 5, 60);
 
       const expectedFoodConsumption = 10 * 0.005 * 60; // 3
-      const expectedFoodProduction = mockPlot.food * 0.01 * 60; // 6
+      const expectedFoodProduction = 60; // BLOCKER 2 FIX: Base 0.2 × Tier1 5x × 60 ticks
 
       expect(net.food).toBeCloseTo(expectedFoodProduction - expectedFoodConsumption, 5);
     });
