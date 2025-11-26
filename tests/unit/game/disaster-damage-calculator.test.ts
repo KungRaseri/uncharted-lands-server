@@ -140,9 +140,10 @@ describe('calculateAllDisasterModifiers', () => {
     test('AFTERMATH just started (0ms elapsed) should have 100% intensity (same as IMPACT)', () => {
       const currentTime = Date.now();
       const impactEndedAt = new Date(currentTime); // Just ended
+      const resolvedAt = new Date(currentTime + 60 * 60 * 1000); // 60 minutes duration
 
       const disasters = [
-        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt },
+        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt, resolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
@@ -155,9 +156,10 @@ describe('calculateAllDisasterModifiers', () => {
     test('AFTERMATH mid-way (30min elapsed) should have ~50% intensity', () => {
       const currentTime = Date.now();
       const impactEndedAt = new Date(currentTime - 30 * 60 * 1000); // 30 minutes ago
+      const resolvedAt = new Date(impactEndedAt.getTime() + 60 * 60 * 1000); // 60 minutes total duration
 
       const disasters = [
-        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt },
+        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt, resolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
@@ -171,9 +173,10 @@ describe('calculateAllDisasterModifiers', () => {
     test('AFTERMATH ending (60min elapsed) should have ~0% intensity (no penalty)', () => {
       const currentTime = Date.now();
       const impactEndedAt = new Date(currentTime - 60 * 60 * 1000); // 60 minutes ago
+      const resolvedAt = new Date(impactEndedAt.getTime() + 60 * 60 * 1000); // 60 minutes total duration
 
       const disasters = [
-        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt },
+        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt, resolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
@@ -186,9 +189,10 @@ describe('calculateAllDisasterModifiers', () => {
     test('AFTERMATH very old (120min elapsed) should clamp to 0% intensity', () => {
       const currentTime = Date.now();
       const impactEndedAt = new Date(currentTime - 120 * 60 * 1000); // 120 minutes ago
+      const resolvedAt = new Date(impactEndedAt.getTime() + 60 * 60 * 1000); // 60 minutes total duration
 
       const disasters = [
-        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt },
+        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt, resolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
@@ -261,11 +265,12 @@ describe('calculateAllDisasterModifiers', () => {
   describe('Mixed Phases (IMPACT + AFTERMATH)', () => {
     test('DROUGHT (IMPACT) + WILDFIRE (AFTERMATH 50%) should combine with intensity', () => {
       const currentTime = Date.now();
-      const impactEndedAt = new Date(currentTime - 30 * 60 * 1000); // 30 minutes ago = 50% intensity
+      const impactEndedAt = new Date(currentTime - 30 * 60 * 1000); // 30 minutes ago
+      const resolvedAt = new Date(impactEndedAt.getTime() + 60 * 60 * 1000); // 60 minutes duration = 50% intensity
 
       const disasters = [
-        { type: 'DROUGHT', status: 'IMPACT', impactEndedAt: undefined },
-        { type: 'WILDFIRE', status: 'AFTERMATH', impactEndedAt },
+        { type: 'DROUGHT', status: 'IMPACT', impactEndedAt: undefined, resolvedAt: undefined },
+        { type: 'WILDFIRE', status: 'AFTERMATH', impactEndedAt, resolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
@@ -282,12 +287,14 @@ describe('calculateAllDisasterModifiers', () => {
 
     test('Two AFTERMATH disasters at different intensities should combine correctly', () => {
       const currentTime = Date.now();
-      const recentImpactEnd = new Date(currentTime - 15 * 60 * 1000); // 15 min ago = 75% intensity
-      const oldImpactEnd = new Date(currentTime - 45 * 60 * 1000); // 45 min ago = 25% intensity
+      const recentImpactEnd = new Date(currentTime - 15 * 60 * 1000); // 15 min ago
+      const recentResolvedAt = new Date(recentImpactEnd.getTime() + 60 * 60 * 1000); // 60 min duration = 75% intensity
+      const oldImpactEnd = new Date(currentTime - 45 * 60 * 1000); // 45 min ago
+      const oldResolvedAt = new Date(oldImpactEnd.getTime() + 60 * 60 * 1000); // 60 min duration = 25% intensity
 
       const disasters = [
-        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt: recentImpactEnd },
-        { type: 'WILDFIRE', status: 'AFTERMATH', impactEndedAt: oldImpactEnd },
+        { type: 'DROUGHT', status: 'AFTERMATH', impactEndedAt: recentImpactEnd, resolvedAt: recentResolvedAt },
+        { type: 'WILDFIRE', status: 'AFTERMATH', impactEndedAt: oldImpactEnd, resolvedAt: oldResolvedAt },
       ];
 
       const result = calculateAllDisasterModifiers(disasters, {}, currentTime);
