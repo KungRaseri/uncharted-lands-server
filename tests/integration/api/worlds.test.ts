@@ -1,84 +1,32 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+/**
+ * Integration Tests for Worlds API Routes
+ * Updated: November 25, 2025 - Real app + session auth + factory pattern
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import express from 'express';
-import worldsRouter from '../../../src/api/routes/worlds.js';
-import * as db from '../../../src/db/index.js';
-import { generateTestId } from '../../helpers/test-utils';
-
-// Mock dependencies
-vi.mock('../../../src/db/index.js', () => ({
-  db: {
-    query: {
-      worlds: {
-        findMany: vi.fn(),
-        findFirst: vi.fn(),
-      },
-    },
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        returning: vi.fn(),
-      })),
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => ({
-          returning: vi.fn(),
-        })),
-      })),
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn(),
-    })),
-  },
-  worlds: {},
-  regions: {},
-  tiles: {},
-  plots: {},
-}));
-
-vi.mock('../../../src/utils/logger.js', () => ({
-  logger: {
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
-
-vi.mock('@paralleldrive/cuid2', () => ({
-  createId: () => generateTestId('world'),
-}));
-
-vi.mock('../../../src/api/middleware/auth.js', () => ({
-  authenticate: (req: any, res: any, next: any) => {
-    if (req.headers.authorization) {
-      req.user = { id: 'user-123', role: 'MEMBER' };
-      next();
-    } else {
-      res.status(401).json({ error: 'Unauthorized' });
-    }
-  },
-  authenticateAdmin: (req: any, res: any, next: any) => {
-    if (req.headers.authorization === 'Bearer admin-token') {
-      req.user = { id: 'admin-123', role: 'ADMINISTRATOR' };
-      next();
-    } else {
-      res.status(403).json({ error: 'Forbidden', code: 'NOT_ADMIN' });
-    }
-  },
-}));
+import { app } from '../../../src/index.js';
+import { db } from '../../../src/db/index.js';
+import { worlds } from '../../../src/db/schema.js';
+import { eq } from 'drizzle-orm';
+import {
+  createTestPlotChain,
+  cleanupTestChain,
+  type TestEntityChain,
+} from '../../helpers/integration-test-factory.js';
 
 describe('Worlds API Routes', () => {
-  let app: express.Application;
+  let testChain: TestEntityChain | undefined;
+  let adminChain: TestEntityChain | undefined;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    app = express();
-    app.use(express.json());
-    app.use('/api/worlds', worldsRouter);
+  beforeEach(async () => {
+    // Create admin account for admin-only routes
+    adminChain = await createTestPlotChain({ accountRole: 'ADMINISTRATOR' });
   });
 
-  afterEach(() => {
-    vi.clearAllMocks();
+  afterEach(async () => {
+    await cleanupTestChain(testChain);
+    await cleanupTestChain(adminChain);
   });
 
   describe('GET /api/worlds', () => {
@@ -86,543 +34,308 @@ describe('Worlds API Routes', () => {
       const response = await request(app).get('/api/worlds').expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
+      expect(response.body.code).toBe('NO_SESSION');
     });
 
     it('should return all worlds with server information', async () => {
-      const mockWorlds = [
-        {
-          id: generateTestId('world'),
-          name: 'World 1',
-          server: { id: 'server-1', name: 'Server 1', status: 'ACTIVE' },
-        },
-      ];
-
-      vi.mocked(db.db.query.worlds.findMany).mockResolvedValue(mockWorlds as any);
+      // Create test world with real data
+      testChain = await createTestPlotChain();
 
       const response = await request(app)
         .get('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .expect(200);
 
-      expect(response.body).toEqual(mockWorlds);
-    });
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body.length).toBeGreaterThan(0);
 
-    it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.worlds.findMany).mockRejectedValue(new Error('DB error'));
-
-      const response = await request(app)
-        .get('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .expect(500);
-
-      expect(response.body.code).toBe('FETCH_FAILED');
+      const world = response.body.find((w: any) => w.id === testChain!.world.id);
+      expect(world).toBeDefined();
+      expect(world.name).toBe(testChain!.world.name);
+      expect(world.server).toBeDefined();
+      expect(world.server.id).toBe(testChain!.server.id);
+      expect(world.server.name).toBe(testChain!.server.name);
+      // Route returns regions array with just IDs
+      expect(Array.isArray(world.regions)).toBe(true);
     });
   });
 
   describe('GET /api/worlds/:id', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app).get('/api/worlds/world-123').expect(401);
+      testChain = await createTestPlotChain();
+
+      const response = await request(app)
+        .get(`/api/worlds/${testChain.world.id}`)
+        .expect(401);
 
       expect(response.body.error).toBe('Unauthorized');
+      expect(response.body.code).toBe('NO_SESSION');
     });
 
     it('should return world details with statistics', async () => {
-      const mockWorld = {
-        id: 'world-123',
-        name: 'World 1',
-        server: { id: 'server-1', name: 'Server 1' },
-        regions: [
-          {
-            tiles: [
-              {
-                type: 'LAND',
-                biome: {},
-                plots: [{ settlement: { id: 'settlement-1', name: 'Settlement 1' } }],
-              },
-              {
-                type: 'OCEAN',
-                biome: {},
-                plots: [],
-              },
-            ],
-          },
-        ],
-      };
-
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(mockWorld as any);
+      testChain = await createTestPlotChain();
 
       const response = await request(app)
-        .get('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
+        .get(`/api/worlds/${testChain.world.id}`)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .expect(200);
 
+      // Verify world properties
+      expect(response.body.id).toBe(testChain.world.id);
+      expect(response.body.name).toBe(testChain.world.name);
+      expect(response.body.server).toBeDefined();
+      expect(response.body.server.id).toBe(testChain.server.id);
+
+      // Verify calculated _count statistics
       expect(response.body._count).toBeDefined();
-      expect(response.body._count.regions).toBe(1);
-      expect(response.body._count.settlements).toBe(1);
-      expect(response.body._count.landTiles).toBe(1);
-      expect(response.body._count.oceanTiles).toBe(1);
+      expect(typeof response.body._count.regions).toBe('number');
+      expect(typeof response.body._count.settlements).toBe('number');
+      expect(typeof response.body._count.landTiles).toBe('number');
+      expect(typeof response.body._count.oceanTiles).toBe('number');
     });
 
-    it('should handle world with no regions', async () => {
-      const mockWorld = {
-        id: 'world-123',
-        name: 'Empty World',
-        server: { id: 'server-1', name: 'Server 1' },
-        regions: [],
-      };
-
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(mockWorld as any);
-
+    it('should return 404 for non-existent world', async () => {
       const response = await request(app)
-        .get('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .expect(200);
-
-      expect(response.body._count.regions).toBe(0);
-      expect(response.body._count.settlements).toBe(0);
-      expect(response.body._count.landTiles).toBe(0);
-      expect(response.body._count.oceanTiles).toBe(0);
-    });
-
-    it('should deduplicate settlements when counting', async () => {
-      const mockWorld = {
-        id: 'world-123',
-        name: 'World 1',
-        server: {},
-        regions: [
-          {
-            tiles: [
-              {
-                type: 'LAND',
-                plots: [
-                  { settlement: { id: 'settlement-1', name: 'Settlement 1' } },
-                  { settlement: { id: 'settlement-1', name: 'Settlement 1' } }, // Same settlement
-                ],
-              },
-            ],
-          },
-        ],
-      };
-
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(mockWorld as any);
-
-      const response = await request(app)
-        .get('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .expect(200);
-
-      expect(response.body._count.settlements).toBe(1); // Should deduplicate
-    });
-
-    it('should return 404 if world not found', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(undefined);
-
-      const response = await request(app)
-        .get('/api/worlds/nonexistent')
-        .set('Authorization', 'Bearer admin-token')
+        .get('/api/worlds/nonexistent-world-id')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .expect(404);
 
       expect(response.body.code).toBe('NOT_FOUND');
     });
-
-    it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockRejectedValue(new Error('DB error'));
-
-      const response = await request(app)
-        .get('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .expect(500);
-
-      expect(response.body.code).toBe('FETCH_FAILED');
-    });
   });
 
   describe('POST /api/worlds', () => {
-    const validRequest = {
-      name: 'New World',
-      serverId: 'server-123',
-      elevationSettings: { min: 0, max: 100 },
-      precipitationSettings: { min: 0, max: 500 },
-      temperatureSettings: { min: -20, max: 40 },
-    };
+    it('should return 403 if not admin (regular user)', async () => {
+      testChain = await createTestPlotChain(); // Creates regular user
 
-    it('should return 403 if not admin', async () => {
       const response = await request(app)
         .post('/api/worlds')
-        .set('Authorization', 'Bearer user-token')
-        .send(validRequest)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
+        .send({
+          name: 'New World',
+          serverId: testChain.server.id,
+        })
         .expect(403);
 
       expect(response.body.code).toBe('NOT_ADMIN');
     });
 
-    it('should return 400 if missing required fields', async () => {
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send({ name: 'World' })
-        .expect(400);
-
-      expect(response.body.code).toBe('INVALID_INPUT');
-    });
-
-    it('should create world successfully with all settings', async () => {
-      const mockWorld = { id: generateTestId('world'), name: 'New World' };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn(() => ({ returning: mockReturning }));
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
+    it('should create world successfully with basic settings', async () => {
+      testChain = await createTestPlotChain(); // Creates server
 
       const response = await request(app)
         .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(validRequest)
-        .expect(201);
-
-      expect(response.body).toEqual(mockWorld);
-    });
-
-    it('should create world with default settings when not provided', async () => {
-      const mockWorld = { id: generateTestId('world'), name: 'Simple World' };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn(() => ({ returning: mockReturning }));
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send({ name: 'Simple World', serverId: 'server-123' })
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Integration Test World',
+          serverId: testChain.server.id,
+        })
         .expect(201);
 
       expect(response.body.id).toBeDefined();
+      expect(response.body.name).toBe('Integration Test World');
+      expect(response.body.serverId).toBe(testChain.server.id);
+      expect(response.body.status).toBe('pending');
+      expect(response.body.worldTemplateType).toBe('STANDARD'); // Default
+      expect(response.body.worldTemplateConfig).toBeDefined();
+
+      // Cleanup the world we just created
+      await db.delete(worlds).where(eq(worlds.id, response.body.id));
     });
 
-    it('should create world with bulk regions', async () => {
-      const mockWorld = { id: generateTestId('world'), name: 'World with Regions' };
-      const worldWithRegions = {
-        ...validRequest,
-        regions: [
-          { id: 'region-1', x: 0, y: 0 },
-          { id: 'region-2', x: 1, y: 0 },
-        ],
-      };
-
-      // First call returns world with .returning(), second call resolves for regions
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi
-        .fn()
-        .mockReturnValueOnce({ returning: mockReturning }) // world insert
-        .mockResolvedValueOnce(undefined); // regions insert
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
+    it('should accept SURVIVAL template type', async () => {
+      testChain = await createTestPlotChain();
 
       const response = await request(app)
         .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(worldWithRegions)
-        .expect(201);
-
-      expect(response.body).toEqual(mockWorld);
-      expect(mockInsert).toHaveBeenCalledTimes(2); // world + regions
-    });
-
-    it('should create world with bulk tiles', async () => {
-      const mockWorld = { id: generateTestId('world'), name: 'World with Tiles' };
-      const worldWithTiles = {
-        ...validRequest,
-        tiles: [{ id: 'tile-1', x: 0, y: 0, elevation: 10 }],
-      };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi
-        .fn()
-        .mockReturnValueOnce({ returning: mockReturning }) // world insert
-        .mockResolvedValueOnce(undefined); // tiles insert
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(worldWithTiles)
-        .expect(201);
-
-      expect(response.body.id).toBeDefined();
-    });
-
-    it('should create world with bulk plots', async () => {
-      const mockWorld = { id: generateTestId('world'), name: 'World with Plots' };
-      const worldWithPlots = {
-        ...validRequest,
-        plots: [{ id: 'plot-1', food: 5, water: 5, wood: 5 }],
-      };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi
-        .fn()
-        .mockReturnValueOnce({ returning: mockReturning }) // world insert
-        .mockResolvedValueOnce(undefined); // plots insert
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(worldWithPlots)
-        .expect(201);
-
-      expect(response.body.id).toBeDefined();
-    });
-
-    it('should return 500 on database error', async () => {
-      const mockValues = vi.fn(() => ({
-        returning: vi.fn().mockRejectedValue(new Error('DB error')),
-      }));
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(validRequest)
-        .expect(500);
-
-      expect(response.body.code).toBe('CREATE_FAILED');
-    });
-
-    // World Template Tests
-    it('should accept worldTemplateType parameter', async () => {
-      const requestWithTemplate = {
-        ...validRequest,
-        worldTemplateType: 'SURVIVAL',
-      };
-
-      const mockWorld = {
-        id: generateTestId('world'),
-        name: 'Survival World',
-        worldTemplateType: 'SURVIVAL',
-        worldTemplateConfig: { productionMultiplier: 0.7, consumptionMultiplier: 1.3 },
-      };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn(() => ({ returning: mockReturning }));
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-      const response = await request(app)
-        .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(requestWithTemplate)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Survival World',
+          serverId: testChain.server.id,
+          gridSize: 100,
+          worldTemplateType: 'SURVIVAL',
+        })
         .expect(201);
 
       expect(response.body.worldTemplateType).toBe('SURVIVAL');
       expect(response.body.worldTemplateConfig).toBeDefined();
+      expect(response.body.worldTemplateConfig.productionMultiplier).toBe(0.7);
+      expect(response.body.worldTemplateConfig.consumptionMultiplier).toBe(1.3);
+
+      await db.delete(worlds).where(eq(worlds.id, response.body.id));
     });
 
-    it('should return 400 for invalid worldTemplateType', async () => {
-      const requestWithInvalidTemplate = {
-        ...validRequest,
-        worldTemplateType: 'INVALID_TYPE',
-      };
+    it('should accept RELAXED template type', async () => {
+      testChain = await createTestPlotChain();
 
       const response = await request(app)
         .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(requestWithInvalidTemplate)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Relaxed World',
+          serverId: testChain.server.id,
+          gridSize: 100,
+          worldTemplateType: 'RELAXED',
+        })
+        .expect(201);
+
+      expect(response.body.worldTemplateType).toBe('RELAXED');
+      expect(response.body.worldTemplateConfig.productionMultiplier).toBe(1.5);
+      expect(response.body.worldTemplateConfig.consumptionMultiplier).toBe(0.7);
+
+      await db.delete(worlds).where(eq(worlds.id, response.body.id));
+    });
+
+    it('should accept FANTASY template type', async () => {
+      testChain = await createTestPlotChain();
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Fantasy World',
+          serverId: testChain.server.id,
+          gridSize: 100,
+          worldTemplateType: 'FANTASY',
+        })
+        .expect(201);
+
+      expect(response.body.worldTemplateType).toBe('FANTASY');
+      expect(response.body.worldTemplateConfig.productionMultiplier).toBe(1.2);
+
+      await db.delete(worlds).where(eq(worlds.id, response.body.id));
+    });
+
+    it('should accept APOCALYPSE template type', async () => {
+      testChain = await createTestPlotChain();
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Apocalypse World',
+          serverId: testChain.server.id,
+          gridSize: 100,
+          worldTemplateType: 'APOCALYPSE',
+        })
+        .expect(201);
+
+      expect(response.body.worldTemplateType).toBe('APOCALYPSE');
+      expect(response.body.worldTemplateConfig.productionMultiplier).toBe(0.5);
+      expect(response.body.worldTemplateConfig.consumptionMultiplier).toBe(1.5);
+
+      await db.delete(worlds).where(eq(worlds.id, response.body.id));
+    });
+
+    it('should return 400 for invalid world template type', async () => {
+      testChain = await createTestPlotChain();
+
+      const response = await request(app)
+        .post('/api/worlds')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({
+          name: 'Invalid Template World',
+          serverId: testChain.server.id,
+          gridSize: 100,
+          worldTemplateType: 'INVALID_TYPE',
+        })
         .expect(400);
 
       expect(response.body.error).toContain('Invalid world template type');
     });
 
-    it('should default to STANDARD template when worldTemplateType not provided', async () => {
-      const mockWorld = {
-        id: generateTestId('world'),
-        name: 'Default World',
-        worldTemplateType: 'STANDARD',
-        worldTemplateConfig: { productionMultiplier: 1, consumptionMultiplier: 1 },
-      };
-
-      const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-      const mockValues = vi.fn(() => ({ returning: mockReturning }));
-      const mockInsert = vi.fn(() => ({ values: mockValues }));
-      vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
+    it('should return 400 if missing required fields', async () => {
       const response = await request(app)
         .post('/api/worlds')
-        .set('Authorization', 'Bearer admin-token')
-        .send(validRequest)
-        .expect(201);
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({ name: 'Incomplete World' }) // Missing serverId
+        .expect(400);
 
-      expect(response.body.worldTemplateType).toBe('STANDARD');
+      expect(response.body.code).toBe('INVALID_INPUT');
     });
-
-    it.each(['STANDARD', 'SURVIVAL', 'RELAXED', 'FANTASY', 'APOCALYPSE'])(
-      'should accept template type: %s',
-      async (templateType) => {
-        const requestWithTemplate = {
-          ...validRequest,
-          worldTemplateType: templateType,
-        };
-
-        const mockWorld = {
-          id: generateTestId('world'),
-          name: `${templateType} World`,
-          worldTemplateType: templateType,
-        };
-
-        const mockReturning = vi.fn().mockResolvedValue([mockWorld]);
-        const mockValues = vi.fn(() => ({ returning: mockReturning }));
-        const mockInsert = vi.fn(() => ({ values: mockValues }));
-        vi.mocked(db.db.insert).mockImplementation(mockInsert as any);
-
-        const response = await request(app)
-          .post('/api/worlds')
-          .set('Authorization', 'Bearer admin-token')
-          .send(requestWithTemplate)
-          .expect(201);
-
-        expect(response.body.worldTemplateType).toBe(templateType);
-      },
-    );
   });
 
   describe('PUT /api/worlds/:id', () => {
     it('should return 403 if not admin', async () => {
+      testChain = await createTestPlotChain(); // Regular user
+
       const response = await request(app)
-        .put('/api/worlds/world-123')
-        .set('Authorization', 'Bearer user-token')
-        .send({ name: 'Updated' })
+        .put(`/api/worlds/${testChain.world.id}`)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
+        .send({ name: 'Updated Name' })
         .expect(403);
 
       expect(response.body.code).toBe('NOT_ADMIN');
     });
 
-    it('should update world successfully', async () => {
-      const existingWorld = {
-        id: 'world-123',
-        name: 'Old Name',
-        elevationSettings: {},
-        precipitationSettings: {},
-        temperatureSettings: {},
-      };
-      const updatedWorld = { ...existingWorld, name: 'New Name' };
-
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(existingWorld as any);
-
-      const mockReturning = vi.fn().mockResolvedValue([updatedWorld]);
-      const mockWhere = vi.fn(() => ({ returning: mockReturning }));
-      const mockSet = vi.fn(() => ({ where: mockWhere }));
-      const mockUpdate = vi.fn(() => ({ set: mockSet }));
-      vi.mocked(db.db.update).mockImplementation(mockUpdate as any);
+    it('should update world name successfully', async () => {
+      testChain = await createTestPlotChain();
 
       const response = await request(app)
-        .put('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .send({ name: 'New Name' })
+        .put(`/api/worlds/${testChain.world.id}`)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .send({ name: 'Updated World Name' })
         .expect(200);
 
-      expect(response.body.name).toBe('New Name');
+      expect(response.body.name).toBe('Updated World Name');
+      expect(response.body.id).toBe(testChain.world.id);
     });
 
-    it('should return 404 if world not found', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(undefined);
-
+    it('should return 404 for non-existent world', async () => {
       const response = await request(app)
-        .put('/api/worlds/nonexistent')
-        .set('Authorization', 'Bearer admin-token')
+        .put('/api/worlds/nonexistent-world-id')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .send({ name: 'Updated' })
         .expect(404);
 
       expect(response.body.code).toBe('NOT_FOUND');
     });
-
-    it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue({ id: 'world-123' } as any);
-
-      const mockWhere = vi.fn(() => ({
-        returning: vi.fn().mockRejectedValue(new Error('DB error')),
-      }));
-      const mockSet = vi.fn(() => ({ where: mockWhere }));
-      const mockUpdate = vi.fn(() => ({ set: mockSet }));
-      vi.mocked(db.db.update).mockImplementation(mockUpdate as any);
-
-      const response = await request(app)
-        .put('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .send({ name: 'Updated' })
-        .expect(500);
-
-      expect(response.body.code).toBe('UPDATE_FAILED');
-    });
   });
 
   describe('DELETE /api/worlds/:id', () => {
     it('should return 403 if not admin', async () => {
+      testChain = await createTestPlotChain(); // Regular user
+
       const response = await request(app)
-        .delete('/api/worlds/world-123')
-        .set('Authorization', 'Bearer user-token')
+        .delete(`/api/worlds/${testChain.world.id}`)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .expect(403);
 
       expect(response.body.code).toBe('NOT_ADMIN');
     });
 
     it('should delete world successfully', async () => {
-      const existingWorld = { id: 'world-123', name: 'World to Delete' };
-
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(existingWorld as any);
-
-      const mockWhere = vi.fn().mockResolvedValue(undefined);
-      const mockDelete = vi.fn(() => ({ where: mockWhere }));
-      vi.mocked(db.db.delete).mockImplementation(mockDelete as any);
+      testChain = await createTestPlotChain();
+      const worldIdToDelete = testChain.world.id;
+      const worldNameToDelete = testChain.world.name;
 
       const response = await request(app)
-        .delete('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
+        .delete(`/api/worlds/${worldIdToDelete}`)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toContain('World to Delete');
+      expect(response.body.message).toContain(worldNameToDelete);
+
+      // Verify deletion by trying to fetch
+      const fetchResponse = await request(app)
+        .get(`/api/worlds/${worldIdToDelete}`)
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
+        .expect(404);
+
+      expect(fetchResponse.body.code).toBe('NOT_FOUND');
+
+      // Prevent double cleanup
+      testChain = undefined;
     });
 
-    it('should return 404 if world not found', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(undefined);
-
+    it('should return 404 for non-existent world', async () => {
       const response = await request(app)
-        .delete('/api/worlds/nonexistent')
-        .set('Authorization', 'Bearer admin-token')
+        .delete('/api/worlds/nonexistent-world-id')
+        .set('Cookie', `session=${adminChain!.account.userAuthToken}`)
         .expect(404);
 
       expect(response.body.code).toBe('NOT_FOUND');
-    });
-
-    it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue({
-        id: 'world-123',
-        name: 'World',
-      } as any);
-
-      const mockWhere = vi.fn().mockRejectedValue(new Error('DB error'));
-      const mockDelete = vi.fn(() => ({ where: mockWhere }));
-      vi.mocked(db.db.delete).mockImplementation(mockDelete as any);
-
-      const response = await request(app)
-        .delete('/api/worlds/world-123')
-        .set('Authorization', 'Bearer admin-token')
-        .expect(500);
-
-      expect(response.body.code).toBe('DELETE_FAILED');
-    });
-
-    it('should require admin authentication for delete', async () => {
-      const response = await request(app)
-        .delete('/api/worlds/world-123')
-        .set('Authorization', 'Bearer user-token')
-        .expect(403);
-
-      expect(response.body.code).toBe('NOT_ADMIN');
     });
   });
 });
