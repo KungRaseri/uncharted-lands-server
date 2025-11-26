@@ -103,8 +103,8 @@ export async function getSettlementWithDetails(settlementId: string) {
     })
     .from(settlements)
     .leftJoin(settlementStorage, eq(settlements.settlementStorageId, settlementStorage.id))
-    .leftJoin(plots, eq(settlements.plotId, plots.id))
-    .leftJoin(tiles, eq(plots.tileId, tiles.id))
+    .leftJoin(tiles, eq(settlements.tileId, tiles.id)) // FIXED: Changed from settlements.plotId to settlements.tileId
+    .leftJoin(plots, eq(plots.tileId, tiles.id)) // FIXED: Join plots via tiles (many plots per tile)
     .leftJoin(biomes, eq(tiles.biomeId, biomes.id))
     .leftJoin(regions, eq(tiles.regionId, regions.id))
     .leftJoin(worlds, eq(regions.worldId, worlds.id))
@@ -133,12 +133,13 @@ export async function createSettlement(
     .returning();
 
   // Create settlement
+  // Note: plotId parameter is actually tileId (naming preserved for backward compatibility)
   const [settlement] = await db
     .insert(settlements)
     .values({
       id: createId(),
       playerProfileId: profileId,
-      plotId,
+      tileId: plotId, // FIXED: Changed from plotId to tileId
       settlementStorageId: storage.id,
       name,
     })

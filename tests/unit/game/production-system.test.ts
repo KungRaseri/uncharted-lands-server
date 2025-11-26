@@ -35,11 +35,12 @@ function createMockPlot(overrides: Partial<Plot> = {}): Plot {
     tileId: 'tile-1',
     settlementId: 'settlement-1',
     qualityMultiplier: 1,
-    food: 10,
-    water: 10,
-    wood: 10,
-    stone: 10,
-    ore: 10,
+    baseProductionRate: 0, // Default OFF - tests must explicitly enable (BLOCKER 2)
+    food: 0, // Default to 0, set explicitly in tests (BLOCKER 2: prevents unwanted base production)
+    water: 0,
+    wood: 0,
+    stone: 0,
+    ore: 0,
     claimedAt: Date.now(),
     ...overrides,
   } as Plot;
@@ -81,8 +82,9 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
   // ===== SCENARIO 1: No Extractors → Zero Production =====
   describe('Scenario 1: No extractors produce zero resources', () => {
-    test('plot with resources but no extractors produces nothing', () => {
+    test('plot with resources but no extractors produces 20% base production', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         water: 10,
         wood: 10,
@@ -98,15 +100,17 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         BIOME_GRASSLAND
       );
 
-      expect(production.food).toBe(0);
-      expect(production.water).toBe(0);
-      expect(production.wood).toBe(0);
-      expect(production.stone).toBe(0);
-      expect(production.ore).toBe(0);
+      // BLOCKER 2: 20% base production (baseRate × quality × biomeEff × 0.2 × 1 × ticks)
+      // 1 × 1.5 × 1.0 × 0.2 × 1 × 60 = 18
+      expect(production.food).toBeCloseTo(18, 4);
+      expect(production.water).toBeCloseTo(18, 4);
+      expect(production.wood).toBeCloseTo(18, 4);
+      expect(production.stone).toBeCloseTo(18, 4);
+      expect(production.ore).toBeCloseTo(18, 4);
     });
 
-    test('plot with BUILDING (not EXTRACTOR) produces nothing', () => {
-      const plot = createMockPlot({ food: 10 });
+    test('plot with BUILDING (not EXTRACTOR) produces 20% base production', () => {
+      const plot = createMockPlot({ baseProductionRate: 1, food: 10 });
       const building: StructureWithInfo = {
         id: 'building-1',
         settlementId: 'settlement-1',
@@ -131,7 +135,9 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         BIOME_GRASSLAND
       );
 
-      expect(production.food).toBe(0);
+      // BLOCKER 2: 20% base production (buildings don't boost, no extractor multiplier)
+      // 1 × 1 × 1.0 × 0.2 × 1 × 60 = 12
+      expect(production.food).toBeCloseTo(12, 4);
       expect(production.water).toBe(0);
       expect(production.wood).toBe(0);
       expect(production.stone).toBe(0);
@@ -139,10 +145,11 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
     });
   });
 
-  // ===== SCENARIO 2: FARM Level 1 → Correct Food Production =====
+  // ===== SCENARIO 2: FARM Level 1 → Tier 1 Multiplier (5×) =====
   describe('Scenario 2: FARM level 1 produces correct food', () => {
     test('FARM level 1 with quality 1.2 in GRASSLAND', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         qualityMultiplier: 1.2,
       });
@@ -151,9 +158,9 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
       const production = calculateProduction(plot, [farm], TICKS_PER_SECOND, BIOME_GRASSLAND);
 
-      // Formula: BaseRate × Resource × Quality × BiomeEff × LevelMult × Ticks
-      // 0.01 × 10 × 1.2 × 1.0 × 1.0 × 60 = 7.2 food
-      expect(production.food).toBeCloseTo(7.2, 4);
+      // BLOCKER 2: baseRate × quality × biomeEff × 0.2 × tierMult × ticks
+      // 1 × 1.2 × 1.0 × 0.2 × 5 × 60 = 72 food (Tier 1 = 5×)
+      expect(production.food).toBeCloseTo(72, 4);
       expect(production.water).toBe(0);
       expect(production.wood).toBe(0);
       expect(production.stone).toBe(0);
@@ -162,6 +169,7 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
     test('FARM level 1 with quality 1 in GRASSLAND', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         qualityMultiplier: 1,
       });
@@ -170,15 +178,16 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
       const production = calculateProduction(plot, [farm], TICKS_PER_SECOND, BIOME_GRASSLAND);
 
-      // 0.01 × 10 × 1 × 1 × 1 × 60 = 6 food
-      expect(production.food).toBeCloseTo(6, 4);
+      // 1 × 1 × 1 × 0.2 × 5 × 60 = 60 food
+      expect(production.food).toBeCloseTo(60, 4);
     });
   });
 
-  // ===== SCENARIO 3: FARM Level 2 → 20% More Production =====
-  describe('Scenario 3: FARM level 2 produces 20% more', () => {
-    test('FARM level 2 has 1.2x multiplier', () => {
+  // ===== SCENARIO 3: FARM Levels 2-3 → Same Tier 1 Production =====
+  describe('Scenario 3: FARM levels 2-3 use same tier multiplier', () => {
+    test('FARM level 2 uses Tier 1 multiplier (5×, same as L1)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         qualityMultiplier: 1.2,
       });
@@ -187,13 +196,14 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
       const production = calculateProduction(plot, [farmL2], TICKS_PER_SECOND, BIOME_GRASSLAND);
 
-      // Level multiplier: 1 + (2-1) × 0.2 = 1.2
-      // 0.01 × 10 × 1.2 × 1.0 × 1.2 × 60 = 8.64 food
-      expect(production.food).toBeCloseTo(8.64, 4);
+      // BLOCKER 2: Tier 1 (L1-3) = 5× multiplier (not linear)
+      // 1 × 1.2 × 1.0 × 0.2 × 5 × 60 = 72 food (same as L1)
+      expect(production.food).toBeCloseTo(72, 4);
     });
 
-    test('FARM level 3 has 1.4x multiplier', () => {
+    test('FARM level 3 uses Tier 1 multiplier (5×, same as L1-L2)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         qualityMultiplier: 1,
       });
@@ -202,9 +212,9 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
       const production = calculateProduction(plot, [farmL3], TICKS_PER_SECOND, BIOME_GRASSLAND);
 
-      // Level multiplier: 1 + (3-1) × 0.2 = 1.4
-      // 0.01 × 10 × 1 × 1 × 1.4 × 60 = 8.4 food
-      expect(production.food).toBeCloseTo(8.4, 4);
+      // Tier 1 (L1-3) = 5× multiplier
+      // 1 × 1 × 1 × 0.2 × 5 × 60 = 60 food (same as L1)
+      expect(production.food).toBeCloseTo(60, 4);
     });
   });
 
@@ -212,6 +222,7 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
   describe('Scenario 4a: Biome efficiency affects production (FARM in FOREST)', () => {
     test('FARM in FOREST produces 80% food (0.8x efficiency)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         qualityMultiplier: 1,
       });
@@ -225,8 +236,8 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         BIOME_FOREST // Forest has 0.8x food efficiency
       );
 
-      // 0.01 × 10 × 1 × 0.8 × 1 × 60 = 4.8 food
-      expect(production.food).toBeCloseTo(4.8, 4);
+      // BLOCKER 2: 1 × 1 × 0.8 × 0.2 × 5 × 60 = 48 food
+      expect(production.food).toBeCloseTo(48, 4);
     });
   });
 
@@ -234,6 +245,7 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
   describe('Scenario 4b: Biome efficiency affects production (LUMBER_MILL in FOREST)', () => {
     test('LUMBER_MILL in FOREST produces 200% wood (2x efficiency)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         wood: 15,
         qualityMultiplier: 1,
       });
@@ -247,13 +259,14 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         BIOME_FOREST // Forest has 2x wood efficiency
       );
 
-      // 0.01 × 15 × 1 × 2 × 1 × 60 = 18 wood
-      expect(production.wood).toBeCloseTo(18, 4);
+      // BLOCKER 2: 1 × 1 × 2 × 0.2 × 5 × 60 = 120 wood
+      expect(production.wood).toBeCloseTo(120, 4);
       expect(production.food).toBe(0);
     });
 
     test('QUARRY in DESERT produces 200% stone (2x efficiency)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         stone: 12,
         qualityMultiplier: 1,
       });
@@ -267,8 +280,8 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         'DESERT' // Desert has 2x stone efficiency
       );
 
-      // 0.01 × 12 × 1 × 2 × 1 × 60 = 14.4 stone
-      expect(production.stone).toBeCloseTo(14.4, 4);
+      // BLOCKER 2: 1 × 1 × 2 × 0.2 × 5 × 60 = 120 stone
+      expect(production.stone).toBeCloseTo(120, 4);
     });
   });
 
@@ -276,6 +289,7 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
   describe('Scenario 5: Multiple extractors produce combined resources', () => {
     test('FARM + WELL on same plot produce food + water', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         water: 8,
         qualityMultiplier: 1,
@@ -286,10 +300,11 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
       const production = calculateProduction(plot, [farm, well], TICKS_PER_SECOND, BIOME_GRASSLAND);
 
-      // Food: 0.01 × 10 × 1 × 1 × 1 × 60 = 6
-      // Water: 0.01 × 8 × 1 × 1 × 1 × 60 = 4.8
-      expect(production.food).toBeCloseTo(6, 4);
-      expect(production.water).toBeCloseTo(4.8, 4);
+      // BLOCKER 2: Tier 1 (L1-3) = 5×
+      // Food: 1 × 1 × 1 × 0.2 × 5 × 60 = 60
+      // Water: 1 × 1 × 1 × 0.2 × 5 × 60 = 60
+      expect(production.food).toBeCloseTo(60, 4);
+      expect(production.water).toBeCloseTo(60, 4);
       expect(production.wood).toBe(0);
       expect(production.stone).toBe(0);
       expect(production.ore).toBe(0);
@@ -297,15 +312,16 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
 
     test('3 extractors (FARM L2 + WELL + LUMBER_MILL L3)', () => {
       const plot = createMockPlot({
+        baseProductionRate: 1,
         food: 10,
         water: 8,
         wood: 12,
         qualityMultiplier: 1,
       });
 
-      const farm = createMockExtractor('FARM', 2); // Level 2 = 1.2x
-      const well = createMockExtractor('WELL', 1); // Level 1 = 1.0x
-      const lumberMill = createMockExtractor('LUMBER_MILL', 3); // Level 3 = 1.4x
+      const farm = createMockExtractor('FARM', 2); // Level 2 = Tier 1 (5×)
+      const well = createMockExtractor('WELL', 1); // Level 1 = Tier 1 (5×)
+      const lumberMill = createMockExtractor('LUMBER_MILL', 3); // Level 3 = Tier 1 (5×)
 
       const production = calculateProduction(
         plot,
@@ -314,12 +330,13 @@ describe('BLOCKER 2: Production Requires Extractors', () => {
         BIOME_GRASSLAND
       );
 
-      // Food: 0.01 × 10 × 1.0 × 1.0 × 1.2 × 60 = 7.2
-      // Water: 0.01 × 8 × 1.0 × 1.0 × 1.0 × 60 = 4.8
-      // Wood: 0.01 × 12 × 1.0 × 1.0 × 1.4 × 60 = 10.08
-      expect(production.food).toBeCloseTo(7.2, 4);
-      expect(production.water).toBeCloseTo(4.8, 4);
-      expect(production.wood).toBeCloseTo(10.08, 4);
+      // BLOCKER 2: All Tier 1 (L1-3) = 5× multiplier
+      // Food: 1 × 1.0 × 1.0 × 0.2 × 5 × 60 = 60
+      // Water: 1 × 1.0 × 1.0 × 0.2 × 5 × 60 = 60
+      // Wood: 1 × 1.0 × 1.0 × 0.2 × 5 × 60 = 60
+      expect(production.food).toBeCloseTo(60, 4);
+      expect(production.water).toBeCloseTo(60, 4);
+      expect(production.wood).toBeCloseTo(60, 4);
       expect(production.stone).toBe(0);
       expect(production.ore).toBe(0);
     });

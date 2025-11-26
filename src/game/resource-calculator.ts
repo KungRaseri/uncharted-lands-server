@@ -38,8 +38,11 @@
  * // Returns: 80 × 2.0 × 0.2 = 32 units/tick
  */
 function calculateBaseProduction(plot: Plot, biomeEfficiency: number): number {
+  // BLOCKER 2: baseProductionRate defaults to 1 if not set (standard production rate)
+  // Schema defaults to 0, but 0 would mean no production at all
+  const baseRate = plot.baseProductionRate || 1;
   const quality = plot.qualityMultiplier || 1;
-  return quality * biomeEfficiency * 0.2;
+  return baseRate * quality * biomeEfficiency * 0.2;
 }
 
 /**
@@ -273,6 +276,14 @@ export function calculateProduction(
   const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
 
   for (const resourceType of resourceTypes) {
+    // Check if plot has this resource (legacy field - 0 means no resource available)
+    // BLOCKER 2: baseProductionRate applies to all resources, but only if plot has them
+    const plotResourceValue = plot[resourceType] || 0;
+    if (plotResourceValue === 0) {
+      // Plot doesn't have this resource - skip
+      continue;
+    }
+
     // Step 1: Calculate base production (20% of max potential - ALWAYS active)
     const baseProduction = calculateBaseProduction(plot, biomeEfficiency[resourceType]);
 

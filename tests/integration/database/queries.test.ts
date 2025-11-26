@@ -819,7 +819,7 @@ describe('Database Queries', () => {
 
       it('should create settlement with storage', async () => {
         const { createSettlement } = await import('../../../src/db/queries');
-        const result = await createSettlement(testProfileId, testPlotId, 'Test Settlement', {
+        const result = await createSettlement(testProfileId, testTileId, 'Test Settlement', {
           food: 100,
           water: 100,
           wood: 50,
@@ -845,7 +845,7 @@ describe('Database Queries', () => {
         const { getPlayerSettlements, createSettlement } = await import('../../../src/db/queries');
 
         // Create a settlement
-        const result = await createSettlement(testProfileId, testPlotId, 'Player Settlement', {
+        const result = await createSettlement(testProfileId, testTileId, 'Player Settlement', {
           food: 50,
           water: 50,
           wood: 25,
@@ -882,7 +882,7 @@ describe('Database Queries', () => {
         );
 
         // Create settlement first
-        const result = await createSettlement(testProfileId, testPlotId, 'Storage Test', {
+        const result = await createSettlement(testProfileId, testTileId, 'Storage Test', {
           food: 100,
           water: 100,
           wood: 50,
@@ -915,7 +915,7 @@ describe('Database Queries', () => {
         );
 
         // Create settlement first
-        const result = await createSettlement(testProfileId, testPlotId, 'Details Test', {
+        const result = await createSettlement(testProfileId, testTileId, 'Details Test', {
           food: 150,
           water: 150,
           wood: 75,
