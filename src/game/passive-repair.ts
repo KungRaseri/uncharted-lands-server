@@ -87,7 +87,7 @@ export async function processPassiveRepairs(worldId: string): Promise<PassiveRep
 
   try {
     // Get all settlements in this world by querying through the relationship chain:
-    // settlements -> plot -> tile -> region -> world
+    // settlements -> tile -> region -> world
     const worldSettlements = await db.query.settlements.findMany({
       with: {
         structures: {
@@ -95,13 +95,9 @@ export async function processPassiveRepairs(worldId: string): Promise<PassiveRep
             structure: true, // Load the Structure definition to get buildingType
           },
         },
-        plot: {
+        tile: {
           with: {
-            tile: {
-              with: {
-                region: true,
-              },
-            },
+            region: true,
           },
         },
       },
@@ -109,7 +105,7 @@ export async function processPassiveRepairs(worldId: string): Promise<PassiveRep
 
     // Filter settlements that belong to the specified world
     const filteredSettlements = worldSettlements.filter(
-      (settlement) => settlement.plot?.tile?.region?.worldId === worldId
+      (settlement) => settlement.tile?.region?.worldId === worldId
     );
 
     const settlementResults: PassiveRepairResult[] = [];
