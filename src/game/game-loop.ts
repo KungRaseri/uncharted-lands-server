@@ -50,6 +50,7 @@ import {
 import { processHourlyDisasterChecks } from './disaster-scheduler.js';
 import { processDisasters } from './disaster-processor.js';
 import { processPassiveRepairs } from './passive-repair.js';
+import { processConstructionQueues } from './construction-queue-processor.js';
 import { settlementStructures, disasterEvents } from '../db/schema.js';
 import { db } from '../db/index.js';
 
@@ -153,6 +154,37 @@ async function processTick(io: SocketIOServer): Promise<void> {
   if (currentTick % 6 === 0) {
     const currentTime = Date.now();
     await processDisasters(io, currentTime);
+  }
+
+  // ===== CONSTRUCTION QUEUE PROCESSING (Phase 3 - November 2025) =====
+
+  // Process construction queues every second (every 60 ticks)
+  // GDD Reference: Section 5.6.3 (Construction Queue Processing)
+  // NOTE: Changed from every tick to every second to prevent memory leak
+  // - Constructions complete at second-level precision (acceptable for UX)
+  // - Reduces database queries from 900/sec to 15/sec (60x improvement)
+  // - Prevents heap overflow with multiple active worlds
+  if (currentTick % 60 === 0) {
+    const currentTime = Date.now();
+
+    // Get all active worlds to process their construction queues
+    const { worlds: worldsTable } = await import('../db/schema.js');
+    const activeWorlds = await db.query.worlds.findMany({
+      where: eq(worldsTable.status, 'READY'),
+    });
+
+    // Process each world's construction queue
+    for (const world of activeWorlds) {
+      try {
+        await processConstructionQueues(world.id, currentTime, io);
+      } catch (error) {
+        logger.error('[CONSTRUCTION QUEUE] Error processing construction queues', {
+          worldId: world.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    }
   }
 
   // Check for new disasters hourly (every 3600 seconds)

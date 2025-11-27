@@ -845,6 +845,69 @@ export const disasterHistoryRelations = relations(disasterHistory, ({ one }) => 
 }));
 
 // ===========================
+// CONSTRUCTION QUEUE (Phase 3 - November 2025)
+// ===========================
+
+/**
+ * Construction Queue System
+ * Manages time-based building queue for settlements
+ * - Max 3 simultaneous constructions (IN_PROGRESS)
+ * - Max 10 total queue size
+ * - Emergency construction: 2x speed, 2.5x cost during disasters
+ */
+export const constructionQueue = pgTable(
+  'ConstructionQueue',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    settlementId: text('settlementId')
+      .notNull()
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+
+    // Structure Details
+    structureType: text('structureType').notNull(), // 'FARM', 'HOUSE', etc.
+
+    // Timing
+    startedAt: timestamp('startedAt', { mode: 'date' }), // NULL if queued but not started
+    completesAt: timestamp('completesAt', { mode: 'date' }), // When construction finishes
+
+    // Resources (already deducted when queued)
+    resourcesCost: json('resourcesCost').notNull().$type<{
+      wood?: number;
+      stone?: number;
+      ore?: number;
+      food?: number;
+      water?: number;
+    }>(),
+
+    // Queue Management
+    status: text('status').notNull().default('QUEUED'), // 'QUEUED', 'IN_PROGRESS', 'COMPLETE', 'CANCELLED'
+    position: integer('position').notNull(), // 0-2 = active, 3-9 = queued
+
+    // Emergency Construction (2x speed, 2.5x cost during disasters)
+    isEmergency: integer('isEmergency').notNull().default(0), // 0 = false, 1 = true
+
+    // Metadata
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('construction_queue_settlement_idx').on(table.settlementId),
+    index('construction_queue_status_idx').on(table.status),
+    index('construction_queue_active_idx').on(table.settlementId, table.status),
+  ]
+);
+
+// Relations
+export const constructionQueueRelations = relations(constructionQueue, ({ one }) => ({
+  settlement: one(settlements, {
+    fields: [constructionQueue.settlementId],
+    references: [settlements.id],
+  }),
+}));
+
+// ===========================
 // TYPE EXPORTS
 // ===========================
 
@@ -904,3 +967,6 @@ export type NewDisasterEvent = typeof disasterEvents.$inferInsert;
 
 export type DisasterHistory = typeof disasterHistory.$inferSelect;
 export type NewDisasterHistory = typeof disasterHistory.$inferInsert;
+
+export type ConstructionQueue = typeof constructionQueue.$inferSelect;
+export type NewConstructionQueue = typeof constructionQueue.$inferInsert;
