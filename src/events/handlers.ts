@@ -506,7 +506,7 @@ async function handleCollectResources(
 
     // Get current storage
     const storage = settlementData.storage;
-    const plot = settlementData.plot;
+    const tile = settlementData.tile;
 
     if (!storage) {
       const errorResponse = {
@@ -517,10 +517,10 @@ async function handleCollectResources(
       return callback ? callback(errorResponse) : undefined;
     }
 
-    if (!plot) {
+    if (!tile) {
       const errorResponse = {
         success: false,
-        error: 'Settlement plot not found',
+        error: 'Settlement tile not found',
         timestamp: Date.now(),
       };
       return callback ? callback(errorResponse) : undefined;
@@ -533,9 +533,10 @@ async function handleCollectResources(
     const extractors = structureData
       .filter((s) => s.structureDef?.category === 'EXTRACTOR')
       .map((s) => ({
-        ...s.structure,
-        category: s.structureDef?.category || '',
-        extractorType: s.structureDef?.extractorType || '',
+        ...s.structure, // Spread the settlement structure (has id, settlementId, level, etc.)
+        category: s.structureDef?.category,
+        extractorType: s.structureDef?.extractorType,
+        buildingType: s.structureDef?.buildingType,
       }));
 
     // Calculate production since last update
@@ -543,7 +544,7 @@ async function handleCollectResources(
     const lastCollectionTime = settlementData.settlement.updatedAt?.getTime() || Date.now();
     const biomeName = settlementData.biome?.name;
     const production = calculateTimedProduction(
-      plot,
+      tile,
       extractors,
       lastCollectionTime,
       Date.now(),
@@ -704,7 +705,6 @@ async function handleCreateWorld(
       stats: {
         regionCount: result.regionCount,
         tileCount: result.tileCount,
-        plotCount: result.plotCount,
         duration: Date.now() - startTime,
       },
       timestamp: Date.now(),

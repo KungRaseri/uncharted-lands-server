@@ -126,7 +126,6 @@ export interface CreateWorldResponse {
   stats?: {
     regionCount: number;
     tileCount: number;
-    plotCount: number;
     duration: number;
   };
   error?: string;

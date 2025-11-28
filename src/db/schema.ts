@@ -382,10 +382,12 @@ export const tiles = pgTable(
 // Plots are no longer needed - settlements claim tiles directly
 // See: client/docs/game-design/SCHEMA-REFACTOR-ARTIFACT.md
 
+// @ts-expect-error - Circular reference between settlementStorage and settlements
 export const settlementStorage = pgTable(
   'SettlementStorage',
   {
     id: text('id').primaryKey(),
+    // @ts-expect-error - Circular reference to settlements table
     settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'cascade' }),
     food: integer('food').notNull(),
     water: integer('water').notNull(),
@@ -427,6 +429,7 @@ export const settlements = pgTable(
     settlementStorageId: text('settlementStorageId')
       .notNull()
       .unique()
+      // @ts-expect-error - Circular reference to settlementStorage table
       .references(() => settlementStorage.id, { onDelete: 'cascade' }),
     name: text('name').notNull().default('Home Settlement'),
     resilience: integer('resilience').notNull().default(0), // Disaster survival resilience score (0-100)
@@ -482,7 +485,6 @@ export const structurePrerequisites = pgTable(
   ]
 );
 
-// @ts-expect-error - Circular reference with tiles is expected and works at runtime
 export const settlementStructures = pgTable(
   'SettlementStructure',
   {
@@ -492,12 +494,10 @@ export const settlementStructures = pgTable(
       .references(() => structures.id, { onDelete: 'restrict' }),
     settlementId: text('settlementId')
       .notNull()
-      // @ts-expect-error - Circular reference
       .references(() => settlements.id, { onDelete: 'cascade' }),
     level: integer('level').notNull().default(1),
     // ✅ CHANGED: Tile linkage for extractors (replaces plotId)
     // Extractors are built on specific tiles, in specific slots (0 to plotSlots-1)
-    // @ts-expect-error - Circular reference with tiles
     tileId: text('tileId').references(() => tiles.id, { onDelete: 'cascade' }),
     slotPosition: integer('slotPosition'), // Which slot on the tile (0 to plotSlots-1)
     // Population assignment for structure staffing

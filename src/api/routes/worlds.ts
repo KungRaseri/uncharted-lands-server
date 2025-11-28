@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
-import { db, worlds, regions, tiles, plots } from '../../db/index.js';
+import { db, worlds, regions, tiles } from '../../db/index.js';
 import { authenticate, authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError, sendBadRequestError } from '../utils/responses.js';
@@ -226,7 +226,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
       temperatureSettings,
       regions: worldRegions,
       tiles: worldTiles,
-      plots: worldPlots,
       // Server-side generation parameters
       generate,
       width,
@@ -349,7 +348,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
             // Add metrics to span
             span?.setAttribute('regions', result.regionCount);
             span?.setAttribute('tiles', result.tileCount);
-            span?.setAttribute('plots', result.plotCount);
 
             return result;
           }
@@ -359,7 +357,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
           worldId: newWorld.id,
           regions: result.regionCount,
           tiles: result.tileCount,
-          plots: result.plotCount,
         });
 
         // Update world status to 'ready'
@@ -373,7 +370,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
           status: 'ready',
           regions: result.regionCount,
           tiles: result.tileCount,
-          plots: result.plotCount,
           duration: generationDuration,
           totalDuration: Date.now() - startTime,
         });
@@ -438,12 +434,6 @@ router.post('/', authenticateAdmin, async (req, res) => {
     if (worldTiles && Array.isArray(worldTiles) && worldTiles.length > 0) {
       await db.insert(tiles).values(worldTiles);
       logger.info(`[API] Created ${worldTiles.length} tiles for world ${newWorld.id}`);
-    }
-
-    // Bulk insert plots if provided
-    if (worldPlots && Array.isArray(worldPlots) && worldPlots.length > 0) {
-      await db.insert(plots).values(worldPlots);
-      logger.info(`[API] Created ${worldPlots.length} plots for world ${newWorld.id}`);
     }
 
     res.status(201).json(newWorld);

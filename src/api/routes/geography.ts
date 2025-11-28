@@ -6,7 +6,7 @@
 
 import { Router } from 'express';
 import { eq, and, gte, lte } from 'drizzle-orm';
-import { db, regions, tiles, plots, settlements, worlds } from '../../db/index.js';
+import { db, regions, tiles, settlements, worlds } from '../../db/index.js';
 import { authenticateAdmin, authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
 
@@ -369,51 +369,6 @@ router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
     logger.error('[API] Error fetching tile:', error);
     res.status(500).json({
       error: 'Failed to fetch tile',
-      code: 'FETCH_FAILED',
-    });
-  }
-});
-
-// ===========================
-// PLOTS
-// ===========================
-
-/**
- * GET /api/plots/:id
- * Get plot details
- */
-router.get('/plots/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const plot = await db.query.plots.findFirst({
-      where: eq(plots.id, id),
-      with: {
-        tile: {
-          with: {
-            region: {
-              with: {
-                world: true,
-              },
-            },
-            biome: true,
-          },
-        },
-      },
-    });
-
-    if (!plot) {
-      return res.status(404).json({
-        error: 'Plot not found',
-        code: 'NOT_FOUND',
-      });
-    }
-
-    res.json(plot);
-  } catch (error) {
-    logger.error('[API] Error fetching plot:', error);
-    res.status(500).json({
-      error: 'Failed to fetch plot',
       code: 'FETCH_FAILED',
     });
   }

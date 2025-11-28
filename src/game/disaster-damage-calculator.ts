@@ -17,7 +17,7 @@
 import { db } from '../db/index.js';
 import { settlementStructures, settlementStorage, settlementPopulation } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
-import type { DisasterEvent, Settlement, SettlementStructure } from '../db/schema.js';
+import type { DisasterEvent, Settlement } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -341,16 +341,22 @@ async function calculatePreparedness(
   settlement: Settlement,
   disasterType: string
 ): Promise<number> {
-  // Query all structures for settlement
+  // Query all structures for settlement with structure definitions
   const structures = await db.query.settlementStructures.findMany({
     where: eq(settlementStructures.settlementId, settlement.id),
+    with: {
+      structure: true,
+    },
   });
 
   let preparednessScore = 0;
 
   // Shelter capacity coverage (0-30 points)
   const shelterCapacity = structures
-    .filter((s) => s.buildingType === 'EMERGENCY_SHELTER')
+    .filter((s) => {
+      const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+      return struct?.buildingType === 'EMERGENCY_SHELTER';
+    })
     .reduce((sum, s) => sum + 50 * s.level, 0); // 50 per shelter per level
 
   const population = await db.query.settlementPopulation.findFirst({
@@ -363,9 +369,18 @@ async function calculatePreparedness(
   }
 
   // Warning systems active (0-15 points)
-  const hasWatchtower = structures.some((s) => s.buildingType === 'WATCHTOWER');
-  const hasMeteorology = structures.some((s) => s.buildingType === 'METEOROLOGY_CENTER');
-  const hasSeismology = structures.some((s) => s.buildingType === 'SEISMOLOGY_STATION');
+  const hasWatchtower = structures.some((s) => {
+    const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+    return struct?.buildingType === 'WATCHTOWER';
+  });
+  const hasMeteorology = structures.some((s) => {
+    const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+    return struct?.buildingType === 'METEOROLOGY_CENTER';
+  });
+  const hasSeismology = structures.some((s) => {
+    const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+    return struct?.buildingType === 'SEISMOLOGY_STATION';
+  });
 
   if (hasWatchtower) preparednessScore += 5;
   if (hasMeteorology) preparednessScore += 5;
@@ -376,7 +391,10 @@ async function calculatePreparedness(
   preparednessScore += defenseScore;
 
   // Fortress specialization bonus (0-30 points)
-  const hasFortress = structures.some((s) => s.buildingType === 'FORTRESS');
+  const hasFortress = structures.some((s) => {
+    const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+    return struct?.buildingType === 'FORTRESS';
+  });
   if (hasFortress) preparednessScore += 30;
 
   // Resilience score bonus (0-20 points)
@@ -391,11 +409,17 @@ async function calculatePreparedness(
 /**
  * Calculate defense score from disaster-specific defensive structures
  */
-function calculateDefenseScore(structures: SettlementStructure[], disasterType: string): number {
+function calculateDefenseScore(
+  structures: Array<Record<string, unknown>>,
+  disasterType: string
+): number {
   let score = 0;
 
   for (const structure of structures) {
-    const resistances = STRUCTURE_RESISTANCES[structure.buildingType] || {};
+    const struct = Array.isArray(structure.structure)
+      ? structure.structure[0]
+      : structure.structure;
+    const resistances = STRUCTURE_RESISTANCES[struct?.buildingType || 'HOUSE'] || {};
 
     // Check specific resistance
     if (resistances[disasterType]) {
@@ -439,6 +463,9 @@ async function applyStructureDamage(
   // Query all structures in settlement
   const structures = await db.query.settlementStructures.findMany({
     where: eq(settlementStructures.settlementId, settlementId),
+    with: {
+      structure: true,
+    },
   });
 
   for (const structure of structures) {
@@ -446,7 +473,10 @@ async function applyStructureDamage(
 
     // Calculate structure-specific resistance
     let resistance = 0;
-    const resistances = STRUCTURE_RESISTANCES[structure.buildingType] || {};
+    const struct = Array.isArray(structure.structure)
+      ? structure.structure[0]
+      : structure.structure;
+    const resistances = STRUCTURE_RESISTANCES[struct?.buildingType || 'HOUSE'] || {};
 
     if (resistances[disasterType]) {
       resistance = resistances[disasterType];
@@ -468,14 +498,14 @@ async function applyStructureDamage(
     if (newHealth === 0) {
       destroyed.push({
         structureId: structure.id,
-        name: structure.name || structure.buildingType,
+        name: struct?.name || struct?.buildingType || 'Unknown',
         oldHealth,
         newHealth,
       });
     } else if (newHealth < oldHealth) {
       damaged.push({
         structureId: structure.id,
-        name: structure.name || structure.buildingType,
+        name: struct?.name || struct?.buildingType || 'Unknown',
         oldHealth,
         newHealth,
       });
@@ -513,10 +543,16 @@ async function calculateCasualties(
   // Query structures for shelter capacity
   const structures = await db.query.settlementStructures.findMany({
     where: eq(settlementStructures.settlementId, settlement.id),
+    with: {
+      structure: true,
+    },
   });
 
   const shelterCapacity = structures
-    .filter((s) => s.buildingType === 'EMERGENCY_SHELTER')
+    .filter((s) => {
+      const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+      return struct?.buildingType === 'EMERGENCY_SHELTER';
+    })
     .reduce((sum, s) => sum + 50 * s.level, 0);
 
   // Calculate unsheltered population
@@ -529,7 +565,10 @@ async function calculateCasualties(
   const baseCasualties = unsheltered * (netDamage / 100) * multiplier;
 
   // Apply hospital treatment
-  const hospital = structures.find((s) => s.buildingType === 'HOSPITAL');
+  const hospital = structures.find((s) => {
+    const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+    return struct?.buildingType === 'HOSPITAL';
+  });
   let hospitalSaveRate = 0;
 
   if (hospital) {

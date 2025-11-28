@@ -12,17 +12,11 @@ import {
   type NoiseOptions,
 } from './world-generator.js';
 import {
-  generatePlotResources,
-  determinePlotsTotal,
-  type Biome as BiomeType,
-  type Tile as TileType,
-} from './resource-generator.js';
-import {
   calculateResourceQuality,
   calculatePlotSlots,
   determineSpecialResource,
 } from '../utils/resource-quality.js';
-import { db, worlds, regions, tiles, plots } from '../db/index.js';
+import { db, worlds, regions, tiles } from '../db/index.js';
 import { getAllBiomes, findBiome } from '../db/queries.js';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -42,7 +36,6 @@ export interface WorldCreationResult {
   worldId: string;
   regionCount: number;
   tileCount: number;
-  plotCount: number;
   duration: number;
 }
 
@@ -177,45 +170,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
 
   logger.info('[WORLD CREATE] Generated tiles', { tileCount: tileRecords.length });
 
-  // Step 6: Create plots
-  const plotRecords: Array<{
-    id: string;
-    tileId: string;
-    area: number;
-    solar: number;
-    wind: number;
-    food: number;
-    water: number;
-    wood: number;
-    stone: number;
-    ore: number;
-  }> = [];
-
-  for (const tile of tileRecords) {
-    const biome = biomes.find((b) => b.id === tile.biomeId);
-    if (!biome) continue;
-
-    const tileData: TileType = {
-      elevation: tile.elevation,
-      precipitation: tile.precipitation,
-      temperature: tile.temperature,
-    };
-
-    const plotsTotal = determinePlotsTotal(tileData, biome as BiomeType);
-
-    for (let i = 0; i < plotsTotal; i++) {
-      const resources = generatePlotResources(tileData, biome as BiomeType);
-      plotRecords.push({
-        id: createId(),
-        tileId: tile.id,
-        ...resources,
-      });
-    }
-  }
-
-  logger.info('[WORLD CREATE] Generated plots', { plotCount: plotRecords.length });
-
-  // Step 7: Save everything to database in a transaction
+  // Step 6: Save everything to database in a transaction
   logger.info('[WORLD CREATE] Saving to database...');
 
   await db.transaction(async (tx) => {
@@ -237,13 +192,6 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
       const batch = tileRecords.slice(i, i + tileBatchSize);
       await tx.insert(tiles).values(batch);
     }
-
-    // Insert plots in batches
-    const plotBatchSize = 1000;
-    for (let i = 0; i < plotRecords.length; i += plotBatchSize) {
-      const batch = plotRecords.slice(i, i + plotBatchSize);
-      await tx.insert(plots).values(batch);
-    }
   });
 
   const duration = Date.now() - startTime;
@@ -252,7 +200,6 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     worldId,
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
-    plotCount: plotRecords.length,
     durationMs: duration,
     durationFormatted: `${(duration / 1000).toFixed(2)}s`,
   });
@@ -261,7 +208,6 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     worldId,
     regionCount: regionRecords.length,
     tileCount: tileRecords.length,
-    plotCount: plotRecords.length,
     duration,
   };
 }

@@ -96,12 +96,10 @@ async function completeConstruction(
       .values({
         id: createId(),
         settlementId: settlement.id,
-        name: construction.structureType, // e.g., 'Farm', 'House'
-        category: getStructureCategory(construction.structureType),
-        buildingType: construction.structureType,
+        structureId: construction.structureType, // FK to structures table
         level: 1,
         health: 100, // Structures start at full health
-        staffed: false, // Population assignment (future)
+        populationAssigned: 0, // Population assignment (future)
       })
       .returning();
 
