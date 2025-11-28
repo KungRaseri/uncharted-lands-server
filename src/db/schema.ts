@@ -378,46 +378,9 @@ export const tiles = pgTable(
   ]
 );
 
-// @ts-expect-error - Circular reference with tiles and settlementStructures is expected and works at runtime
-export const plots = pgTable(
-  'Plot',
-  {
-    id: text('id').primaryKey(),
-    tileId: text('tileId')
-      .notNull()
-      // @ts-expect-error - Circular reference
-      .references(() => tiles.id, { onDelete: 'cascade' }),
-    // Plot position on tile (0-15 for 4x4 grid, but actual slots determined by plotSlots)
-    position: integer('position').notNull().default(0),
-    // Resource extraction
-    resourceType: resourceTypeEnum('resourceType'),
-    baseProductionRate: doublePrecision('baseProductionRate').notNull().default(0),
-    qualityMultiplier: doublePrecision('qualityMultiplier').notNull().default(1),
-    // Accumulation tracking
-    lastHarvested: timestamp('lastHarvested', { mode: 'date' }),
-    accumulatedResources: doublePrecision('accumulatedResources').notNull().default(0),
-    // Legacy modifiers (keep for now, may deprecate later)
-    area: integer('area').notNull().default(30),
-    solar: integer('solar').notNull().default(1),
-    wind: integer('wind').notNull().default(1),
-    food: integer('food').notNull().default(1),
-    water: integer('water').notNull().default(1),
-    wood: integer('wood').notNull().default(1),
-    stone: integer('stone').notNull().default(1),
-    ore: integer('ore').notNull().default(1),
-    // @ts-expect-error - Circular reference with settlementStructures is expected and works at runtime
-    structureId: text('structureId').references(() => settlementStructures.id, {
-      onDelete: 'set null',
-    }),
-    settlementId: text('settlementId').references(() => settlements.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
-    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
-  },
-  (table) => [
-    index('Plot_tileId_idx').on(table.tileId),
-    index('Plot_settlementId_idx').on(table.settlementId),
-  ]
-);
+// ❌ PLOT TABLE REMOVED (Schema Refactor - November 28, 2025)
+// Plots are no longer needed - settlements claim tiles directly
+// See: client/docs/game-design/SCHEMA-REFACTOR-ARTIFACT.md
 
 export const settlementStorage = pgTable(
   'SettlementStorage',
@@ -519,7 +482,7 @@ export const structurePrerequisites = pgTable(
   ]
 );
 
-// @ts-expect-error - Circular reference with plots is expected and works at runtime
+// @ts-expect-error - Circular reference with tiles is expected and works at runtime
 export const settlementStructures = pgTable(
   'SettlementStructure',
   {
@@ -529,13 +492,14 @@ export const settlementStructures = pgTable(
       .references(() => structures.id, { onDelete: 'restrict' }),
     settlementId: text('settlementId')
       .notNull()
-      // @ts-expect-error - Circular reference with plots
+      // @ts-expect-error - Circular reference
       .references(() => settlements.id, { onDelete: 'cascade' }),
     level: integer('level').notNull().default(1),
-    // Plot linkage for extractors
-    plotId: text('plotId')
-      // @ts-expect-error - Circular reference with plots
-      .references(() => plots.id, { onDelete: 'cascade' }),
+    // ✅ CHANGED: Tile linkage for extractors (replaces plotId)
+    // Extractors are built on specific tiles, in specific slots (0 to plotSlots-1)
+    // @ts-expect-error - Circular reference with tiles
+    tileId: text('tileId').references(() => tiles.id, { onDelete: 'cascade' }),
+    slotPosition: integer('slotPosition'), // Which slot on the tile (0 to plotSlots-1)
     // Population assignment for structure staffing
     populationAssigned: integer('populationAssigned').notNull().default(0),
     // Structure health system (0-100, for disaster damage tracking)
@@ -548,7 +512,7 @@ export const settlementStructures = pgTable(
   (table) => [
     index('SettlementStructure_settlementId_idx').on(table.settlementId),
     index('SettlementStructure_structureId_idx').on(table.structureId),
-    index('SettlementStructure_plotId_idx').on(table.plotId),
+    index('SettlementStructure_tileId_idx').on(table.tileId), // ✅ NEW INDEX
   ]
 );
 
@@ -630,7 +594,7 @@ export const biomesRelations = relations(biomes, ({ many }) => ({
   tiles: many(tiles),
 }));
 
-export const tilesRelations = relations(tiles, ({ one, many }) => ({
+export const tilesRelations = relations(tiles, ({ one }) => ({
   biome: one(biomes, {
     fields: [tiles.biomeId],
     references: [biomes.id],
@@ -643,23 +607,10 @@ export const tilesRelations = relations(tiles, ({ one, many }) => ({
     fields: [tiles.settlementId],
     references: [settlements.id],
   }),
-  plots: many(plots),
+  // ❌ REMOVED: plots relation (Plot table deleted)
 }));
 
-export const plotsRelations = relations(plots, ({ one }) => ({
-  tile: one(tiles, {
-    fields: [plots.tileId],
-    references: [tiles.id],
-  }),
-  settlement: one(settlements, {
-    fields: [plots.settlementId],
-    references: [settlements.id],
-  }),
-  structure: one(settlementStructures, {
-    fields: [plots.structureId],
-    references: [settlementStructures.id],
-  }),
-}));
+// ❌ REMOVED: plotsRelations (Plot table deleted)
 
 export const settlementStorageRelations = relations(settlementStorage, ({ one }) => ({
   settlement: one(settlements, {
@@ -682,7 +633,7 @@ export const settlementsRelations = relations(settlements, ({ one, many }) => ({
     references: [profiles.id],
   }),
   structures: many(settlementStructures),
-  plots: many(plots),
+  // ❌ REMOVED: plots: many(plots) - Plot table deleted
 }));
 
 export const structureRequirementsRelations = relations(structureRequirements, ({ one }) => ({
@@ -718,10 +669,11 @@ export const settlementStructuresRelations = relations(settlementStructures, ({ 
     fields: [settlementStructures.settlementId],
     references: [settlements.id],
   }),
-  plot: one(plots, {
-    fields: [settlementStructures.plotId],
-    references: [plots.id],
+  tile: one(tiles, {
+    fields: [settlementStructures.tileId],
+    references: [tiles.id],
   }),
+  // ❌ REMOVED: plot: one(plots, ...) - Plot table deleted, using tileId instead
   modifiers: many(structureModifiers),
 }));
 
@@ -947,8 +899,7 @@ export type NewBiome = typeof biomes.$inferInsert;
 export type Tile = typeof tiles.$inferSelect;
 export type NewTile = typeof tiles.$inferInsert;
 
-export type Plot = typeof plots.$inferSelect;
-export type NewPlot = typeof plots.$inferInsert;
+// ❌ REMOVED: Plot and NewPlot types - Plot table deleted
 
 export type SettlementStorage = typeof settlementStorage.$inferSelect;
 export type NewSettlementStorage = typeof settlementStorage.$inferInsert;
