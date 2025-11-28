@@ -9,17 +9,10 @@
 
 import { Router, Request, Response } from 'express';
 import { eq } from 'drizzle-orm';
-import {
-  db,
-  settlementStructures,
-  settlements,
-  plots,
-  worlds,
-  structures,
-} from '../../db/index.js';
+import { db, settlementStructures, settlements, structures } from '../../db/index.js';
+import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
-import type { WorldTemplateType } from '../../types/world-templates.js';
 import { createId } from '@paralleldrive/cuid2';
 import {
   validateAndDeductResources,
@@ -87,7 +80,6 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       with: {
         structure: true,
         settlement: true,
-        plot: true,
         modifiers: true,
       },
     });
@@ -101,14 +93,15 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
     }
 
     // Flatten master structure fields into response
+    const structureDef = structure.structure as Structure | undefined;
     const response = {
       ...structure,
-      name: structure.structure?.name,
-      description: structure.structure?.description,
-      category: structure.structure?.category,
-      buildingType: structure.structure?.buildingType,
-      extractorType: structure.structure?.extractorType,
-      maxLevel: structure.structure?.maxLevel,
+      name: structureDef?.name,
+      description: structureDef?.description,
+      category: structureDef?.category,
+      buildingType: structureDef?.buildingType,
+      extractorType: structureDef?.extractorType,
+      maxLevel: structureDef?.maxLevel,
     };
 
     return res.json(response);
@@ -285,7 +278,8 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
     }
 
     // Verify user owns the settlement
-    if (!req.user || structure.settlement?.playerProfileId !== req.user.profileId) {
+    const settlementData = structure.settlement as Settlement | undefined;
+    if (!req.user || settlementData?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
@@ -303,53 +297,14 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
       .where(eq(settlementStructures.id, id))
       .returning();
 
-    // If it's an extractor, also update the plot's production rate
-    if (structure.structure?.category === 'EXTRACTOR' && structure.plotId) {
-      const plot = await db.query.plots.findFirst({
-        where: eq(plots.id, structure.plotId),
-        with: {
-          tile: {
-            with: {
-              biome: true,
-            },
-          },
-        },
-      });
+    // Note: Extractor upgrades no longer update Plot production rates
+    // (Plot table removed - production now calculated from Tile quality fields)
 
-      if (plot?.resourceType && structure.structure.extractorType) {
-        const { calculateProductionRate } = await import('../../utils/resource-production.js');
-
-        // Phase 1D: Load world template for production multiplier
-        const { getWorldTemplateConfig } = await import('../../types/world-templates.js');
-        const world = await db.query.worlds.findFirst({
-          where: eq(worlds.id, structure.settlement.worldId),
-        });
-        const worldTemplate = getWorldTemplateConfig(
-          (world?.worldTemplateType as WorldTemplateType) || 'STANDARD'
-        );
-
-        const newProductionRate = calculateProductionRate({
-          resourceType: plot.resourceType,
-          extractorType: structure.structure.extractorType,
-          biomeName: plot.tile?.biome?.name || '',
-          structureLevel: nextLevel,
-          worldTemplateMultiplier: worldTemplate.productionMultiplier,
-        });
-
-        await db
-          .update(plots)
-          .set({
-            baseProductionRate: newProductionRate,
-            updatedAt: new Date(),
-          })
-          .where(eq(plots.id, structure.plotId));
-      }
-    }
-
+    const structureDef = structure.structure as Structure | undefined;
     logger.info('[API] Structure upgraded', {
       structureId: id,
       level: nextLevel,
-      category: structure.structure?.category,
+      category: structureDef?.category,
     });
 
     return res.json(upgraded);
@@ -375,21 +330,23 @@ router.get('/by-settlement/:settlementId', authenticate, async (req: Request, re
       where: eq(settlementStructures.settlementId, settlementId),
       with: {
         structure: true,
-        plot: true,
         modifiers: true,
       },
     });
 
     // Flatten master structure fields for each structure
-    const flattenedList = structureList.map((s) => ({
-      ...s,
-      name: s.structure?.name,
-      description: s.structure?.description,
-      category: s.structure?.category,
-      buildingType: s.structure?.buildingType,
-      extractorType: s.structure?.extractorType,
-      maxLevel: s.structure?.maxLevel,
-    }));
+    const flattenedList = structureList.map((s) => {
+      const structureDef = s.structure as Structure | undefined;
+      return {
+        ...s,
+        name: structureDef?.name,
+        description: structureDef?.description,
+        category: structureDef?.category,
+        buildingType: structureDef?.buildingType,
+        extractorType: structureDef?.extractorType,
+        maxLevel: structureDef?.maxLevel,
+      };
+    });
 
     return res.json(flattenedList);
   } catch (error) {
@@ -430,7 +387,8 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     }
 
     // Verify user owns the settlement
-    if (!req.user || structure.settlement?.playerProfileId !== req.user.profileId) {
+    const settlementData = structure.settlement as Settlement | undefined;
+    if (!req.user || settlementData?.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
@@ -441,15 +399,16 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
     // Delete structure (cascade will handle requirements)
     await db.delete(settlementStructures).where(eq(settlementStructures.id, id));
 
+    const structureDef = structure.structure as Structure | undefined;
     logger.info('[API] Structure demolished', {
       structureId: id,
       settlementId: structure.settlementId,
-      type: structure.structure?.category,
+      type: structureDef?.category,
     });
 
     return res.json({
       success: true,
-      message: `${structure.structure?.name || 'Structure'} demolished`,
+      message: `${structureDef?.name || 'Structure'} demolished`,
     });
   } catch (error) {
     logger.error('[API] Failed to demolish structure', { error, structureId: req.params.id });

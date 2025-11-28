@@ -33,16 +33,26 @@
  * // Returns: 50 × 1.2 × 0.2 = 12 units/tick
  *
  * @example
- * // Plot with quality=80, forest wood efficiency 2.0
- * calculateBaseProduction(plot, 2.0)
- * // Returns: 80 × 2.0 × 0.2 = 32 units/tick
+ * // Tile with foodQuality=80, grassland food efficiency 1.2
+ * calculateBaseProduction('food', tile, 1.2)
+ * // Returns: (80/100) × 1.2 × 0.2 = 0.192 units/tick
  */
-function calculateBaseProduction(plot: Plot, biomeEfficiency: number): number {
-  // BLOCKER 2: baseProductionRate defaults to 1 if not set (standard production rate)
-  // Schema defaults to 0, but 0 would mean no production at all
-  const baseRate = plot.baseProductionRate || 1;
-  const quality = plot.qualityMultiplier || 1;
-  return baseRate * quality * biomeEfficiency * 0.2;
+function calculateBaseProduction(
+  resourceType: keyof Resources,
+  tile: Tile,
+  biomeEfficiency: number
+): number {
+  // Get quality for this specific resource type (0-100 scale)
+  const qualityField = `${resourceType}Quality` as keyof Tile;
+  const quality = (tile[qualityField] as number) || 50; // Default to 50 if not set
+
+  // Convert quality to 0-1 multiplier
+  const qualityMultiplier = quality / 100;
+
+  // Get base production modifier (disaster impacts like drought)
+  const baseModifier = tile.baseProductionModifier || 1;
+
+  return qualityMultiplier * biomeEfficiency * baseModifier * 0.2;
 }
 
 /**
@@ -72,7 +82,7 @@ function getExtractorTierMultiplier(level: number): number {
   return 16; // Tier 3: Elite
 }
 
-import type { Plot, SettlementStructure } from '../db/schema.js';
+import type { Tile, SettlementStructure } from '../db/schema.js';
 import { getBiomeEfficiency } from '../config/biome-config.js';
 import { getEffectiveness } from './structure-effectiveness.js';
 
@@ -249,11 +259,11 @@ function getExtractorMultiplier(extractorType: string, level: number): number {
  *
  * @example
  * // World template with production bonus (Relaxed Mode: 1.5×)
- * const boostedProduction = calculateProduction(plot, extractors, 1, 'GRASSLAND', 1.5);
+ * const boostedProduction = calculateProduction(tile, extractors, 1, 'GRASSLAND', 1.5);
  * console.log(boostedProduction.food); // e.g., 90 food/tick (60 × 1.5)
  */
 export function calculateProduction(
-  plot: Plot,
+  tile: Tile,
   extractors: StructureWithInfo[],
   tickCount: number = 1,
   biomeName?: string | null,
@@ -276,16 +286,21 @@ export function calculateProduction(
   const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
 
   for (const resourceType of resourceTypes) {
-    // Check if plot has this resource (legacy field - 0 means no resource available)
-    // BLOCKER 2: baseProductionRate applies to all resources, but only if plot has them
-    const plotResourceValue = plot[resourceType] || 0;
-    if (plotResourceValue === 0) {
-      // Plot doesn't have this resource - skip
+    // Check if tile has this resource (quality > 0 means resource available)
+    const qualityField = `${resourceType}Quality` as keyof Tile;
+    const resourceQuality = (tile[qualityField] as number) || 0;
+
+    if (resourceQuality === 0) {
+      // Tile doesn't have this resource - skip
       continue;
     }
 
     // Step 1: Calculate base production (20% of max potential - ALWAYS active)
-    const baseProduction = calculateBaseProduction(plot, biomeEfficiency[resourceType]);
+    const baseProduction = calculateBaseProduction(
+      resourceType,
+      tile,
+      biomeEfficiency[resourceType]
+    );
 
     // Step 2: Find extractor for this specific resource (if any)
     // If multiple extractors of same type, use HIGHEST level only
@@ -327,8 +342,8 @@ export function calculateProduction(
 /**
  * Calculate time-based production since last collection
  *
- * @param plot - The plot where the settlement is located
- * @param extractors - Extractor structures on this plot (must include category and extractorType)
+ * @param tile - The tile where the settlement is located
+ * @param extractors - Extractor structures on this tile (must include category and extractorType)
  * @param lastCollectionTime - Timestamp of last collection (in milliseconds)
  * @param currentTime - Current timestamp (in milliseconds)
  * @param biomeName - Name of the biome (for efficiency multiplier)
@@ -336,7 +351,7 @@ export function calculateProduction(
  * @returns Total resources produced since last collection
  */
 export function calculateTimedProduction(
-  plot: Plot,
+  tile: Tile,
   extractors: StructureWithInfo[],
   lastCollectionTime: number,
   currentTime: number = Date.now(),
@@ -350,7 +365,7 @@ export function calculateTimedProduction(
   const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
 
   // Calculate production for elapsed ticks
-  return calculateProduction(plot, extractors, ticksElapsed, biomeName, worldTemplateMultiplier);
+  return calculateProduction(tile, extractors, ticksElapsed, biomeName, worldTemplateMultiplier);
 }
 
 /**
@@ -453,8 +468,8 @@ export function calculateConsumption(
 /**
  * Calculate net production (production - consumption)
  *
- * @param plot - The plot where the settlement is located
- * @param extractors - Extractor structures on this plot (must include category and extractorType)
+ * @param tile - The tile where the settlement is located
+ * @param extractors - Extractor structures on this tile (must include category and extractorType)
  * @param populationCount - Number of people in settlement
  * @param structureCount - Number of structures
  * @param tickCount - Number of ticks elapsed
@@ -462,14 +477,14 @@ export function calculateConsumption(
  * @returns Net resources (can be negative if consumption exceeds production)
  */
 export function calculateNetProduction(
-  plot: Plot,
+  tile: Tile,
   extractors: StructureWithInfo[],
   populationCount: number = 0,
   structureCount: number = 0,
   tickCount: number = 1,
   biomeName?: string | null
 ): Resources {
-  const production = calculateProduction(plot, extractors, tickCount, biomeName);
+  const production = calculateProduction(tile, extractors, tickCount, biomeName);
   const consumption = calculateConsumption(populationCount, structureCount);
 
   return {

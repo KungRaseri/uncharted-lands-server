@@ -265,7 +265,7 @@ async function processSettlement(
     // Fetch settlement details
     const settlementData = await getSettlementWithDetails(settlement.settlementId);
 
-    if (!settlementData?.settlement || !settlementData.storage || !settlementData.plot) {
+    if (!settlementData?.settlement || !settlementData.storage || !settlementData.tile) {
       logger.warn('[GAME LOOP] Settlement data incomplete, removing from active list', {
         settlementId: settlement.settlementId,
       });
@@ -273,7 +273,7 @@ async function processSettlement(
       return;
     }
 
-    const { storage, plot, biome, world } = settlementData;
+    const { storage, tile, biome, world } = settlementData;
     const worldTemplateType = world?.worldTemplateType || 'STANDARD';
 
     // Get template config and extract multipliers (Phase 1D)
@@ -287,7 +287,7 @@ async function processSettlement(
     // Transform structure data into format expected by calculators
     const structures: Structure[] = structureData
       .map((row) => ({
-        name: row.structure.name,
+        name: row.structureDef?.name || 'Unknown',
         modifiers: structureData
           .filter((r) => r.structure.id === row.structure.id && r.modifiers)
           .map((r) => ({
@@ -301,10 +301,10 @@ async function processSettlement(
           index === self.findIndex((s) => s.name === struct.name)
       );
 
-    // Filter extractors on this specific plot (BLOCKER 2 FIX)
+    // Filter extractors on this specific tile (BLOCKER 2 FIX)
     const extractors = structureData
       .filter(
-        (row) => row.structure.plotId === plot.id && row.structureDef?.category === 'EXTRACTOR'
+        (row) => row.structure.tileId === tile.id && row.structureDef?.category === 'EXTRACTOR'
       )
       .map((row) => ({
         ...row.structure,
@@ -358,7 +358,7 @@ async function processSettlement(
 
     // Calculate base production for those ticks (GDD formula now applied with biome efficiency and world template multiplier)
     const baseProduction = calculateProduction(
-      plot,
+      tile,
       extractors,
       ticksSinceUpdate,
       biome?.name,

@@ -23,7 +23,6 @@ import {
   regions,
   biomes,
   tiles,
-  plots,
 } from './index.js';
 
 // ===========================
@@ -90,21 +89,20 @@ export async function getPlayerSettlements(profileId: string) {
 }
 
 /**
- * Get settlement with storage and plot details
+ * Get settlement with storage and tile details
  */
 export async function getSettlementWithDetails(settlementId: string) {
   const [settlement] = await db
     .select({
       settlement: settlements,
       storage: settlementStorage,
-      plot: plots,
+      tile: tiles,
       biome: biomes,
       world: worlds,
     })
     .from(settlements)
     .leftJoin(settlementStorage, eq(settlements.settlementStorageId, settlementStorage.id))
-    .leftJoin(tiles, eq(settlements.tileId, tiles.id)) // FIXED: Changed from settlements.plotId to settlements.tileId
-    .leftJoin(plots, eq(plots.tileId, tiles.id)) // FIXED: Join plots via tiles (many plots per tile)
+    .leftJoin(tiles, eq(settlements.tileId, tiles.id))
     .leftJoin(biomes, eq(tiles.biomeId, biomes.id))
     .leftJoin(regions, eq(tiles.regionId, regions.id))
     .leftJoin(worlds, eq(regions.worldId, worlds.id))

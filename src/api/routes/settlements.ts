@@ -7,10 +7,9 @@ import {
   structureModifiers,
   profiles,
   profileServerData,
-  plots,
   tiles,
 } from '../../db/schema.js';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -263,40 +262,7 @@ router.post('/', authenticate, async (req, res) => {
       `[SETTLEMENT CREATE] Updated tile ${chosenTile.id} settlementId to ${settlementId}`
     );
 
-    // Step 7: Auto-claim plots on the tile (user requested: "they should be auto-claimed when a settlement is founded")
-    // Get plots on this tile
-    const tileChildPlots = await db.query.plots.findMany({
-      where: (plots, { eq }) => eq(plots.tileId, chosenTile.id),
-      limit: 5, // Claim first 5 plots for starting settlement
-    });
-
-    if (tileChildPlots.length === 0) {
-      logger.warn(`[SETTLEMENT CREATE] No plots found on tile ${chosenTile.id}, creating one...`);
-      // Create at least one plot so we can build the tent
-      const plotId = createId();
-      await db.insert(plots).values({
-        id: plotId,
-        tileId: chosenTile.id,
-        settlementId, // Claim it for this settlement
-        food: 5, // Default resources
-        water: 5,
-        wood: 5,
-        stone: 5,
-        ore: 1,
-      });
-      tileChildPlots.push({ id: plotId } as (typeof tileChildPlots)[0]);
-      logger.info(`[SETTLEMENT CREATE] Created plot ${plotId} on tile ${chosenTile.id}`);
-    } else {
-      // Claim existing plots
-      const plotIds = tileChildPlots.map((p) => p.id);
-      await db.update(plots).set({ settlementId }).where(inArray(plots.id, plotIds));
-
-      logger.info(
-        `[SETTLEMENT CREATE] Claimed ${plotIds.length} plots for settlement ${settlementId}`
-      );
-    }
-
-    // Step 8: Create starting TENT structure on first plot
+    // Step 7: Create starting TENT structure on tile slot 0
     // First, look up the master "Tent" structure definition
     const tentMaster = await db.query.structures.findFirst({
       where: (structures, { eq }) => eq(structures.name, 'Tent'),
@@ -309,18 +275,18 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    const firstPlot = tileChildPlots[0];
     const tentId = createId();
     await db.insert(settlementStructures).values({
       id: tentId,
       structureId: tentMaster.id, // FK to master structure definition
       settlementId: settlementId,
-      plotId: firstPlot.id, // Structure built ON A PLOT
+      tileId: chosenTile.id, // Structure built ON TILE
+      slotPosition: 0, // First slot (0-4 available)
       level: 1,
     });
 
     logger.info(
-      `[SETTLEMENT CREATE] Created starting TENT structure ${tentId} on plot ${firstPlot.id}`
+      `[SETTLEMENT CREATE] Created starting TENT structure ${tentId} on tile ${chosenTile.id} slot 0`
     );
 
     // Step 9: Create structure modifier for TENT (+5 population capacity per GDD spec)
