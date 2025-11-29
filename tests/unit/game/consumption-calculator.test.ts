@@ -10,11 +10,38 @@ import {
   calculateMorale,
   getConsumptionSummary,
   hasResourcesForPopulation,
+  verifyConsumptionRates,
   CONSUMPTION_RATES,
   type Structure,
 } from '../../../src/game/consumption-calculator.js';
 
 describe('Consumption Calculator', () => {
+  describe('GDD Compliance Verification', () => {
+    it('should match GDD consumption rates exactly', () => {
+      const result = verifyConsumptionRates();
+      expect(result).toBe(true);
+    });
+
+    it('consumption constants should match GDD Section 6.4 specifications', () => {
+      // Verify per-tick constants translate to correct hourly rates
+      const ticksPerHour = 3600; // 60 ticks/second × 60 seconds/minute × 1 minute (game time runs 60x faster)
+
+      // Population consumption (GDD Section 6.4)
+      // Food: 18 units/person/hour
+      expect(CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * ticksPerHour).toBeCloseTo(18, 2);
+      // Water: 36 units/person/hour
+      expect(CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * ticksPerHour).toBeCloseTo(36, 2);
+
+      // Structure maintenance (GDD Section 6.4)
+      // Wood: 3.6 units/structure/hour
+      expect(CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * ticksPerHour).toBeCloseTo(3.6, 2);
+      // Stone: 1.8 units/structure/hour
+      expect(CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * ticksPerHour).toBeCloseTo(1.8, 2);
+      // Ore: 0.9 units/structure/hour
+      expect(CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * ticksPerHour).toBeCloseTo(0.9, 2);
+    });
+  });
+
   describe('calculatePopulationCapacity', () => {
     it('should return base capacity with no structures', () => {
       const capacity = calculatePopulationCapacity([]);
@@ -99,17 +126,17 @@ describe('Consumption Calculator', () => {
     it('should calculate consumption for 1 person for 1 tick', () => {
       const consumption = calculateConsumption(1, 0, 1);
 
-      expect(consumption.food).toBeCloseTo(CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK);
-      expect(consumption.water).toBeCloseTo(CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK);
+      expect(consumption.food).toBeCloseTo(CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK);
+      expect(consumption.water).toBeCloseTo(CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK);
     });
 
     it('should calculate consumption for multiple people', () => {
       const population = 10;
       const consumption = calculateConsumption(population, 0, 1);
 
-      expect(consumption.food).toBeCloseTo(CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * population);
+      expect(consumption.food).toBeCloseTo(CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * population);
       expect(consumption.water).toBeCloseTo(
-        CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * population
+        CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * population
       );
     });
 
@@ -119,36 +146,35 @@ describe('Consumption Calculator', () => {
       const consumption = calculateConsumption(population, 0, ticks);
 
       expect(consumption.food).toBeCloseTo(
-        CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * population * ticks
+        CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * population * ticks
       );
       expect(consumption.water).toBeCloseTo(
-        CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * population * ticks
+        CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * population * ticks
       );
     });
 
     it('should calculate hourly consumption correctly', () => {
       const population = 10;
-      const ticksPerHour = 60 * 60 * 60; // 60 ticks/sec * 60 sec/min * 60 min/hour
+      const ticksPerHour = 3600; // 60 ticks/second × 60 seconds/minute × 1 minute
       const consumption = calculateConsumption(population, 0, ticksPerHour);
 
-      // GDD spec: 0.005 food per tick = 1,080 food/hour per person
-      // GDD spec: 0.01 water per tick = 2,160 water/hour per person
-      expect(consumption.food).toBeCloseTo(10800, 0); // 10 people * 1,080 food/hour
-      expect(consumption.water).toBeCloseTo(21600, 0); // 10 people * 2,160 water/hour
+      // GDD Section 6.4: 18 food/person/hour, 36 water/person/hour
+      expect(consumption.food).toBeCloseTo(180, 0); // 10 people × 18 food/hour
+      expect(consumption.water).toBeCloseTo(360, 0); // 10 people × 36 water/hour
     });
 
     it('should calculate structure maintenance consumption', () => {
       const structureCount = 5;
-      const ticksPerHour = 60 * 60 * 60;
+      const ticksPerHour = 3600;
       const consumption = calculateConsumption(0, structureCount, ticksPerHour);
 
-      // GDD spec: Structure maintenance per tick
-      // Wood: 0.001 per structure per tick = 216/hour per structure (0.001 * 216000)
-      // Stone: 0.0005 per structure per tick = 108/hour per structure
-      // Ore: 0.00025 per structure per tick = 54/hour per structure
-      expect(consumption.wood).toBeCloseTo(1080, 1); // 5 structures * 216/hour
-      expect(consumption.stone).toBeCloseTo(540, 1); // 5 structures * 108/hour
-      expect(consumption.ore).toBeCloseTo(270, 1); // 5 structures * 54/hour
+      // GDD Section 6.4: Structure maintenance per hour
+      // Wood: 3.6/structure/hour
+      // Stone: 1.8/structure/hour
+      // Ore: 0.9/structure/hour
+      expect(consumption.wood).toBeCloseTo(18, 1); // 5 structures × 3.6/hour
+      expect(consumption.stone).toBeCloseTo(9, 1); // 5 structures × 1.8/hour
+      expect(consumption.ore).toBeCloseTo(4.5, 1); // 5 structures × 0.9/hour
     });
   });
 
@@ -225,19 +251,18 @@ describe('Consumption Calculator', () => {
     it('should calculate per-capita rates correctly', () => {
       const summary = getConsumptionSummary([]);
 
-      // Per second = per tick * 60
+      // Per second = per tick × 60
       expect(summary.perCapitaPerSecond.food).toBeCloseTo(
-        CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * 60
+        CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 60
       );
       expect(summary.perCapitaPerSecond.water).toBeCloseTo(
-        CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * 60
+        CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 60
       );
 
-      // Per hour = per tick * 60 * 60 * 60
-      // GDD spec: 0.005 per tick = 1,080/hour per person
-      // GDD spec: 0.01 per tick = 2,160/hour per person
-      expect(summary.perCapitaPerHour.food).toBeCloseTo(1080, 0);
-      expect(summary.perCapitaPerHour.water).toBeCloseTo(2160, 0);
+      // Per hour = per tick × 3600
+      // GDD Section 6.4: 18 food/person/hour, 36 water/person/hour
+      expect(summary.perCapitaPerHour.food).toBeCloseTo(18, 0);
+      expect(summary.perCapitaPerHour.water).toBeCloseTo(36, 0);
     });
   });
 
@@ -246,11 +271,11 @@ describe('Consumption Calculator', () => {
       const population = 10;
       const structureCount = 5;
       const resources = {
-        food: 11000, // 10 people * 1,080 food/hour = 10,800 needed
-        water: 22000, // 10 people * 2,160 water/hour = 21,600 needed
-        wood: 1100, // 5 structures * 216 wood/hour = 1,080 needed
-        stone: 550, // 5 structures * 108 stone/hour = 540 needed
-        ore: 300, // 5 structures * 54 ore/hour = 270 needed
+        food: 200, // 10 people × 18 food/hour = 180 needed
+        water: 400, // 10 people × 36 water/hour = 360 needed
+        wood: 20, // 5 structures × 3.6 wood/hour = 18 needed
+        stone: 10, // 5 structures × 1.8 stone/hour = 9 needed
+        ore: 5, // 5 structures × 0.9 ore/hour = 4.5 needed
       };
 
       const sufficient = hasResourcesForPopulation(population, structureCount, resources);
@@ -261,8 +286,8 @@ describe('Consumption Calculator', () => {
       const population = 10;
       const structureCount = 0;
       const resources = {
-        food: 1000, // Not enough (need 10,800)
-        water: 22000,
+        food: 10, // Not enough (need 180)
+        water: 400,
         wood: 0,
         stone: 0,
         ore: 0,
@@ -276,8 +301,8 @@ describe('Consumption Calculator', () => {
       const population = 10;
       const structureCount = 0;
       const resources = {
-        food: 11000,
-        water: 1000, // Not enough (need 21,600)
+        food: 200,
+        water: 10, // Not enough (need 360)
         wood: 0,
         stone: 0,
         ore: 0,
@@ -304,11 +329,11 @@ describe('Consumption Calculator', () => {
       const population = 1;
       const structureCount = 1;
       const resources = {
-        food: 1080, // Exactly 1 hour for 1 person (1,080/hour)
-        water: 2160, // Exactly 1 hour for 1 person (2,160/hour)
-        wood: 216, // Exactly 1 hour for 1 structure (216/hour)
-        stone: 108, // Exactly 1 hour for 1 structure (108/hour)
-        ore: 54, // Exactly 1 hour for 1 structure (54/hour)
+        food: 18, // Exactly 1 hour for 1 person (18/hour)
+        water: 36, // Exactly 1 hour for 1 person (36/hour)
+        wood: 3.6, // Exactly 1 hour for 1 structure (3.6/hour)
+        stone: 1.8, // Exactly 1 hour for 1 structure (1.8/hour)
+        ore: 0.9, // Exactly 1 hour for 1 structure (0.9/hour)
       };
 
       const sufficient = hasResourcesForPopulation(population, structureCount, resources);

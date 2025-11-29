@@ -3,8 +3,18 @@
  *
  * Calculates resource consumption for settlements including:
  * - Population food/water consumption
- * - Structure maintenance costs (future)
- * - Resource decay/spoilage (future)
+ * - Structure maintenance costs
+ *
+ * GDD Spec (Section 6.4 - Resource Consumption Balance):
+ * - Food: 18 units per person per hour
+ * - Water: 36 units per person per hour
+ * - Wood: ~3.6 units per structure per hour
+ * - Stone: ~1.8 units per structure per hour
+ * - Ore: ~0.9 units per structure per hour
+ *
+ * Implementation:
+ * Game loop runs at 60 ticks/second (3,600 ticks/hour)
+ * Therefore, per-tick consumption = (hourly rate) / 3,600
  */
 
 import type { Resources } from './resource-calculator.js';
@@ -13,27 +23,40 @@ import type { Resources } from './resource-calculator.js';
  * Per-capita consumption rates per tick (60 ticks per second)
  * Based on GDD specifications (Section 6.4)
  *
- * Food:  0.005 units per person per tick  = 18 units/hour = 432 units/day
- * Water: 0.010 units per person per tick  = 36 units/hour = 864 units/day
+ * Population Consumption:
+ * - Food:  0.005 units/person/tick = 18 units/person/hour = 432 units/person/day
+ * - Water: 0.010 units/person/tick = 36 units/person/hour = 864 units/person/day
  *
- * Note: These rates are balanced for sustainable settlements.
- * A settlement of 10 population consumes 180 food and 360 water per hour.
- * A settlement of 100 population consumes 1,800 food and 3,600 water per hour.
+ * Structure Maintenance:
+ * - Wood:  0.001 units/structure/tick = 3.6 units/structure/hour
+ * - Stone: 0.0005 units/structure/tick = 1.8 units/structure/hour
+ * - Ore:   0.00025 units/structure/tick = 0.9 units/structure/hour
+ *
+ * Example: Settlement with 10 population, 5 structures
+ * - Hourly food: 10 × 18 = 180 units
+ * - Hourly water: 10 × 36 = 360 units
+ * - Hourly wood: 5 × 3.6 = 18 units
+ * - Hourly stone: 5 × 1.8 = 9 units
+ * - Hourly ore: 5 × 0.9 = 4.5 units
  */
 export const CONSUMPTION_RATES = {
-  /** Food consumed per person per tick (GDD spec: 0.005) */
-  FOOD_PER_CAPITA_PER_TICK: 0.005,
+  /** Food consumed per person per tick (GDD spec: 18/hour) */
+  FOOD_PER_PERSON_PER_TICK: 18 / 3600,
 
-  /** Water consumed per person per tick (GDD spec: 0.01) */
-  WATER_PER_CAPITA_PER_TICK: 0.01,
+  /** Water consumed per person per tick (GDD spec: 36/hour) */
+  WATER_PER_PERSON_PER_TICK: 36 / 3600,
 
   /** Base population capacity without structures */
   BASE_POPULATION_CAPACITY: 10,
 
-  /** Structure maintenance rates per tick */
-  WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.001, // 3.6 wood/hour per structure
-  STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.0005, // 1.8 stone/hour per structure
-  ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK: 0.00025, // 0.9 ore/hour per structure
+  /** Wood maintenance per structure per tick (GDD spec: 3.6/hour) */
+  WOOD_PER_STRUCTURE_PER_TICK: 3.6 / 3600,
+
+  /** Stone maintenance per structure per tick (GDD spec: 1.8/hour) */
+  STONE_PER_STRUCTURE_PER_TICK: 1.8 / 3600,
+
+  /** Ore maintenance per structure per tick (GDD spec: 0.9/hour) */
+  ORE_PER_STRUCTURE_PER_TICK: 0.9 / 3600,
 };
 
 /**
@@ -111,16 +134,16 @@ export function calculateConsumption(
   worldTemplateMultiplier: number = 1
 ): Resources {
   // Calculate base consumption rates
-  const baseFoodConsumption = population * CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * tickCount;
-  const baseWaterConsumption = population * CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * tickCount;
+  const baseFoodConsumption = population * CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * tickCount;
+  const baseWaterConsumption = population * CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * tickCount;
 
-  // Structure maintenance costs (GDD Section 4.6.2)
+  // Structure maintenance costs (GDD Section 6.4)
   const baseWoodMaintenance =
-    structureCount * CONSUMPTION_RATES.WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
+    structureCount * CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * tickCount;
   const baseStoneMaintenance =
-    structureCount * CONSUMPTION_RATES.STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
+    structureCount * CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * tickCount;
   const baseOreMaintenance =
-    structureCount * CONSUMPTION_RATES.ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK * tickCount;
+    structureCount * CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * tickCount;
 
   // Apply world template multiplier (Phase 1D)
   return {
@@ -175,17 +198,17 @@ export function getConsumptionSummary(structures: Structure[], currentPopulation
     consumption,
     morale,
     perCapitaPerSecond: {
-      food: CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * 60,
-      water: CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * 60,
+      food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 60,
+      water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 60,
     },
     perCapitaPerHour: {
-      food: CONSUMPTION_RATES.FOOD_PER_CAPITA_PER_TICK * 60 * 60 * 60,
-      water: CONSUMPTION_RATES.WATER_PER_CAPITA_PER_TICK * 60 * 60 * 60,
+      food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 3600,
+      water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 3600,
     },
     perStructurePerHour: {
-      wood: CONSUMPTION_RATES.WOOD_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
-      stone: CONSUMPTION_RATES.STONE_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
-      ore: CONSUMPTION_RATES.ORE_MAINTENANCE_PER_STRUCTURE_PER_TICK * 60 * 60 * 60,
+      wood: CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * 3600,
+      stone: CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * 3600,
+      ore: CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * 3600,
     },
   };
 }
@@ -204,8 +227,9 @@ export function hasResourcesForPopulation(
   structureCount: number,
   resources: Resources
 ): boolean {
-  // Calculate consumption for 1 hour (60 * 60 * 60 ticks)
-  const hourlyConsumption = calculateConsumption(population, structureCount, 60 * 60 * 60);
+  // Calculate consumption for 1 hour (3,600 ticks)
+  // Game time runs 60x faster: 60 ticks/sec × 60 seconds = 3,600 ticks/hour
+  const hourlyConsumption = calculateConsumption(population, structureCount, 3600);
 
   return (
     resources.food >= hourlyConsumption.food &&
@@ -214,4 +238,46 @@ export function hasResourcesForPopulation(
     resources.stone >= hourlyConsumption.stone &&
     resources.ore >= hourlyConsumption.ore
   );
+}
+
+/**
+ * Verify consumption rates match GDD specification
+ * Used for testing and validation
+ *
+ * @returns True if all consumption rates match GDD spec within tolerance
+ */
+export function verifyConsumptionRates(): boolean {
+  // Test case: 100 population, 10 structures, 1 hour (3,600 ticks)
+  const population = 100;
+  const structureCount = 10;
+  const ticksPerHour = 3600;
+
+  const consumption = calculateConsumption(population, structureCount, ticksPerHour);
+
+  // Expected values (GDD Section 6.4):
+  const expectedFood = 100 * 18; // 1,800 food/hour
+  const expectedWater = 100 * 36; // 3,600 water/hour
+  const expectedWood = 10 * 3.6; // 36 wood/hour
+  const expectedStone = 10 * 1.8; // 18 stone/hour
+  const expectedOre = 10 * 0.9; // 9 ore/hour
+
+  // Verify (allow 0.01% tolerance for floating point precision)
+  const tolerance = 0.01;
+  const foodMatch = Math.abs(consumption.food - expectedFood) < tolerance;
+  const waterMatch = Math.abs(consumption.water - expectedWater) < tolerance;
+  const woodMatch = Math.abs(consumption.wood - expectedWood) < tolerance;
+  const stoneMatch = Math.abs(consumption.stone - expectedStone) < tolerance;
+  const oreMatch = Math.abs(consumption.ore - expectedOre) < tolerance;
+
+  if (!foodMatch || !waterMatch || !woodMatch || !stoneMatch || !oreMatch) {
+    console.error('Consumption rate verification failed:', {
+      food: { actual: consumption.food, expected: expectedFood, match: foodMatch },
+      water: { actual: consumption.water, expected: expectedWater, match: waterMatch },
+      wood: { actual: consumption.wood, expected: expectedWood, match: woodMatch },
+      stone: { actual: consumption.stone, expected: expectedStone, match: stoneMatch },
+      ore: { actual: consumption.ore, expected: expectedOre, match: oreMatch },
+    });
+  }
+
+  return foodMatch && waterMatch && woodMatch && stoneMatch && oreMatch;
 }
