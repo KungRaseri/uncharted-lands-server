@@ -176,24 +176,6 @@ export const BUILDING_STAFFING: Record<BuildingType, StaffingRequirement> = {
     priority: 4, // Lower priority (trade not critical early)
     description: 'Merchants facilitate trade and commerce',
   },
-
-  // ===== MILITARY (Future Implementation) =====
-
-  BARRACKS: {
-    required: 2,
-    optional: 5, // Max 7 workers total
-    bonusPerWorker: 0.12, // +12% military training speed (future)
-    priority: 3, // Lower priority in current peaceful PvE focus
-    description: 'Soldiers train and maintain defenses',
-  },
-
-  WALL: {
-    required: 1,
-    optional: 2, // Max 3 workers total
-    bonusPerWorker: 0.08, // +8% defense bonus (future)
-    priority: 3, // Lower priority (defensive structure)
-    description: 'Guards patrol and maintain fortifications',
-  },
 };
 
 /**

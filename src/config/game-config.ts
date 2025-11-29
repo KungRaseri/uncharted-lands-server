@@ -203,11 +203,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   buildingDisplay: [
     { type: 'HOUSE', name: 'House', icon: '🏠', description: 'Housing for settlers' },
     { type: 'STORAGE', name: 'Storage', icon: '📦', description: 'Stores resources' },
-    { type: 'BARRACKS', name: 'Barracks', icon: '⚔️', description: 'Trains military units' },
     { type: 'WORKSHOP', name: 'Workshop', icon: '🔨', description: 'Crafts tools and equipment' },
     { type: 'MARKETPLACE', name: 'Marketplace', icon: '🏪', description: 'Enables trade' },
     { type: 'TOWN_HALL', name: 'Town Hall', icon: '🏛️', description: 'Administrative center' },
-    { type: 'WALL', name: 'Wall', icon: '🧱', description: 'Defensive structure' },
   ],
   qualityDisplay: [
     { threshold: 20, rating: 'Very Poor', color: 'text-red-600', multiplier: 0.5 },
