@@ -8,8 +8,9 @@ import {
   profiles,
   profileServerData,
   tiles,
+  disasterHistory,
 } from '../../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -92,6 +93,94 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     logger.error('[API] Error fetching settlement', error);
     res.status(500).json({ error: 'Failed to fetch settlement' });
+  }
+});
+
+/**
+ * GET /api/settlements/:id/disaster-history
+ * Get disaster history for a specific settlement
+ * Returns array of past disasters with impact details
+ *
+ * Response: DisasterHistory[] - Array of disaster records
+ */
+router.get('/:id/disaster-history', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Step 1: Verify settlement exists and get owner info
+    const settlement = await db.query.settlements.findFirst({
+      where: eq(settlements.id, id),
+      columns: {
+        id: true,
+        playerProfileId: true,
+      },
+    });
+
+    if (!settlement) {
+      return res.status(404).json({ error: 'Settlement not found' });
+    }
+
+    // Step 2: Verify ownership (settlement.playerProfileId must match req.user.profileId)
+    if (!req.user || settlement.playerProfileId !== req.user.profileId) {
+      return res.status(403).json({
+        error: 'Forbidden: You do not own this settlement',
+        code: 'NOT_OWNER',
+      });
+    }
+
+    // Step 3: Query disaster history with disaster event details
+    const history = await db.query.disasterHistory.findMany({
+      where: eq(disasterHistory.settlementId, id),
+      with: {
+        disaster: true, // Include disaster event details (type, severity, etc.)
+      },
+      orderBy: desc(disasterHistory.timestamp),
+      limit: 50, // Last 50 disasters
+    });
+
+    // Step 4: Transform to match client DisasterHistory interface
+    const transformedHistory = history.map((record) => {
+      // Type assertion for disaster record (Drizzle returns union type)
+      const disaster = record.disaster as {
+        type: string;
+        severity: number;
+        severityLevel: string;
+      };
+
+      return {
+        id: record.id,
+        disasterId: record.disasterId,
+        settlementId: record.settlementId,
+
+        // Disaster properties from related disasterEvent
+        type: disaster.type,
+        severity: disaster.severity,
+        severityLevel: disaster.severityLevel,
+
+        // Impact data
+        casualties: record.casualties,
+        structuresDamaged: record.structuresDamaged,
+        structuresDestroyed: record.structuresDestroyed,
+        resourcesLost: record.resourcesLost || {
+          food: 0,
+          water: 0,
+          wood: 0,
+          stone: 0,
+          ore: 0,
+        },
+
+        // Recovery
+        resilienceGained: record.resilienceGained,
+
+        // Timestamp
+        timestamp: record.timestamp,
+      };
+    });
+
+    res.json(transformedHistory);
+  } catch (error) {
+    logger.error('[API] Error fetching disaster history', error);
+    res.status(500).json({ error: 'Failed to fetch disaster history' });
   }
 });
 
