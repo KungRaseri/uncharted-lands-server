@@ -369,18 +369,8 @@ export interface RegionDataResponse {
       temperature: number;
       precipitation: number;
       type: 'OCEAN' | 'LAND';
-      plots?: Array<{
-        id: string;
-        tileId: string;
-        area: number;
-        solar: number;
-        wind: number;
-        food: number;
-        water: number;
-        wood: number;
-        stone: number;
-        ore: number;
-      }>;
+      plotSlots?: number; // Number of extractor slots (default 5)
+      settlementId?: string | null; // If tile is claimed by a settlement
     }>;
   };
   error?: string;

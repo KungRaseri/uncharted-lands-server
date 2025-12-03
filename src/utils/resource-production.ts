@@ -116,7 +116,7 @@ export function getStructureLevelMultiplier(level: number): number {
 }
 
 /**
- * Calculate the production rate for a plot
+ * Calculate the production rate for an extractor structure
  *
  * Formula: baseRate × biomeEfficiency × structureLevel × worldTemplateMultiplier
  *
@@ -161,7 +161,7 @@ export function calculateProductionRate(params: {
  * Calculate accumulated resources since last harvest
  *
  * @param productionRate - Units per hour
- * @param lastHarvested - Timestamp of last harvest (or null for new plots)
+ * @param lastHarvested - Timestamp of last harvest (or null for new extractors)
  * @returns Number of resources accumulated
  */
 export function calculateAccumulatedResources(
@@ -221,10 +221,13 @@ export function getQualityRating(quality: number): string {
 }
 
 /**
- * Calculate how many plots a tile can support based on biome
+ * Calculate how many extractor slots a tile can support based on biome
  *
- * This uses the biome's plotsMin and plotsMax to determine base slots,
- * then applies terrain modifiers
+ * This uses the biome's plotsMin and plotsMax fields to determine base slots,
+ * then applies terrain modifiers.
+ *
+ * Note: plotsMin/plotsMax are legacy field names from the old plot system,
+ * but still valid for determining tile extractor capacity.
  */
 export function calculatePlotSlots(biome: { plotsMin: number; plotsMax: number }): number {
   const baseSlots = Math.floor((biome.plotsMin + biome.plotsMax) / 2);

@@ -864,11 +864,7 @@ async function handleRequestRegion(
       where: eq(regions.id, data.regionId),
       with: data.includeTiles
         ? {
-            tiles: {
-              with: {
-                plots: true,
-              },
-            },
+            tiles: true, // No plot relations - Plot table removed Nov 28, 2025
           }
         : undefined,
     });
