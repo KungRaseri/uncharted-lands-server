@@ -1,1 +1,0 @@
-ALTER TABLE "Tile" ADD COLUMN "baseProductionModifier" double precision DEFAULT 1 NOT NULL;
