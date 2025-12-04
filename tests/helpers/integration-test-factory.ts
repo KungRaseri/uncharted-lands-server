@@ -31,7 +31,6 @@ import {
     regions,
     biomes,
     tiles,
-    plots,
     settlementStorage,
     settlements,
     settlementStructures,
@@ -52,7 +51,6 @@ export interface TestEntityChain {
     regionId: string;
     biomeId: string;
     tileId: string;
-    plotId: string;
     settlementStorageId: string;
     settlementId?: string;
     structureId?: string;
@@ -65,7 +63,6 @@ export interface TestEntityChain {
     region: any;
     biome: any;
     tile: any;
-    plot: any;
     storage: any;
     settlement?: any;
     structure?: any;
@@ -100,9 +97,6 @@ export interface TestEntityOptions {
     tileTemperature?: number;
     tilePrecipitation?: number;
 
-    // Plot options
-    plotPosition?: number;
-
     // Settlement options
     settlementName?: string;
 
@@ -117,6 +111,7 @@ export interface TestEntityOptions {
     structureType?: string;
     structureCategory?: string;
     structureHealth?: number;
+    slotPosition?: number;
 }
 
 /**
@@ -238,25 +233,6 @@ export async function createTestTile(regionId: string, biomeId: string, options:
 }
 
 /**
- * Create a test plot (requires tileId)
- */
-export async function createTestPlot(tileId: string, options: TestEntityOptions = {}) {
-    const plotId = createId();
-    const [plot] = await db.insert(plots).values({
-        id: plotId,
-        tileId,
-        position: options.plotPosition || 0,
-        food: 50,
-        water: 50,
-        wood: 50,
-        stone: 50,
-        ore: 50,
-    }).returning();
-
-    return { plotId, plot };
-}
-
-/**
  * Create a test profile (requires accountId)
  */
 export async function createTestProfile(accountId: string, options: TestEntityOptions = {}) {
@@ -320,7 +296,7 @@ export async function createTestSettlementEntity(
  */
 export async function createTestStructure(
     settlementId: string,
-    plotId: string,
+    tileId: string,
     options: TestEntityOptions = {}
 ) {
     // Map structure type to database structure name
@@ -343,7 +319,8 @@ export async function createTestStructure(
         id: structureInstanceId,
         structureId: masterStructure.id, // Foreign key to master structure
         settlementId,
-        plotId,
+        tileId,
+        slotPosition: options.slotPosition ?? 0,
         level: 1,
         health: options.structureHealth ?? 100,
     }).returning();
@@ -352,7 +329,7 @@ export async function createTestStructure(
 }
 
 /**
- * HIGH-LEVEL: Create full dependency chain up to plot
+ * HIGH-LEVEL: Create full dependency chain up to tile (plot table removed)
  */
 export async function createTestPlotChain(options: TestEntityOptions = {}): Promise<TestEntityChain> {
     const { biomeId, biome } = await createTestBiome(options);
@@ -361,7 +338,6 @@ export async function createTestPlotChain(options: TestEntityOptions = {}): Prom
     const { worldId, world } = await createTestWorld(serverId, options);
     const { regionId, region } = await createTestRegion(worldId, options);
     const { tileId, tile } = await createTestTile(regionId, biomeId, options);
-    const { plotId, plot } = await createTestPlot(tileId, options);
     const { profileId, profile } = await createTestProfile(accountId, options);
     const { settlementStorageId, storage } = await createTestStorage(options);
 
@@ -373,7 +349,6 @@ export async function createTestPlotChain(options: TestEntityOptions = {}): Prom
         regionId,
         biomeId,
         tileId,
-        plotId,
         settlementStorageId,
         account,
         profile,
@@ -382,7 +357,6 @@ export async function createTestPlotChain(options: TestEntityOptions = {}): Prom
         region,
         biome,
         tile,
-        plot,
         storage,
     };
 }
@@ -394,16 +368,11 @@ export async function createTestSettlement(options: TestEntityOptions = {}): Pro
     const chain = await createTestPlotChain(options);
 
     const { settlementId, settlement } = await createTestSettlementEntity(
-        chain.tileId, // Bug #10 fix: Pass tileId instead of plotId
+        chain.tileId,
         chain.profileId,
         chain.settlementStorageId,
         options
     );
-
-    // Update the plot to associate it with the settlement
-    await db.update(plots)
-        .set({ settlementId })
-        .where(eq(plots.id, chain.plotId));
 
     return {
         ...chain,
@@ -424,7 +393,7 @@ export async function createTestSettlementWithStructure(options: TestEntityOptio
 
     const { structureId, structure } = await createTestStructure(
         chain.settlementId,
-        chain.plotId,
+        chain.tileId,
         options
     );
 
@@ -458,7 +427,6 @@ export async function cleanupTestChain(chain: TestEntityChain | undefined) {
         await db.delete(settlementStorage).where(eq(settlementStorage.id, chain.settlementStorageId));
     }
 
-    await db.delete(plots).where(eq(plots.id, chain.plotId));
     await db.delete(tiles).where(eq(tiles.id, chain.tileId));
     await db.delete(regions).where(eq(regions.id, chain.regionId));
     await db.delete(biomes).where(eq(biomes.id, chain.biomeId));

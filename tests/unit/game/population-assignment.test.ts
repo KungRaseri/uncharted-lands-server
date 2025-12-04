@@ -33,7 +33,11 @@ function createMockStructure(
     category,
     level: 1,
     populationAssigned,
-    plotId: null,
+    tileId: null,
+    slotPosition: null,
+    health: 100,
+    damagedAt: null,
+    lastRepairedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

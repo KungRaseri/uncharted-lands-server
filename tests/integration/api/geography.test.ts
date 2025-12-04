@@ -276,7 +276,7 @@ describe('Geography API Routes', () => {
     });
   });
 
-  describe('GET /api/geography/plots/:id', () => {
+  describe.skip('GET /api/geography/plots/:id - OBSOLETE: Plots table removed', () => {
     it('should return 403 if not admin', async () => {
       const response = await request(app)
         .get('/api/geography/plots/plot-123')
@@ -294,7 +294,8 @@ describe('Geography API Routes', () => {
         tile: { region: { world: {} }, biome: {} },
       };
 
-      vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(mockPlot as any);
+      // OBSOLETE: plots table removed, keeping test structure for reference
+      // vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(mockPlot as any);
 
       const response = await request(app)
         .get('/api/geography/plots/plot-123')
@@ -305,7 +306,8 @@ describe('Geography API Routes', () => {
     });
 
     it('should return 404 if plot not found', async () => {
-      vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(undefined);
+      // OBSOLETE: plots table removed
+      // vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(undefined);
 
       const response = await request(app)
         .get('/api/geography/plots/nonexistent')
@@ -316,7 +318,8 @@ describe('Geography API Routes', () => {
     });
 
     it('should return 500 on database error', async () => {
-      vi.mocked(db.db.query.plots.findFirst).mockRejectedValue(new Error('DB error'));
+      // OBSOLETE: plots table removed
+      // vi.mocked(db.db.query.plots.findFirst).mockRejectedValue(new Error('DB error'));
 
       const response = await request(app)
         .get('/api/geography/plots/plot-123')
@@ -349,17 +352,15 @@ describe('Geography API Routes', () => {
       const mockSettlement = {
         id: 'settlement-1',
         name: 'Home',
-        plotId: 'plot-1',
-        plot: {
-          tile: {
-            id: 'tile-1',
-            region: {
-              id: 'region-1',
-              worldId: 'world-1',
-              xCoord: 5,
-              yCoord: 5,
-              world: { server: {} },
-            },
+        tileId: 'tile-1',
+        tile: {
+          id: 'tile-1',
+          region: {
+            id: 'region-1',
+            worldId: 'world-1',
+            xCoord: 5,
+            yCoord: 5,
+            world: { server: {} },
           },
         },
       };

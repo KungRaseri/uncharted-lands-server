@@ -53,20 +53,21 @@ describe('Damage → Production Chain Integration', () => {
 			expect(farmBeforeDamage).toBeDefined();
 			expect(farmBeforeDamage!.health).toBe(100);
 
-			// Use plot from testChain
-			const plotData = testChain.plot;
+			// Use tile from testChain (plot table removed)
+			const tileData = testChain.tile;
 
-			expect(plotData).toBeDefined();
+			expect(tileData).toBeDefined();
 
 			// Calculate production with pristine farm
 			const initialProduction = calculateProduction(
-				plotData!,
+				tileData!,
 				[
 					{
 						id: farmBeforeDamage!.id,
 						structureId: farmBeforeDamage!.structureId,
 						settlementId: farmBeforeDamage!.settlementId,
-						plotId: farmBeforeDamage!.plotId,
+						tileId: farmBeforeDamage!.tileId,
+						slotPosition: farmBeforeDamage!.slotPosition,
 						level: farmBeforeDamage!.level,
 						populationAssigned: farmBeforeDamage!.populationAssigned,
 						health: farmBeforeDamage!.health,
@@ -104,13 +105,14 @@ describe('Damage → Production Chain Integration', () => {
 			expect(farmAfterDamage!.health).toBe(50);
 
 			const damagedProduction = calculateProduction(
-				plotData!,
+				tileData!,
 				[
 					{
 						id: farmAfterDamage!.id,
 						structureId: farmAfterDamage!.structureId,
 						settlementId: farmAfterDamage!.settlementId,
-						plotId: farmAfterDamage!.plotId,
+						tileId: farmAfterDamage!.tileId,
+						slotPosition: farmAfterDamage!.slotPosition,
 						level: farmAfterDamage!.level,
 						populationAssigned: farmAfterDamage!.populationAssigned,
 						health: farmAfterDamage!.health,
@@ -158,20 +160,21 @@ describe('Damage → Production Chain Integration', () => {
 			expect(farmBeforeRepair).toBeDefined();
 			expect(farmBeforeRepair!.health).toBe(50);
 
-			// Use plot from testChain
-			const plotData = testChain.plot;
+			// Use tile from testChain (plot table removed)
+			const tileData = testChain.tile;
 
-			expect(plotData).toBeDefined();
+			expect(tileData).toBeDefined();
 
 			// Calculate damaged production
 			const damagedProduction = calculateProduction(
-				plotData!,
+				tileData!,
 				[
 					{
 						id: farmBeforeRepair!.id,
 						structureId: farmBeforeRepair!.structureId,
 						settlementId: farmBeforeRepair!.settlementId,
-						plotId: farmBeforeRepair!.plotId,
+						tileId: farmBeforeRepair!.tileId,
+						slotPosition: farmBeforeRepair!.slotPosition,
 						level: farmBeforeRepair!.level,
 						populationAssigned: farmBeforeRepair!.populationAssigned,
 						health: farmBeforeRepair!.health,
@@ -206,13 +209,14 @@ describe('Damage → Production Chain Integration', () => {
 			expect(farmAfterRepair!.health).toBe(100);
 
 			const repairedProduction = calculateProduction(
-				plotData!,
+				tileData!,
 				[
 					{
 						id: farmAfterRepair!.id,
 						structureId: farmAfterRepair!.structureId,
 						settlementId: farmAfterRepair!.settlementId,
-						plotId: farmAfterRepair!.plotId,
+						tileId: farmAfterRepair!.tileId,
+						slotPosition: farmAfterRepair!.slotPosition,
 						level: farmAfterRepair!.level,
 						populationAssigned: farmAfterRepair!.populationAssigned,
 						health: farmAfterRepair!.health,
