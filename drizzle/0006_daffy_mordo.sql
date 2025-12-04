@@ -36,7 +36,8 @@ ALTER TABLE "SettlementStructure" DROP CONSTRAINT "SettlementStructure_structure
 ALTER TABLE "SettlementStructure" ADD COLUMN "structureId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "SettlementStructure" ADD COLUMN "createdAt" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "SettlementStructure" ADD COLUMN "updatedAt" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "StructureRequirement" DROP CONSTRAINT "StructureRequirement_pkey";--> statement-breakpoint
+ALTER TABLE "StructureRequirement" DROP CONSTRAINT IF EXISTS "StructureRequirement_pkey";--> statement-breakpoint
+ALTER TABLE "StructureRequirement" DROP CONSTRAINT IF EXISTS "StructureRequirements_pkey";--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "structureId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "resourceId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "quantity" integer NOT NULL;--> statement-breakpoint
