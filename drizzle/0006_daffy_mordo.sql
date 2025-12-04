@@ -33,13 +33,13 @@ ALTER TABLE "StructureRequirements" RENAME TO "StructureRequirement";--> stateme
 ALTER TABLE "SettlementStructure" DROP CONSTRAINT "SettlementStructure_structureRequirementsId_unique";--> statement-breakpoint
 ALTER TABLE "SettlementStructure" DROP CONSTRAINT "SettlementStructure_structureRequirementsId_StructureRequirements_id_fk";
 --> statement-breakpoint
-ALTER TABLE "StructureRequirement" ADD CONSTRAINT "StructureRequirement_structureId_resourceId_pk" PRIMARY KEY("structureId","resourceId");--> statement-breakpoint
 ALTER TABLE "SettlementStructure" ADD COLUMN "structureId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "SettlementStructure" ADD COLUMN "createdAt" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "SettlementStructure" ADD COLUMN "updatedAt" timestamp DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "structureId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "resourceId" text NOT NULL;--> statement-breakpoint
 ALTER TABLE "StructureRequirement" ADD COLUMN "quantity" integer NOT NULL;--> statement-breakpoint
+ALTER TABLE "StructureRequirement" ADD CONSTRAINT "StructureRequirement_structureId_resourceId_pk" PRIMARY KEY("structureId","resourceId");--> statement-breakpoint
 ALTER TABLE "StructurePrerequisite" ADD CONSTRAINT "StructurePrerequisite_structureId_Structure_id_fk" FOREIGN KEY ("structureId") REFERENCES "public"."Structure"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "StructurePrerequisite" ADD CONSTRAINT "StructurePrerequisite_requiredStructureId_Structure_id_fk" FOREIGN KEY ("requiredStructureId") REFERENCES "public"."Structure"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "StructurePrerequisite_structureId_idx" ON "StructurePrerequisite" USING btree ("structureId");--> statement-breakpoint
