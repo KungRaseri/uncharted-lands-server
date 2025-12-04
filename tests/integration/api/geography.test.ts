@@ -15,9 +15,6 @@ vi.mock('../../../src/db/index.js', () => ({
       tiles: {
         findFirst: vi.fn(),
       },
-      plots: {
-        findFirst: vi.fn(),
-      },
       settlements: {
         findFirst: vi.fn(),
       },
@@ -28,7 +25,6 @@ vi.mock('../../../src/db/index.js', () => ({
   },
   regions: {},
   tiles: {},
-  plots: {},
   settlements: {},
   worlds: {},
 }));
@@ -276,60 +272,6 @@ describe('Geography API Routes', () => {
     });
   });
 
-  describe.skip('GET /api/geography/plots/:id - OBSOLETE: Plots table removed', () => {
-    it('should return 403 if not admin', async () => {
-      const response = await request(app)
-        .get('/api/geography/plots/plot-123')
-        .set('Cookie', 'session=valid-session')
-        .expect(403);
-
-      expect(response.body.code).toBe('NOT_ADMIN');
-    });
-
-    it('should return a specific plot', async () => {
-      const mockPlot = {
-        id: 'plot-123',
-        food: 5,
-        water: 5,
-        tile: { region: { world: {} }, biome: {} },
-      };
-
-      // OBSOLETE: plots table removed, keeping test structure for reference
-      // vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(mockPlot as any);
-
-      const response = await request(app)
-        .get('/api/geography/plots/plot-123')
-        .set('Cookie', 'session=admin-session')
-        .expect(200);
-
-      expect(response.body).toEqual(mockPlot);
-    });
-
-    it('should return 404 if plot not found', async () => {
-      // OBSOLETE: plots table removed
-      // vi.mocked(db.db.query.plots.findFirst).mockResolvedValue(undefined);
-
-      const response = await request(app)
-        .get('/api/geography/plots/nonexistent')
-        .set('Cookie', 'session=admin-session')
-        .expect(404);
-
-      expect(response.body.code).toBe('NOT_FOUND');
-    });
-
-    it('should return 500 on database error', async () => {
-      // OBSOLETE: plots table removed
-      // vi.mocked(db.db.query.plots.findFirst).mockRejectedValue(new Error('DB error'));
-
-      const response = await request(app)
-        .get('/api/geography/plots/plot-123')
-        .set('Cookie', 'session=admin-session')
-        .expect(500);
-
-      expect(response.body.code).toBe('FETCH_FAILED');
-    });
-  });
-
   describe('GET /api/geography/map', () => {
     it('should return 401 if not authenticated', async () => {
       const response = await request(app)
@@ -455,18 +397,16 @@ describe('Geography API Routes', () => {
         .set('Cookie', 'session=valid-session')
         .expect(404);
 
-      expect(response.body.code).toBe('NO_WORLD');
+      expect(response.body.code).toBe('NOT_FOUND');
     });
 
     it('should return 404 if world not found after settlement found', async () => {
       const mockSettlement = {
-        plot: {
-          tile: {
-            region: {
-              worldId: 'world-1',
-              xCoord: 5,
-              yCoord: 5,
-            },
+        tile: {
+          region: {
+            worldId: 'world-1',
+            xCoord: 5,
+            yCoord: 5,
           },
         },
       };

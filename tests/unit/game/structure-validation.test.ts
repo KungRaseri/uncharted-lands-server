@@ -573,41 +573,9 @@ describe('Structure Validation System', () => {
       expect(workshopCost?.constructionTimeSeconds).toBe(900);
       expect(workshopCost?.populationRequired).toBe(2);
     });
-
-    // TODO: Implement getUpgradeCost function in structure-costs.ts
-    it.skip('should calculate upgrade costs correctly', () => {
-      // const level2Cost = getUpgradeCost('HOUSE', 2);
-      const baseCost = getStructureCost('HOUSE');
-
-      // Both should be defined
-      // expect(level2Cost).toBeDefined();
-      expect(baseCost).toBeDefined();
-
-      // Level 2 should cost 1.5x base cost
-      // expect(level2Cost!.wood).toBe(Math.floor(baseCost!.wood * 1.5));
-      // expect(level2Cost!.stone).toBe(Math.floor(baseCost!.stone * 1.5));
-    });
   });
 
   describe('Edge Cases', () => {
-    // TODO: Fix test to use correct StructureCostDefinition.costs structure
-    it.skip('should handle structures with only one resource type', () => {
-      const tentCost = getStructureCost('TENT');
-      expect(tentCost).toBeDefined();
-      // expect(tentCost!.costs.wood).toBeGreaterThan(0);
-      // expect(tentCost!.costs.stone).toBe(0);
-      // expect(tentCost!.costs.ore).toBe(0);
-    });
-
-    // TODO: Fix test to use correct StructureCostDefinition.costs structure
-    it.skip('should handle structures with all three resource types', () => {
-      const workshopCost = getStructureCost('WORKSHOP');
-      expect(workshopCost).toBeDefined();
-      // expect(workshopCost!.costs.wood).toBeGreaterThan(0);
-      // expect(workshopCost!.costs.stone).toBeGreaterThan(0);
-      // expect(workshopCost!.costs.ore).toBeGreaterThan(0);
-    });
-
     it('should handle exact resource match (no surplus)', async () => {
       const mockSettlement = {
         id: 'settlement-1',

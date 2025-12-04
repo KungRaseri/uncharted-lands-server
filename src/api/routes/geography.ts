@@ -143,17 +143,13 @@ router.get('/map', authenticate, async (req, res) => {
     const settlement = await db.query.settlements.findFirst({
       where: eq(settlements.playerProfileId, profileId),
       with: {
-        plot: {
+        tile: {
           with: {
-            tile: {
+            region: {
               with: {
-                region: {
+                world: {
                   with: {
-                    world: {
-                      with: {
-                        server: true,
-                      },
-                    },
+                    server: true,
                   },
                 },
               },
@@ -168,18 +164,17 @@ router.get('/map', authenticate, async (req, res) => {
     let centerRegionY: number;
     let playerSettlement: typeof settlement | null = null;
 
-    if (settlement?.plot?.tile?.region) {
+    if (settlement?.tile?.region) {
       // Player has a settlement - use its location
-      worldId = settlement.plot.tile.region.worldId;
-      centerRegionX = settlement.plot.tile.region.xCoord;
-      centerRegionY = settlement.plot.tile.region.yCoord;
+      worldId = settlement.tile.region.worldId;
+      centerRegionX = settlement.tile.region.xCoord;
+      centerRegionY = settlement.tile.region.yCoord;
 
       playerSettlement = {
         id: settlement.id,
         name: settlement.name,
-        plotId: settlement.plotId,
-        tileId: settlement.plot.tile.id,
-        regionId: settlement.plot.tile.region.id,
+        tileId: settlement.tile.id,
+        regionId: settlement.tile.region.id,
         regionCoords: {
           x: centerRegionX,
           y: centerRegionY,
@@ -200,7 +195,7 @@ router.get('/map', authenticate, async (req, res) => {
       if (!fallbackWorld) {
         return res.status(404).json({
           error: 'No world found',
-          code: 'NO_WORLD',
+          code: 'NOT_FOUND',
         });
       }
 
