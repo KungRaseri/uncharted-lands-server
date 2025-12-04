@@ -692,7 +692,6 @@ describe('Database Queries', () => {
       let testAccountId: string;
       let testRegionId: string;
       let testTileId: string;
-      let testPlotId: string;
       let testBiomeId: string;
 
       beforeAll(async () => {
@@ -779,24 +778,10 @@ describe('Database Queries', () => {
           })
           .returning();
         testTileId = tileResult[0].id;
-
-        const plotResult = await db
-          .insert(plots)
-          .values({
-            id: createId(),
-            tileId: testTileId,
-            food: 50,
-            water: 75,
-          })
-          .returning();
-        testPlotId = plotResult[0].id;
       });
 
       afterAll(async () => {
         // Cleanup in reverse order of creation
-        if (testPlotId) {
-          await db.delete(plots).where(eq(plots.id, testPlotId));
-        }
         if (testTileId) {
           await db.delete(tiles).where(eq(tiles.id, testTileId));
         }
@@ -928,7 +913,7 @@ describe('Database Queries', () => {
         expect(details).toBeDefined();
         expect(details.settlement).toBeDefined();
         expect(details.storage).toBeDefined();
-        expect(details.plot).toBeDefined();
+        expect(details.tile).toBeDefined();
         expect(details.settlement.name).toBe('Details Test');
         if (details.storage) {
           expect(details.storage.food).toBe(150);
@@ -944,14 +929,13 @@ describe('Database Queries', () => {
       });
     });
 
-    describe.skip('structure functions', () => {
+    describe('structure functions', () => {
       let testServerId: string;
       let testWorldId: string;
       let testProfileId: string;
       let testAccountId: string;
       let testRegionId: string;
       let testTileId: string;
-      let testPlotId: string;
       let testSettlementId: string;
       let testStorageId: string;
       let testBiomeId: string;
@@ -1041,17 +1025,6 @@ describe('Database Queries', () => {
           .returning();
         testTileId = tileResult[0].id;
 
-        const plotResult = await db
-          .insert(plots)
-          .values({
-            id: createId(),
-            tileId: testTileId,
-            food: 60,
-            water: 80,
-          })
-          .returning();
-        testPlotId = plotResult[0].id;
-
         // Create settlement
         const storageResult = await db
           .insert(settlementStorage)
@@ -1071,7 +1044,7 @@ describe('Database Queries', () => {
           .values({
             id: createId(),
             playerProfileId: testProfileId,
-            plotId: testPlotId,
+            tileId: testTileId,
             settlementStorageId: testStorageId,
             name: 'Structure Settlement',
             createdAt: new Date(),
@@ -1087,9 +1060,6 @@ describe('Database Queries', () => {
         }
         if (testStorageId) {
           await db.delete(settlementStorage).where(eq(settlementStorage.id, testStorageId));
-        }
-        if (testPlotId) {
-          await db.delete(plots).where(eq(plots.id, testPlotId));
         }
         if (testTileId) {
           await db.delete(tiles).where(eq(tiles.id, testTileId));
@@ -1112,17 +1082,23 @@ describe('Database Queries', () => {
       });
 
       it('should get settlement structures', async () => {
-        // Create a structure for testing
+        // Get a master structure to reference
+        const masterStructure = await db.query.structures.findFirst({
+          where: (structures, { eq }) => eq(structures.category, 'BUILDING'),
+        });
+        if (!masterStructure) {
+          throw new Error('No BUILDING structure found in master structures');
+        }
+
+        // Create a structure instance for testing
         const structureResult = await db
           .insert(settlementStructures)
           .values({
             id: createId(),
-            structureId: createId(),
+            structureId: masterStructure.id,
             settlementId: testSettlementId,
-            plotId: testPlotId,
-            category: 'BUILDING',
-            buildingType: 'HOUSE',
-            extractorType: null,
+            tileId: testTileId,
+            slotPosition: 0,
             level: 1,
             createdAt: new Date(),
             updatedAt: new Date(),

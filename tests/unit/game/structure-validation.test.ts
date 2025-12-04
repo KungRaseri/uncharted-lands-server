@@ -14,10 +14,15 @@ import type { ValidationResult, ResourceShortage } from '../../../src/game/struc
 import { getStructureCost } from '../../../src/data/structure-costs.js';
 
 // Mock database and transaction
-const mockUpdateChain = {
-  set: vi.fn().mockReturnThis(),
-  where: vi.fn().mockResolvedValue(true),
-};
+const mockWhere = vi.fn().mockResolvedValue(true);
+
+const mockSet = vi.fn().mockReturnValue({
+  where: mockWhere,
+});
+
+const mockUpdate = vi.fn().mockReturnValue({
+  set: mockSet,
+});
 
 const mockTransaction = {
   query: {
@@ -25,10 +30,10 @@ const mockTransaction = {
       findFirst: vi.fn(),
     },
   },
-  update: vi.fn().mockImplementation(() => mockUpdateChain),
+  update: mockUpdate,
 };
 
-describe.skip('Structure Validation System', () => {
+describe('Structure Validation System', () => {
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks();
@@ -344,16 +349,6 @@ describe.skip('Structure Validation System', () => {
         };
 
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
-        mockTransaction.update.mockResolvedValue([
-          {
-            id: 'storage-1',
-            food: 50,
-            water: 100,
-            wood: 40, // Deducted 10
-            stone: 30,
-            ore: 0,
-          },
-        ]);
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -369,17 +364,14 @@ describe.skip('Structure Validation System', () => {
           ore: 0,
         });
 
-        // Verify update was called with correct values
-        expect(mockTransaction.update).toHaveBeenCalledTimes(1);
-        const updateCall = mockTransaction.update.mock.calls[0];
-        expect(updateCall[1]).toEqual({
-          food: 50,
-          water: 100,
+        // Verify update was called with correct Drizzle ORM chain
+        expect(mockUpdate).toHaveBeenCalledTimes(1);
+        expect(mockSet).toHaveBeenCalledWith({
           wood: 40, // 50 - 10
           stone: 30,
           ore: 0,
-          capacity: 5000,
         });
+        expect(mockWhere).toHaveBeenCalledTimes(1);
       });
 
       it('should validate and deduct resources for FARM', async () => {
@@ -397,16 +389,6 @@ describe.skip('Structure Validation System', () => {
         };
 
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
-        mockTransaction.update.mockResolvedValue([
-          {
-            id: 'storage-1',
-            food: 50,
-            water: 100,
-            wood: 30, // Deducted 20
-            stone: 20, // Deducted 10
-            ore: 0,
-          },
-        ]);
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -421,15 +403,11 @@ describe.skip('Structure Validation System', () => {
           ore: 0,
         });
 
-        // Verify update called with correct deductions
-        const updateCall = mockTransaction.update.mock.calls[0];
-        expect(updateCall[1]).toEqual({
-          food: 50,
-          water: 100,
+        // Verify update called with correct deductions using Drizzle ORM chain
+        expect(mockSet).toHaveBeenCalledWith({
           wood: 30, // 50 - 20
           stone: 20, // 30 - 10
           ore: 0,
-          capacity: 5000,
         });
       });
 
@@ -448,16 +426,6 @@ describe.skip('Structure Validation System', () => {
         };
 
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
-        mockTransaction.update.mockResolvedValue([
-          {
-            id: 'storage-1',
-            food: 100,
-            water: 200,
-            wood: 40, // Deducted 60
-            stone: 40, // Deducted 60
-            ore: 20, // Deducted 30
-          },
-        ]);
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -472,14 +440,11 @@ describe.skip('Structure Validation System', () => {
           ore: 30,
         });
 
-        const updateCall = mockTransaction.update.mock.calls[0];
-        expect(updateCall[1]).toEqual({
-          food: 100,
-          water: 200,
+        // Verify update called with correct deductions using Drizzle ORM chain
+        expect(mockSet).toHaveBeenCalledWith({
           wood: 40, // 100 - 60
           stone: 40, // 100 - 60
           ore: 20, // 50 - 30
-          capacity: 5000,
         });
       });
     });
@@ -591,13 +556,22 @@ describe.skip('Structure Validation System', () => {
   describe('Integration with structure-costs.ts', () => {
     it('should use correct costs from getStructureCost', () => {
       const tentCost = getStructureCost('TENT');
-      expect(tentCost).toEqual({ wood: 10, stone: 0, ore: 0, time: 0, population: 0 });
+      expect(tentCost).toBeDefined();
+      expect(tentCost?.costs).toEqual({ wood: 10 });
+      expect(tentCost?.constructionTimeSeconds).toBe(60);
+      expect(tentCost?.populationRequired).toBe(0);
 
       const farmCost = getStructureCost('FARM');
-      expect(farmCost).toEqual({ wood: 20, stone: 10, ore: 0, time: 180, population: 2 });
+      expect(farmCost).toBeDefined();
+      expect(farmCost?.costs).toEqual({ wood: 20, stone: 10 });
+      expect(farmCost?.constructionTimeSeconds).toBe(180);
+      expect(farmCost?.populationRequired).toBe(2);
 
       const workshopCost = getStructureCost('WORKSHOP');
-      expect(workshopCost).toEqual({ wood: 60, stone: 60, ore: 30, time: 900, population: 2 });
+      expect(workshopCost).toBeDefined();
+      expect(workshopCost?.costs).toEqual({ wood: 60, stone: 60, ore: 30 });
+      expect(workshopCost?.constructionTimeSeconds).toBe(900);
+      expect(workshopCost?.populationRequired).toBe(2);
     });
 
     // TODO: Implement getUpgradeCost function in structure-costs.ts
@@ -649,16 +623,6 @@ describe.skip('Structure Validation System', () => {
       };
 
       mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
-      mockTransaction.update.mockResolvedValue([
-        {
-          id: 'storage-1',
-          food: 50,
-          water: 100,
-          wood: 0, // All deducted
-          stone: 0, // All deducted
-          ore: 0,
-        },
-      ]);
 
       const result = await validateAndDeductResources(
         mockTransaction as any,
@@ -673,9 +637,12 @@ describe.skip('Structure Validation System', () => {
         ore: 0,
       });
 
-      const updateCall = mockTransaction.update.mock.calls[0];
-      expect(updateCall[1].wood).toBe(0);
-      expect(updateCall[1].stone).toBe(0);
+      // Verify resources fully depleted using Drizzle ORM chain
+      expect(mockSet).toHaveBeenCalledWith({
+        wood: 0,
+        stone: 0,
+        ore: 0,
+      });
     });
   });
 });

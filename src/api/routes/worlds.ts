@@ -85,14 +85,10 @@ router.get('/:id', authenticate, async (req, res) => {
                   ],
                   with: {
                     biome: true,
-                    plots: {
-                      with: {
-                        settlement: {
-                          columns: {
-                            id: true,
-                            name: true,
-                          },
-                        },
+                    settlement: {
+                      columns: {
+                        id: true,
+                        name: true,
                       },
                     },
                   },
@@ -189,10 +185,9 @@ function processTile(tile: any) {
   const oceanTiles = tile.type === 'OCEAN' ? 1 : 0;
   const settlementIds = new Set<string>();
 
-  for (const plot of tile.plots || []) {
-    if (plot.settlement?.id) {
-      settlementIds.add(plot.settlement.id);
-    }
+  // Settlement is now directly on the tile (plot table removed)
+  if (tile.settlement?.id) {
+    settlementIds.add(tile.settlement.id);
   }
 
   return { landTiles, oceanTiles, settlementIds };

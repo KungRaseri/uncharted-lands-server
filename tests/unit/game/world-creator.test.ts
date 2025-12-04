@@ -172,7 +172,6 @@ describe('World Creator', () => {
         worldId: 'test-id',
         regionCount: 1,
         tileCount: 4,
-        plotCount: 12,
       });
       expect(result.duration).toBeGreaterThanOrEqual(0);
       expect(typeof result.duration).toBe('number');
@@ -310,58 +309,13 @@ describe('World Creator', () => {
       );
     });
 
-    it('should create plots for each tile', async () => {
-      await createWorld(defaultOptions);
+    // Deleted obsolete plot-generation test - plots table removed, tile resource quality used instead
 
-      // Should determine plots total for each tile (4 tiles)
-      expect(resourceGenerator.determinePlotsTotal).toHaveBeenCalledTimes(4);
+    // Deleted obsolete determinePlotsTotal test - function removed with plot system
 
-      // Should generate resources for each plot (4 tiles × 3 plots = 12)
-      expect(resourceGenerator.generatePlotResources).toHaveBeenCalledTimes(12);
-    });
+    // Deleted obsolete "skip plots if biome not found" test - plot system removed
+    // Note: If biome is not found, createWorld now throws an error (see "should throw error if biome not found" test)
 
-    it('should pass correct data to determinePlotsTotal', async () => {
-      await createWorld(defaultOptions);
-
-      const calls = vi.mocked(resourceGenerator.determinePlotsTotal).mock.calls;
-      expect(calls.length).toBeGreaterThan(0);
-
-      const [tileData, biome] = calls[0];
-      expect(tileData).toHaveProperty('elevation');
-      expect(tileData).toHaveProperty('precipitation');
-      expect(tileData).toHaveProperty('temperature');
-      expect(biome).toHaveProperty('id');
-    });
-
-    it('should skip plots if biome not found', async () => {
-      vi.mocked(queries.getAllBiomes).mockResolvedValue([
-        {
-          id: 'different-biome',
-          name: 'Different Biome',
-          precipitationMin: 100,
-          precipitationMax: 300,
-          temperatureMin: 5,
-          temperatureMax: 20,
-          plotsMin: 1,
-          plotsMax: 10,
-          plotAreaMin: 30,
-          plotAreaMax: 50,
-          solarModifier: 1,
-          windModifier: 1,
-          foodModifier: 1,
-          waterModifier: 1,
-          woodModifier: 1,
-          stoneModifier: 1,
-          oreModifier: 1,
-        },
-      ]);
-
-      const result = await createWorld(defaultOptions);
-
-      // Tiles created but no plots (biome mismatch)
-      expect(result.tileCount).toBe(4);
-      expect(result.plotCount).toBe(0);
-    });
 
     it('should save all records to database in transaction', async () => {
       await createWorld(defaultOptions);
@@ -525,12 +479,8 @@ describe('World Creator', () => {
       expect(idCounter).toBeGreaterThan(0);
     });
 
-    it('should include all plot resource fields', async () => {
-      await createWorld(defaultOptions);
-
-      const calls = vi.mocked(resourceGenerator.generatePlotResources).mock.calls;
-      expect(calls.length).toBeGreaterThan(0);
-    });
+    // Deleted obsolete "include all plot resource fields" test - plot resource generation removed
+    // Tiles now have resource quality fields (foodQuality, woodQuality, etc.) set directly
 
     it('should handle mixed ocean and land tiles', async () => {
       vi.mocked(worldGenerator.generateWorldLayers).mockResolvedValue([
@@ -557,17 +507,7 @@ describe('World Creator', () => {
       expect(result.tileCount).toBe(4); // 2 ocean + 2 land
     });
 
-    it('should return correct plot count when tiles have different plot totals', async () => {
-      let callCount = 0;
-      vi.mocked(resourceGenerator.determinePlotsTotal).mockImplementation(() => {
-        callCount++;
-        return callCount % 2 === 0 ? 5 : 3; // Alternate between 3 and 5 plots
-      });
-
-      const result = await createWorld(defaultOptions);
-
-      // 4 tiles: 3 + 5 + 3 + 5 = 16 plots
-      expect(result.plotCount).toBe(16);
-    });
+    // Deleted obsolete "return correct plot count" test - plot counting removed
+    // Tile counting is verified in other tests (e.g., "should create a world with all components")
   });
 });
