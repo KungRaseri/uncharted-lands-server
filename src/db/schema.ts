@@ -357,6 +357,7 @@ export const tiles = pgTable(
     type: tileTypeEnum('type').notNull(),
     // Resource quality (0-100)
     foodQuality: doublePrecision('foodQuality').notNull().default(50),
+    waterQuality: doublePrecision('waterQuality').notNull().default(50),
     woodQuality: doublePrecision('woodQuality').notNull().default(50),
     stoneQuality: doublePrecision('stoneQuality').notNull().default(50),
     oreQuality: doublePrecision('oreQuality').notNull().default(50),

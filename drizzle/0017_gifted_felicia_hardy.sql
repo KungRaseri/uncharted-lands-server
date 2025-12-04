@@ -1,0 +1,1 @@
+ALTER TABLE "Tile" ADD COLUMN "waterQuality" double precision DEFAULT 50 NOT NULL;
