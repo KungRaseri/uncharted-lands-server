@@ -623,6 +623,10 @@ export const settlementsRelations = relations(settlements, ({ one, many }) => ({
     fields: [settlements.settlementStorageId],
     references: [settlementStorage.id],
   }),
+  population: one(settlementPopulation, {
+    fields: [settlements.id],
+    references: [settlementPopulation.settlementId],
+  }),
   tile: one(tiles, {
     fields: [settlements.tileId],
     references: [tiles.id],

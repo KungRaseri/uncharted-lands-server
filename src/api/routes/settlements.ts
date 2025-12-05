@@ -71,6 +71,7 @@ router.get('/:id', async (req, res) => {
           },
         },
         storage: true,
+        population: true,
       },
     });
 
