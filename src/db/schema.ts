@@ -271,8 +271,6 @@ export const profileServerData = pgTable(
       .references(() => servers.id, { onDelete: 'cascade' }),
   },
   (table) => [
-    uniqueIndex('ProfileServerData_profileId_key').on(table.profileId),
-    uniqueIndex('ProfileServerData_serverId_key').on(table.serverId),
     uniqueIndex('ProfileServerData_profileId_serverId_key').on(table.profileId, table.serverId),
   ]
 );

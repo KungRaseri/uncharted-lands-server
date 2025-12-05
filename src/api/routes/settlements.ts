@@ -10,7 +10,7 @@ import {
   tiles,
   disasterHistory,
 } from '../../db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -311,11 +311,27 @@ router.post('/', authenticate, async (req, res) => {
       logger.info(`[SETTLEMENT CREATE] Created new profile ${profileId} for ${username}`);
     }
 
-    // Step 3: Create profile-server data
-    await db.insert(profileServerData).values({
-      profileId,
-      serverId,
+    // Step 3: Create profile-server data (only if doesn't exist)
+    const existingProfileServerData = await db.query.profileServerData.findFirst({
+      where: and(
+        eq(profileServerData.profileId, profileId),
+        eq(profileServerData.serverId, serverId)
+      ),
     });
+
+    if (!existingProfileServerData) {
+      await db.insert(profileServerData).values({
+        profileId,
+        serverId,
+      });
+      logger.info(
+        `[SETTLEMENT CREATE] Created ProfileServerData for profile ${profileId} on server ${serverId}`
+      );
+    } else {
+      logger.info(
+        `[SETTLEMENT CREATE] ProfileServerData already exists for profile ${profileId} on server ${serverId}`
+      );
+    }
 
     // Step 4: Create storage with starting resources (per GDD specification)
     const storageId = createId();
