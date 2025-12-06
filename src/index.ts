@@ -197,28 +197,178 @@ export function getStats() {
   };
 }
 
+/**
+ * Get known API routes
+ * Note: This is a static list since Express doesn't expose registered routes
+ * until after the server starts listening
+ */
+function getKnownApiRoutes(): Array<{ method: string; path: string }> {
+  const routes = [
+    // Health checks
+    { method: 'GET', path: '/health' },
+    { method: 'GET', path: '/api/health' },
+
+    // Auth routes
+    { method: 'POST', path: '/api/auth/register' },
+    { method: 'POST', path: '/api/auth/login' },
+    { method: 'POST', path: '/api/auth/logout' },
+    { method: 'GET', path: '/api/auth/session' },
+
+    // Account routes
+    { method: 'GET', path: '/api/account/:id' },
+    { method: 'PUT', path: '/api/account/:id' },
+    { method: 'DELETE', path: '/api/account/:id' },
+
+    // Config routes
+    { method: 'GET', path: '/api/config' },
+
+    // World routes
+    { method: 'GET', path: '/api/worlds' },
+    { method: 'POST', path: '/api/worlds' },
+    { method: 'GET', path: '/api/worlds/:id' },
+    { method: 'POST', path: '/api/worlds/:id/generate' },
+
+    // Server routes
+    { method: 'GET', path: '/api/servers' },
+    { method: 'POST', path: '/api/servers' },
+    { method: 'GET', path: '/api/servers/:id' },
+
+    // Region routes
+    { method: 'GET', path: '/api/regions' },
+    { method: 'GET', path: '/api/regions/:id' },
+
+    // Player routes
+    { method: 'GET', path: '/api/players' },
+    { method: 'GET', path: '/api/players/:id' },
+    { method: 'PUT', path: '/api/players/:id' },
+    { method: 'DELETE', path: '/api/players/:id' },
+
+    // Settlement routes
+    { method: 'GET', path: '/api/settlements' },
+    { method: 'POST', path: '/api/settlements' },
+    { method: 'GET', path: '/api/settlements/:id' },
+    { method: 'PUT', path: '/api/settlements/:id' },
+    { method: 'DELETE', path: '/api/settlements/:id' },
+
+    // Structure routes
+    { method: 'GET', path: '/api/structures/:id' },
+    { method: 'POST', path: '/api/structures/create' },
+    { method: 'POST', path: '/api/structures/:id/upgrade' },
+    { method: 'DELETE', path: '/api/structures/:id' },
+
+    // Admin routes
+    { method: 'GET', path: '/api/admin/stats' },
+  ];
+
+  // Add test endpoints only in development/test environments
+  const isTestEnvironment =
+    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  if (isTestEnvironment) {
+    routes.push(
+      // Test helper routes
+      { method: 'GET', path: '/api/test/error' },
+      { method: 'DELETE', path: '/api/test/cleanup/user/:email' },
+      { method: 'DELETE', path: '/api/test/cleanup/users/pattern' },
+      { method: 'DELETE', path: '/api/test/cleanup/all' },
+      { method: 'GET', path: '/api/test/users' },
+      { method: 'PUT', path: '/api/test/elevate-admin/:email' },
+
+      // Test admin routes (require TEST_ADMIN_TOKEN header)
+      { method: 'POST', path: '/api/test-admin/elevate-user' },
+      { method: 'POST', path: '/api/test-admin/reset-user-role' },
+      { method: 'GET', path: '/api/test-admin/health' }
+    );
+  }
+
+  return routes;
+}
+
+/**
+ * Get memory usage statistics
+ */
+function getMemoryStats() {
+  const usage = process.memoryUsage();
+  return {
+    heapUsed: `${(usage.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+    heapTotal: `${(usage.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+    rss: `${(usage.rss / 1024 / 1024).toFixed(2)} MB`,
+    external: `${(usage.external / 1024 / 1024).toFixed(2)} MB`,
+  };
+}
+
 // Only start server if not in test mode
 if (NODE_ENV !== 'test') {
   // Start server
   httpServer.listen(PORT, HOST, () => {
     const dbStatus = isDatabaseConnected();
+    const memStats = getMemoryStats();
+    const routes = getKnownApiRoutes();
 
-    logger.info('═'.repeat(60));
+    // Group routes by base path
+    const routesByPath = routes.reduce(
+      (
+        acc: Record<string, Array<{ method: string; path: string }>>,
+        route: { method: string; path: string }
+      ) => {
+        const basePath = route.path.split('/')[1] || 'root';
+        if (!acc[basePath]) acc[basePath] = [];
+        acc[basePath].push(route);
+        return acc;
+      },
+      {} as Record<string, Array<{ method: string; path: string }>>
+    );
+
+    logger.info('═'.repeat(80));
     logger.info('  🎮 Uncharted Lands - Game Server');
-    logger.info('═'.repeat(60));
+    logger.info('═'.repeat(80));
     logger.info(`  Environment:  ${NODE_ENV}`);
     logger.info(`  Node Version: ${process.version}`);
-    logger.info('─'.repeat(60));
-    logger.info(`  WebSocket:    ws://${HOST}:${PORT}`);
-    logger.info(`  REST API:     http://${HOST}:${PORT}/api`);
-    logger.info(`  Health Check: http://${HOST}:${PORT}/health`);
-    logger.info('─'.repeat(60));
-    logger.info(`  Database:     ${dbStatus ? '✓ Connected' : '✗ Disconnected'}`);
-    logger.info(`  CORS Origins: ${CORS_ORIGINS.length} configured`);
+    logger.info(`  Process ID:   ${process.pid}`);
+    logger.info(`  Platform:     ${process.platform} (${process.arch})`);
+    logger.info('─'.repeat(80));
+    logger.info('  📡 Server Endpoints:');
+    logger.info(`     WebSocket:    ws://${HOST}:${PORT}`);
+    logger.info(`     REST API:     http://${HOST}:${PORT}/api`);
+    logger.info(`     Health Check: http://${HOST}:${PORT}/health`);
+    logger.info('─'.repeat(80));
+    logger.info('  💾 Memory Usage:');
+    logger.info(`     Heap Used:    ${memStats.heapUsed}`);
+    logger.info(`     Heap Total:   ${memStats.heapTotal}`);
+    logger.info(`     RSS:          ${memStats.rss}`);
+    logger.info(`     External:     ${memStats.external}`);
+    logger.info('─'.repeat(80));
+    logger.info(`  🔌 Database:     ${dbStatus ? '✓ Connected' : '✗ Disconnected'}`);
+    logger.info(`  🌐 CORS Origins: ${CORS_ORIGINS.length} configured`);
     for (const origin of CORS_ORIGINS) {
-      logger.info(`    • ${origin}`);
+      logger.info(`     • ${origin}`);
     }
-    logger.info('═'.repeat(60));
+    logger.info('─'.repeat(80));
+    logger.info(`  📍 Registered API Routes: ${routes.length} total`);
+    logger.info('');
+
+    // Display routes grouped by base path
+    const sortedPaths = Object.keys(routesByPath).sort();
+    for (const basePath of sortedPaths) {
+      const pathRoutes = routesByPath[basePath];
+      logger.info(`     /${basePath === 'root' ? '' : basePath}:`);
+
+      // Sort routes by path then method
+      pathRoutes
+        .sort((a: { method: string; path: string }, b: { method: string; path: string }) => {
+          if (a.path === b.path) {
+            const methodOrder = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+            return methodOrder.indexOf(a.method) - methodOrder.indexOf(b.method);
+          }
+          return a.path.localeCompare(b.path);
+        })
+        .forEach((route: { method: string; path: string }) => {
+          const methodPadded = route.method.padEnd(7);
+          logger.info(`       ${methodPadded} ${route.path}`);
+        });
+      logger.info('');
+    }
+
+    logger.info('═'.repeat(80));
 
     if (dbStatus) {
       logger.info('[STARTUP] ✓ All systems operational');

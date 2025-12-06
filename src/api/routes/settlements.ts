@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import {
   settlements,
   settlementStorage,
+  settlementPopulation,
   settlementStructures,
   structureModifiers,
   profiles,
@@ -409,6 +410,19 @@ router.post('/', authenticate, async (req, res) => {
       `[SETTLEMENT CREATE] Created TENT modifier ${tentModifierId} (+5 population capacity)`
     );
 
+    // Step 10: Create starting population (GDD BLOCKER 1 - starting population > 0)
+    const populationId = createId();
+    await db.insert(settlementPopulation).values({
+      id: populationId,
+      settlementId: settlementId,
+      currentPopulation: 10, // GDD spec: settlements start with population
+      happiness: 50, // Neutral starting happiness
+    });
+
+    logger.info(
+      `[SETTLEMENT CREATE] Created population record ${populationId} (current: 10, happiness: 50)`
+    );
+
     // Fetch and return the complete settlement
     const newSettlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, settlementId),
@@ -424,6 +438,7 @@ router.post('/', authenticate, async (req, res) => {
           },
         },
         storage: true,
+        population: true, // Include population in response
         playerProfile: true,
       },
     });

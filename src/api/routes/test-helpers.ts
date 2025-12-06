@@ -198,4 +198,51 @@ router.get('/users', requireTestEnvironment, async (req, res) => {
   }
 });
 
+/**
+ * PUT /api/test/elevate-admin/:email
+ * Elevate a test user to ADMINISTRATOR role
+ *
+ * This endpoint allows E2E tests to bootstrap admin users without direct database access.
+ * Production admins should be created by operations team via database or separate admin tools.
+ */
+router.put('/elevate-admin/:email', requireTestEnvironment, async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    logger.info(`[TEST HELPERS] Elevating user to ADMINISTRATOR: ${email}`);
+
+    // Find the user account
+    const account = await db.query.accounts.findFirst({
+      where: eq(accounts.email, email),
+    });
+
+    if (!account) {
+      logger.warn(`[TEST HELPERS] User not found: ${email}`);
+      return sendNotFoundError(res, 'User not found');
+    }
+
+    // Update role to ADMINISTRATOR
+    await db
+      .update(accounts)
+      .set({
+        role: 'ADMINISTRATOR',
+        updatedAt: new Date(),
+      })
+      .where(eq(accounts.id, account.id));
+
+    logger.info(`[TEST HELPERS] User elevated to ADMINISTRATOR: ${email}`);
+
+    res.json({
+      success: true,
+      message: `User ${email} elevated to ADMINISTRATOR`,
+      accountId: account.id,
+      email: account.email,
+      role: 'ADMINISTRATOR',
+    });
+  } catch (error) {
+    logger.error('[TEST HELPERS] Failed to elevate user to admin', error);
+    sendServerError(res, error, 'Failed to elevate user to admin', 'ELEVATION_FAILED');
+  }
+});
+
 export default router;

@@ -26,7 +26,6 @@ describe('Settlements API Routes', () => {
     it('should return all settlements', async () => {
       const response = await request(app).get('/api/settlements').expect(200);
 
-      // Database has test data pollution (188 settlements), so verify at least our test settlement exists
       expect(response.body.length).toBeGreaterThan(0);
       const settlement = response.body.find((s: any) => s.id === testChain.settlementId);
       expect(settlement).toBeDefined();
