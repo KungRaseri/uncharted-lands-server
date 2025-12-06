@@ -6,15 +6,7 @@
  */
 
 import 'dotenv/config';
-import {
-  db,
-  biomes,
-  structures,
-  resources,
-  structureRequirements,
-  accounts,
-  profiles,
-} from './index.js';
+import { db, biomes, structures, resources, structureRequirements, accounts } from './index.js';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '../utils/logger.js';
 import { eq, and } from 'drizzle-orm';
@@ -341,15 +333,6 @@ async function seedAccounts() {
         passwordHash,
         userAuthToken,
         role: accountData.role,
-      });
-
-      // Create profile
-      const profileId = createId();
-      await db.insert(profiles).values({
-        id: profileId,
-        username: accountData.username,
-        picture: accountData.picture,
-        accountId,
       });
 
       created++;
