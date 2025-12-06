@@ -6,13 +6,22 @@
  */
 
 import 'dotenv/config';
-import { db, biomes, structures, resources, structureRequirements } from './index.js';
+import {
+  db,
+  biomes,
+  structures,
+  resources,
+  structureRequirements,
+  accounts,
+  profiles,
+} from './index.js';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '../utils/logger.js';
 import { eq, and } from 'drizzle-orm';
 import { RESOURCES } from '../data/resources.js';
 import { BIOMES } from '../data/biomes.js';
 import { STRUCTURES } from '../data/structures.js';
+import bcrypt from 'bcrypt';
 
 /**
  * Biome definitions with environmental parameters and modifiers
@@ -277,11 +286,96 @@ async function seedBiomes() {
 }
 
 /**
+ * Seed admin and test user accounts with upsert logic
+ */
+async function seedAccounts() {
+  logger.info(`[SEED] Starting account seeding...`);
+
+  const BCRYPT_ROUNDS = 10;
+  let created = 0;
+  let updated = 0;
+
+  // Admin account data
+  const adminAccountData = {
+    email: 'admin@uncharted-lands.com',
+    password: 'Admin123!',
+    role: 'ADMINISTRATOR' as const,
+    username: 'Admin',
+    picture: '/avatars/admin.png',
+  };
+
+  // Test user account data
+  const testUserData = {
+    email: 'test@uncharted-lands.com',
+    password: 'Test123!',
+    role: 'MEMBER' as const,
+    username: 'TestUser',
+    picture: '/avatars/test-user.png',
+  };
+
+  const accountsToSeed = [adminAccountData, testUserData];
+
+  for (const accountData of accountsToSeed) {
+    try {
+      // Check if account exists
+      const existingAccount = await db.query.accounts.findFirst({
+        where: eq(accounts.email, accountData.email),
+      });
+
+      if (existingAccount) {
+        logger.info(`[SEED] Account already exists: ${accountData.email}`);
+        updated++;
+        continue;
+      }
+
+      // Hash the password
+      const passwordHash = await bcrypt.hash(accountData.password, BCRYPT_ROUNDS);
+
+      // Create account
+      const accountId = createId();
+      const userAuthToken = createId();
+
+      await db.insert(accounts).values({
+        id: accountId,
+        email: accountData.email,
+        passwordHash,
+        userAuthToken,
+        role: accountData.role,
+      });
+
+      // Create profile
+      const profileId = createId();
+      await db.insert(profiles).values({
+        id: profileId,
+        username: accountData.username,
+        picture: accountData.picture,
+        accountId,
+      });
+
+      created++;
+      logger.info(`[SEED] Created account: ${accountData.email} (${accountData.role})`);
+      logger.info(`[SEED]   Username: ${accountData.username}`);
+      logger.info(`[SEED]   Password: ${accountData.password}`);
+    } catch (error) {
+      logger.error(`[SEED] Error seeding account ${accountData.email}:`, error);
+      throw error;
+    }
+  }
+
+  logger.info(`[SEED] Account seeding complete: ${created} created, ${updated} skipped`);
+
+  return { created, updated, total: accountsToSeed.length };
+}
+
+/**
  * Main seeding execution
  */
 logger.info('[SEED] Starting database seeding...');
 
 try {
+  // Seed accounts (admin and test user)
+  const accountResult = await seedAccounts();
+
   // Seed structures
   const structureResult = await _seedStructures();
 
@@ -289,6 +383,11 @@ try {
   const biomeResult = await seedBiomes();
 
   logger.info('[SEED] ✅ Seeding completed successfully!', {
+    accounts: {
+      created: accountResult.created,
+      updated: accountResult.updated,
+      total: accountResult.total,
+    },
     structures: {
       created: structureResult.created,
       updated: structureResult.updated,

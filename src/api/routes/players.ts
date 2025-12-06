@@ -47,15 +47,11 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
           with: {
             settlements: {
               with: {
-                plot: {
+                tile: {
                   with: {
-                    tile: {
+                    region: {
                       with: {
-                        region: {
-                          with: {
-                            world: true,
-                          },
-                        },
+                        world: true,
                       },
                     },
                   },
