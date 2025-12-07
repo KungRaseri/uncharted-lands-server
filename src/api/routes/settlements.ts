@@ -35,6 +35,15 @@ router.get('/', async (req, res) => {
         tile: {
           with: {
             biome: true,
+            region: {
+              with: {
+                world: {
+                  with: {
+                    server: true,
+                  },
+                },
+              },
+            },
           },
         },
         structures: true,
