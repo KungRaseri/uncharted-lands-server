@@ -331,6 +331,7 @@ router.get('/by-settlement/:settlementId', authenticate, async (req: Request, re
       with: {
         structure: true,
         modifiers: true,
+        tile: true,
       },
     });
 

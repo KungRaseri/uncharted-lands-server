@@ -56,7 +56,7 @@ export function calculateResourceQuality(
  */
 export function calculatePlotSlots(biome: Biome): number {
   const avgPlots = Math.floor((biome.plotsMin + biome.plotsMax) / 2);
-  return Math.max(4, Math.min(9, avgPlots)); // Clamp between 4-9
+  return Math.max(3, Math.min(5, avgPlots)); // Clamp between 3-5
 }
 
 /**
