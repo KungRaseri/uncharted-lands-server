@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../../db/index.js';
-import { accounts, profiles } from '../../db/schema.js';
+import { accounts } from '../../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '../../utils/logger.js';
@@ -95,7 +95,7 @@ router.post('/register', strictLimiter, async (req, res) => {
 
     logger.debug('[AUTH] Creating new account', { requestId, accountId });
 
-    // Create account
+    // Create account (but NOT profile - that happens during onboarding)
     try {
       await db.insert(accounts).values({
         id: accountId,
@@ -105,14 +105,6 @@ router.post('/register', strictLimiter, async (req, res) => {
         role: 'MEMBER',
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
-
-      // Create profile with username (use email as default if not provided)
-      await db.insert(profiles).values({
-        id: createId(),
-        accountId,
-        username: username || email, // Default to email if no username provided
-        picture: '', // Default empty picture
       });
     } catch (dbError) {
       logger.error('[AUTH] Database error during account creation', {
