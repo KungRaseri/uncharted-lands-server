@@ -13,7 +13,6 @@ import type { Server as SocketIOServer } from 'socket.io';
 import { eq, or, and } from 'drizzle-orm';
 import { logger } from '../utils/logger.js';
 import {
-  getPlayerSettlements,
   updateSettlementStorage,
   getSettlementWithDetails,
   getSettlementStructures,
@@ -58,6 +57,11 @@ import { db } from '../db/index.js';
 const TICK_RATE = Number.parseInt(process.env.TICK_RATE || '60', 10); // Default: 60 ticks per second
 const TICK_INTERVAL_MS = 1000 / TICK_RATE; // ~16.67ms per tick (at 60 ticks/sec)
 
+// Configurable game loop intervals (in seconds)
+const RESOURCE_INTERVAL_SEC = Number.parseInt(process.env.RESOURCE_INTERVAL_SEC || '3600', 10); // Default: 1 hour (production)
+const SOCKET_EMIT_INTERVAL_SEC = Number.parseInt(process.env.SOCKET_EMIT_INTERVAL_SEC || '1', 10); // Default: 1 second (real-time projection)
+const POPULATION_INTERVAL_SEC = Number.parseInt(process.env.POPULATION_INTERVAL_SEC || '1800', 10); // Default: 30 minutes (half-hour offset)
+
 // Track active game loop
 let gameLoopInterval: NodeJS.Timeout | null = null;
 let currentTick = 0;
@@ -65,16 +69,9 @@ let isRunning = false;
 let lastStatusLog = 0;
 const STATUS_LOG_INTERVAL = TICK_RATE * 300; // Log status every 5 minutes (300 seconds)
 
-// Track active settlements that need updates
-const activeSettlements = new Map<
-  string,
-  {
-    settlementId: string;
-    playerId: string;
-    worldId: string;
-    lastUpdateTick: number;
-  }
->();
+// NOTE: activeSettlements Map REMOVED in December 2025 refactor
+// Game loop now processes ALL settlements in READY worlds (world-based processing)
+// This ensures offline resource accumulation per GDD requirements
 
 /**
  * Start the game loop
@@ -115,7 +112,6 @@ export function stopGameLoop(): void {
 
   logger.info('[GAME LOOP] 🛑 Stopping game loop...', {
     finalTick: currentTick,
-    activeSettlements: activeSettlements.size,
   });
 
   if (gameLoopInterval) {
@@ -125,7 +121,6 @@ export function stopGameLoop(): void {
 
   isRunning = false;
   currentTick = 0;
-  activeSettlements.clear();
 
   logger.info('[GAME LOOP] ✓ Game loop stopped successfully');
 }
@@ -141,7 +136,6 @@ async function processTick(io: SocketIOServer): Promise<void> {
     logger.info('[GAME LOOP] 📊 Status update', {
       tick: currentTick,
       uptime: `${Math.floor(currentTick / TICK_RATE / 60)}m ${Math.floor((currentTick / TICK_RATE) % 60)}s`,
-      activeSettlements: activeSettlements.size,
       connections: io.engine.clientsCount,
     });
     lastStatusLog = currentTick;
@@ -228,61 +222,157 @@ async function processTick(io: SocketIOServer): Promise<void> {
     }
   }
 
-  // Update every 60 ticks (once per second)
-  // This prevents overwhelming the database with updates
-  if (currentTick % TICK_RATE !== 0) {
-    return;
-  }
+  // ===== RESOURCE PRODUCTION & POPULATION UPDATES (Refactored December 2025) =====
 
-  // Process all active settlements
-  if (activeSettlements.size === 0) {
-    return;
-  }
+  // Calculate current time for alignment checks
+  const currentTime = Date.now();
+  const secondsSinceEpoch = Math.floor(currentTime / 1000);
 
-  const settlements = Array.from(activeSettlements.values());
+  // Check if we're at a resource production interval (top-of-hour by default)
+  const isResourceProductionTime = secondsSinceEpoch % RESOURCE_INTERVAL_SEC === 0;
 
-  // Process settlements in batches to avoid overwhelming the database
-  const batchSize = 10;
-  for (let i = 0; i < settlements.length; i += batchSize) {
-    const batch = settlements.slice(i, i + batchSize);
-    await Promise.all(batch.map((settlement) => processSettlement(settlement, io)));
+  // Check if we're at a population update interval (half-hour offset by default)
+  const isPopulationUpdateTime = secondsSinceEpoch % POPULATION_INTERVAL_SEC === 0;
+
+  // Emit real-time projections every SOCKET_EMIT_INTERVAL_SEC (default: 1 second)
+  const shouldEmitProjection = currentTick % (TICK_RATE * SOCKET_EMIT_INTERVAL_SEC) === 0;
+
+  // Process world-based updates if it's time
+  if (isResourceProductionTime || isPopulationUpdateTime || shouldEmitProjection) {
+    await processWorldBasedUpdates(io, {
+      isResourceProductionTime,
+      isPopulationUpdateTime,
+      shouldEmitProjection,
+      currentTime,
+      secondsSinceEpoch,
+    });
   }
 }
 
 /**
- * Process resource generation for a single settlement
+ * Process resource/population updates for ALL settlements in READY worlds
+ * This replaces the old activeSettlements Map approach with world-based processing
+ *
+ * Key differences from old system:
+ * - Processes ALL settlements regardless of player connection (offline accumulation)
+ * - Queries settlements by world instead of tracking in memory
+ * - Aligns production to clock hours (configurable intervals)
+ * - Emits real-time projections between actual production
  */
-async function processSettlement(
-  settlement: {
-    settlementId: string;
-    playerId: string;
-    worldId: string;
-    lastUpdateTick: number;
-  },
-  io: SocketIOServer
+async function processWorldBasedUpdates(
+  io: SocketIOServer,
+  timing: {
+    isResourceProductionTime: boolean;
+    isPopulationUpdateTime: boolean;
+    shouldEmitProjection: boolean;
+    currentTime: number;
+    secondsSinceEpoch: number;
+  }
 ): Promise<void> {
   try {
+    // Get all READY worlds
+    const { worlds: worldsTable } = await import('../db/schema.js');
+    const activeWorlds = await db.query.worlds.findMany({
+      where: eq(worldsTable.status, 'READY'),
+    });
+
+    if (activeWorlds.length === 0) {
+      return; // No active worlds to process
+    }
+
+    // Process each world's settlements
+    for (const world of activeWorlds) {
+      try {
+        // Get all settlements in this world
+        const { settlements: settlementsTable } = await import('../db/schema.js');
+        const settlements = await db.query.settlements.findMany({
+          where: eq(settlementsTable.worldId, world.id),
+        });
+
+        if (settlements.length === 0) {
+          continue; // No settlements in this world
+        }
+
+        // Process settlements in batches to avoid overwhelming database
+        const batchSize = 10;
+        for (let i = 0; i < settlements.length; i += batchSize) {
+          const batch = settlements.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map((settlement) =>
+              processSettlementWorldBased(settlement.id, world.id, io, timing)
+            )
+          );
+        }
+      } catch (error) {
+        logger.error('[GAME LOOP] Error processing world settlements', {
+          worldId: world.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+  } catch (error) {
+    logger.error('[GAME LOOP] Error in world-based processing', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+}
+
+/**
+ * Process a settlement in the world-based system (Refactored December 2025)
+ *
+ * This function replaces the old processSettlement and adapts it for timing-based processing:
+ * - Queries settlement data directly (no activeSettlements Map)
+ * - Emits real-time projections OR actual updates based on timing flags
+ * - Writes to database only on actual production/population ticks
+ * - Checks room occupancy before Socket.IO emission
+ *
+ * @param settlementId - Settlement to process
+ * @param worldId - World the settlement belongs to
+ * @param io - Socket.IO server instance
+ * @param timing - Timing flags for this tick
+ */
+async function processSettlementWorldBased(
+  settlementId: string,
+  worldId: string,
+  io: SocketIOServer,
+  timing: {
+    isResourceProductionTime: boolean;
+    isPopulationUpdateTime: boolean;
+    shouldEmitProjection: boolean;
+    currentTime: number;
+    secondsSinceEpoch: number;
+  }
+): Promise<void> {
+  try {
+    // Check if anyone is in the world room before processing
+    const roomSize = io.sockets.adapter.rooms.get(`world:${worldId}`)?.size || 0;
+
+    // If no clients in room and not a production tick, skip emission
+    // (Still process production ticks to update database even if no one is watching)
+    if (roomSize === 0 && !timing.isResourceProductionTime && !timing.isPopulationUpdateTime) {
+      return; // Skip projection emission for empty rooms
+    }
+
     // Fetch settlement details
-    const settlementData = await getSettlementWithDetails(settlement.settlementId);
+    const settlementData = await getSettlementWithDetails(settlementId);
 
     if (!settlementData?.settlement || !settlementData.storage || !settlementData.tile) {
-      logger.warn('[GAME LOOP] Settlement data incomplete, removing from active list', {
-        settlementId: settlement.settlementId,
+      logger.warn('[GAME LOOP] Settlement data incomplete, skipping', {
+        settlementId,
       });
-      activeSettlements.delete(settlement.settlementId);
       return;
     }
 
     const { storage, tile, biome, world } = settlementData;
     const worldTemplateType = world?.worldTemplateType || 'STANDARD';
 
-    // Get template config and extract multipliers (Phase 1D)
+    // Get template config and extract multipliers
     const templateConfig = getWorldTemplateConfig(worldTemplateType as WorldTemplateType);
     const consumptionMultiplier = templateConfig.consumptionMultiplier;
     const productionMultiplier = templateConfig.productionMultiplier;
 
-    // Fetch settlement structures for consumption/storage calculations
-    const structureData = await getSettlementStructures(settlement.settlementId);
+    // Fetch settlement structures
+    const structureData = await getSettlementStructures(settlementId);
 
     // Transform structure data into format expected by calculators
     const structures: Structure[] = structureData
@@ -301,7 +391,7 @@ async function processSettlement(
           index === self.findIndex((s) => s.name === struct.name)
       );
 
-    // Filter extractors on this specific tile (BLOCKER 2 FIX)
+    // Filter extractors on this specific tile
     const extractors = structureData
       .filter(
         (row) => row.structure.tileId === tile.id && row.structureDef?.category === 'EXTRACTOR'
@@ -313,12 +403,12 @@ async function processSettlement(
         buildingType: row.structureDef?.buildingType,
       }));
 
-    // ============================================
-    // PHASE 1D: POPULATION ASSIGNMENT SYSTEM
-    // ============================================
+    // ==================================================================
+    // RESOURCE PRODUCTION (On production tick OR projection)
+    // ==================================================================
 
     // Get settlement population
-    const populationData = await getSettlementPopulation(settlement.settlementId);
+    const populationData = await getSettlementPopulation(settlementId);
     const totalPopulation = populationData?.currentPopulation || 0;
 
     // Map all settlement structures to StructureWithType format for assignment
@@ -327,45 +417,54 @@ async function processSettlement(
       category: (row.structureDef?.category as 'EXTRACTOR' | 'BUILDING') || 'BUILDING',
     }));
 
-    // Run auto-assignment algorithm
-    const assignmentResult = autoAssignPopulation(totalPopulation, allStructuresForAssignment);
+    // Run auto-assignment algorithm (only on production ticks, not projections)
+    if (timing.isResourceProductionTime) {
+      const assignmentResult = autoAssignPopulation(totalPopulation, allStructuresForAssignment);
 
-    // Update database with new assignments
-    for (const [structureId, assigned] of assignmentResult.assignments) {
-      await db
-        .update(settlementStructures)
-        .set({ populationAssigned: assigned })
-        .where(eq(settlementStructures.id, structureId));
+      // Update database with new assignments
+      for (const [structureId, assigned] of assignmentResult.assignments) {
+        await db
+          .update(settlementStructures)
+          .set({ populationAssigned: assigned })
+          .where(eq(settlementStructures.id, structureId));
+      }
+
+      // Log assignment statistics
+      if (
+        assignmentResult.totalAssigned > 0 ||
+        assignmentResult.understaffedStructures.length > 0
+      ) {
+        logger.debug('[GAME LOOP] Population assignment', {
+          settlementId,
+          totalPopulation,
+          assigned: assignmentResult.totalAssigned,
+          remaining: assignmentResult.remainingPopulation,
+        });
+      }
     }
 
     // Calculate staffing bonuses for production
     const staffingBonuses = calculateAllStaffingBonuses(allStructuresForAssignment);
 
-    // Log assignment statistics (at debug level to avoid spam)
-    if (assignmentResult.totalAssigned > 0 || assignmentResult.understaffedStructures.length > 0) {
-      logger.debug('[GAME LOOP] Population assignment', {
-        settlementId: settlement.settlementId,
-        totalPopulation,
-        assigned: assignmentResult.totalAssigned,
-        remaining: assignmentResult.remainingPopulation,
-        understaffed: assignmentResult.understaffedStructures.length,
-        fullyStaffed: assignmentResult.fullyStaffedStructures.length,
-      });
-    }
+    // Calculate production for this interval
+    // For projections: calculate fractional production (time since last hour)
+    // For production ticks: calculate full hour's production
+    const secondsSinceLastProduction = timing.isResourceProductionTime
+      ? RESOURCE_INTERVAL_SEC // Full interval
+      : timing.secondsSinceEpoch % RESOURCE_INTERVAL_SEC; // Partial interval
 
-    // Calculate ticks since last update
-    const ticksSinceUpdate = currentTick - settlement.lastUpdateTick;
+    const ticksForThisInterval = Math.floor((secondsSinceLastProduction / 60) * TICK_RATE);
 
-    // Calculate base production for those ticks (GDD formula now applied with biome efficiency and world template multiplier)
+    // Calculate base production
     const baseProduction = calculateProduction(
       tile,
       extractors,
-      ticksSinceUpdate,
+      ticksForThisInterval,
       biome?.name,
       productionMultiplier
     );
 
-    // Query active disasters affecting this world (IMPACT or AFTERMATH phases)
+    // Query active disasters affecting this world
     const activeDisasters = await db.query.disasterEvents.findMany({
       where: and(
         eq(disasterEvents.worldId, world?.id || ''),
@@ -373,16 +472,15 @@ async function processSettlement(
       ),
     });
 
-    // Calculate disaster production modifiers (GDD Section 3.5.4)
-    const currentTime = Date.now();
+    // Calculate disaster production modifiers
     const disasterModifiers = calculateAllDisasterModifiers(
       activeDisasters.map((d) => ({
         type: d.type,
         status: d.status,
         impactEndedAt: d.impactEndedAt ?? undefined,
       })),
-      settlement,
-      currentTime
+      { settlementId, playerId: world?.id || '', worldId, lastUpdateTick: 0 },
+      timing.currentTime
     );
 
     // Apply disaster penalties to base production
@@ -394,37 +492,29 @@ async function processSettlement(
       ore: baseProduction.ore * disasterModifiers.resourceModifiers.ore,
     };
 
-    // Apply staffing bonuses to extractor production
-    // Map extractors to their bonuses and apply them
+    // Apply staffing bonuses
     for (const extractor of extractors) {
       const bonus = staffingBonuses.get(extractor.id) || 1;
       const extractorType = extractor.extractorType;
 
-      // Apply bonus to the appropriate resource
-      if (extractorType === 'FARM') {
-        production.food *= bonus;
-      } else if (extractorType === 'WELL') {
-        production.water *= bonus;
-      } else if (extractorType === 'LUMBER_MILL') {
-        production.wood *= bonus;
-      } else if (extractorType === 'QUARRY') {
-        production.stone *= bonus;
-      } else if (extractorType === 'MINE') {
-        production.ore *= bonus;
-      }
+      if (extractorType === 'FARM') production.food *= bonus;
+      else if (extractorType === 'WELL') production.water *= bonus;
+      else if (extractorType === 'LUMBER_MILL') production.wood *= bonus;
+      else if (extractorType === 'QUARRY') production.stone *= bonus;
+      else if (extractorType === 'MINE') production.ore *= bonus;
     }
 
-    // Calculate consumption for those ticks (population + structure maintenance)
+    // Calculate consumption for this interval
     const population = calculatePopulation(structures);
     const structureCount = structures.length;
     const consumption = calculateConsumption(
       population,
       structureCount,
-      ticksSinceUpdate,
+      ticksForThisInterval,
       consumptionMultiplier
     );
 
-    // Calculate net resource changes (production - consumption)
+    // Calculate net resource changes
     const netProduction = subtractResources(production, consumption);
 
     // Get current resources
@@ -436,105 +526,130 @@ async function processSettlement(
       ore: storage.ore,
     };
 
-    // Add net production to current resources
-    const proposedResources = addResources(currentResources, netProduction);
-
     // Calculate storage capacity
     const capacity = calculateStorageCapacity(structures);
 
-    // Calculate waste (resources exceeding capacity)
-    const waste = calculateWaste(currentResources, netProduction, capacity);
+    // ==================================================================
+    // DATABASE WRITE (On production tick only, NOT on projections)
+    // ==================================================================
+    if (timing.isResourceProductionTime) {
+      // Add net production to current resources
+      const proposedResources = addResources(currentResources, netProduction);
 
-    // Clamp resources to capacity
-    const finalResources = clampToCapacity(proposedResources, capacity);
+      // Calculate waste (resources exceeding capacity)
+      const waste = calculateWaste(currentResources, netProduction, capacity);
 
-    // Update storage in database
-    await updateSettlementStorage(storage.id, finalResources);
+      // Clamp resources to capacity
+      const finalResources = clampToCapacity(proposedResources, capacity);
 
-    // Update last update tick
-    settlement.lastUpdateTick = currentTick;
+      // Update storage in database
+      await updateSettlementStorage(storage.id, finalResources);
 
-    // Broadcast resource update to world
-    io.to(`world:${settlement.worldId}`).emit('resource-update', {
-      type: 'auto-production',
-      settlementId: settlement.settlementId,
-      resources: finalResources,
-      production: production,
-      consumption: consumption,
-      netProduction: netProduction,
-      population: population,
-      timestamp: Date.now(),
-    });
-
-    // Broadcast waste event if any resources were wasted
-    if (waste.food > 0 || waste.water > 0 || waste.wood > 0 || waste.stone > 0 || waste.ore > 0) {
-      io.to(`world:${settlement.worldId}`).emit('resource-waste', {
-        settlementId: settlement.settlementId,
-        waste: waste,
-        capacity: capacity,
-        timestamp: Date.now(),
-      });
-
-      logger.debug('[GAME LOOP] Resources wasted due to capacity', {
-        settlementId: settlement.settlementId,
-        waste,
-      });
-    }
-
-    // Check storage capacity warnings (>90% full)
-    const nearCapacity = isNearCapacity(finalResources, capacity);
-    const hasWarnings = Object.values(nearCapacity).some(Boolean);
-
-    if (hasWarnings) {
-      io.to(`world:${settlement.worldId}`).emit('storage-warning', {
-        settlementId: settlement.settlementId,
-        nearCapacity: nearCapacity,
+      // Broadcast resource update to world
+      const resourceUpdatePayload = {
+        type: 'auto-production',
+        settlementId,
         resources: finalResources,
-        capacity: capacity,
-        timestamp: Date.now(),
-      });
-    }
-
-    // Check if settlement has enough resources for population (1 hour buffer)
-    const hasResources = hasResourcesForPopulation(population, structureCount, finalResources);
-
-    if (!hasResources && population > 0) {
-      io.to(`world:${settlement.worldId}`).emit('resource-shortage', {
-        settlementId: settlement.settlementId,
-        population: population,
-        resources: finalResources,
-        timestamp: Date.now(),
-      });
-
-      logger.warn('[GAME LOOP] Settlement has insufficient resources', {
-        settlementId: settlement.settlementId,
+        production,
+        consumption,
+        netProduction,
         population,
-        resources: finalResources,
+        timestamp: timing.currentTime,
+      };
+
+      if (roomSize > 0) {
+        io.to(`world:${worldId}`).emit('resource-update', resourceUpdatePayload);
+      }
+
+      // Broadcast waste event if any resources were wasted
+      if (waste.food > 0 || waste.water > 0 || waste.wood > 0 || waste.stone > 0 || waste.ore > 0) {
+        if (roomSize > 0) {
+          io.to(`world:${worldId}`).emit('resource-waste', {
+            settlementId,
+            waste,
+            capacity,
+            timestamp: timing.currentTime,
+          });
+        }
+
+        logger.debug('[GAME LOOP] Resources wasted due to capacity', {
+          settlementId,
+          waste,
+        });
+      }
+
+      // Check storage capacity warnings (>90% full)
+      const nearCapacity = isNearCapacity(finalResources, capacity);
+      const hasWarnings = Object.values(nearCapacity).some(Boolean);
+
+      if (hasWarnings && roomSize > 0) {
+        io.to(`world:${worldId}`).emit('storage-warning', {
+          settlementId,
+          nearCapacity,
+          resources: finalResources,
+          capacity,
+          timestamp: timing.currentTime,
+        });
+      }
+
+      // Check if settlement has enough resources for population (1 hour buffer)
+      const hasResources = hasResourcesForPopulation(population, structureCount, finalResources);
+
+      if (!hasResources && population > 0 && roomSize > 0) {
+        io.to(`world:${worldId}`).emit('resource-shortage', {
+          settlementId,
+          population,
+          resources: finalResources,
+          timestamp: timing.currentTime,
+        });
+
+        logger.warn('[GAME LOOP] Settlement has insufficient resources', {
+          settlementId,
+          population,
+          resources: finalResources,
+        });
+      }
+
+      logger.debug('[GAME LOOP] Settlement resources updated', {
+        settlementId,
+        production,
+        consumption,
+        netProduction,
+        population,
+        finalResources,
       });
     }
 
-    logger.debug('[GAME LOOP] Settlement resources updated', {
-      settlementId: settlement.settlementId,
-      production,
-      consumption,
-      netProduction,
-      population,
-      finalResources,
-    });
+    // ==================================================================
+    // REAL-TIME PROJECTION (On projection ticks, NOT on production)
+    // ==================================================================
+    else if (timing.shouldEmitProjection && roomSize > 0) {
+      // Calculate projected resources (current + partial production)
+      const projectedResources = addResources(currentResources, netProduction);
+      const finalProjected = clampToCapacity(projectedResources, capacity);
 
-    // Process population growth every 10 minutes (36,000 ticks at 60Hz)
-    if (currentTick % 36000 === 0) {
-      await processPopulation(
-        settlement.settlementId,
-        settlement.worldId,
-        structures,
-        currentResources,
-        io
-      );
+      // Emit projection event
+      io.to(`world:${worldId}`).emit('resource-preview', {
+        settlementId,
+        resources: finalProjected,
+        production,
+        consumption,
+        netProduction,
+        population,
+        secondsUntilNextProduction: RESOURCE_INTERVAL_SEC - secondsSinceLastProduction,
+        timestamp: timing.currentTime,
+      });
+    }
+
+    // ==================================================================
+    // POPULATION UPDATE (On population tick only)
+    // ==================================================================
+    if (timing.isPopulationUpdateTime) {
+      await processPopulation(settlementId, worldId, structures, currentResources, io);
     }
   } catch (error) {
     logger.error('[GAME LOOP] Error processing settlement:', error, {
-      settlementId: settlement.settlementId,
+      settlementId,
     });
   }
 }
@@ -680,109 +795,16 @@ async function processPopulation(
 }
 
 /**
- * Register a settlement for automatic updates
- */
-export function registerSettlement(settlementId: string, playerId: string, worldId: string): void {
-  if (activeSettlements.has(settlementId)) {
-    logger.debug('[GAME LOOP] Settlement already registered', { settlementId });
-    return;
-  }
-
-  activeSettlements.set(settlementId, {
-    settlementId,
-    playerId,
-    worldId,
-    lastUpdateTick: currentTick,
-  });
-
-  logger.debug('[GAME LOOP] Settlement registered for auto-updates', {
-    settlementId,
-    playerId,
-    worldId,
-    activeSettlementCount: activeSettlements.size,
-  });
-}
-
-/**
- * Unregister a settlement from automatic updates
- */
-export function unregisterSettlement(settlementId: string): void {
-  const removed = activeSettlements.delete(settlementId);
-
-  if (removed) {
-    logger.debug('[GAME LOOP] Settlement unregistered from auto-updates', {
-      settlementId,
-      activeSettlementCount: activeSettlements.size,
-    });
-  }
-}
-
-/**
  * Get game loop status
  */
 export function getGameLoopStatus(): {
   isRunning: boolean;
   currentTick: number;
-  activeSettlements: number;
   tickRate: number;
 } {
   return {
     isRunning,
     currentTick,
-    activeSettlements: activeSettlements.size,
     tickRate: TICK_RATE,
   };
-}
-
-/**
- * Register all player settlements when they join a world
- */
-export async function registerPlayerSettlements(playerId: string, worldId: string): Promise<void> {
-  try {
-    const settlements = await getPlayerSettlements(playerId);
-
-    for (const settlement of settlements) {
-      registerSettlement(settlement.id, playerId, worldId);
-    }
-
-    logger.info('[GAME LOOP] Registered all player settlements', {
-      playerId,
-      worldId,
-      settlementCount: settlements.length,
-    });
-  } catch (error) {
-    logger.error('[GAME LOOP] Error registering player settlements:', error, {
-      playerId,
-      worldId,
-    });
-  }
-}
-
-/**
- * Unregister all player settlements when they leave a world
- */
-export async function unregisterPlayerSettlements(playerId: string): Promise<void> {
-  try {
-    // Find and remove all settlements belonging to this player
-    const toRemove: string[] = [];
-
-    for (const [settlementId, settlement] of activeSettlements.entries()) {
-      if (settlement.playerId === playerId) {
-        toRemove.push(settlementId);
-      }
-    }
-
-    for (const settlementId of toRemove) {
-      unregisterSettlement(settlementId);
-    }
-
-    logger.info('[GAME LOOP] Unregistered all player settlements', {
-      playerId,
-      settlementCount: toRemove.length,
-    });
-  } catch (error) {
-    logger.error('[GAME LOOP] Error unregistering player settlements:', error, {
-      playerId,
-    });
-  }
 }
