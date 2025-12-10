@@ -399,7 +399,7 @@ async function handleBuildStructure(
       const usedSlots = new Set(
         existingExtractors.map((e) => e.structure.slotPosition).filter((s) => s !== null)
       );
-      for (let slot = 0; slot < 5; slot++) {
+      for (let slot = 0; slot < settlementData.settlement.plotSlots; slot++) {
         if (!usedSlots.has(slot)) {
           slotPosition = slot;
           break;
