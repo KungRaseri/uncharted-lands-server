@@ -10,14 +10,12 @@ import { db, accounts, profiles } from '../../db/index.js';
 import { eq, like, desc } from 'drizzle-orm';
 import { logger } from '../../utils/logger.js';
 import { sendServerError, sendNotFoundError } from '../utils/responses.js';
+import { isTest, isDevelopment } from '../../utils/environment.js';
 
 const router = Router();
 
 // Only enable these routes in test/development/e2e environments
-const isTestEnvironment =
-  process.env.NODE_ENV === 'test' ||
-  process.env.NODE_ENV === 'development' ||
-  process.env.NODE_ENV === 'e2e';
+const isTestEnvironment = isTest || isDevelopment;
 
 if (!isTestEnvironment) {
   logger.warn('[TEST HELPERS] Test helper routes are disabled in production');

@@ -6,12 +6,9 @@
 
 import rateLimit from 'express-rate-limit';
 import { logger } from '../../utils/logger.js';
+import { isDevelopment } from '../../utils/environment.js';
 
-// Detect test/development environment and significantly relax rate limits
-const isDevelopment =
-  process.env.NODE_ENV === 'development' ||
-  process.env.NODE_ENV === 'test' ||
-  process.env.NODE_ENV === 'e2e';
+// Significantly relax rate limits in development/test/e2e environments
 const testMultiplier = isDevelopment ? 1000 : 1; // 1000x more lenient in dev/test/e2e
 
 /**
