@@ -390,7 +390,9 @@ export async function createStructure(
     name: string;
     description: string;
     value: number;
-  }>
+  }>,
+  tileId?: string | null,
+  slotPosition?: number | null
 ) {
   // Find or create the structure template
   // For now, we'll just create the settlement structure without template validation
@@ -405,6 +407,8 @@ export async function createStructure(
       settlementId,
       level: 1,
       populationAssigned: 0,
+      tileId: tileId ?? null,
+      slotPosition: slotPosition ?? null,
     })
     .returning();
 

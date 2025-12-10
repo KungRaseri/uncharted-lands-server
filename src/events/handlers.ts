@@ -381,6 +381,47 @@ async function handleBuildStructure(
     const requirements = getStructureRequirements(structureConfig.name);
     const modifiers = getStructureModifiers(structureConfig.name);
 
+    // Check if this is an extractor (needs tileId and slotPosition)
+    let tileId: string | null = null;
+    let slotPosition: number | null = null;
+
+    if (structureConfig.category === 'EXTRACTOR') {
+      // Auto-assign to settlement's founding tile (temporary solution)
+      // TODO: UI should let player select tile and slot via grid interface
+      tileId = settlementData.settlement.tileId;
+
+      // Find next available slot on this tile (0-4)
+      const existingExtractors = (await getSettlementStructures(data.settlementId)).filter(
+        (s) => s.structureDef?.category == 'EXTRACTOR' && s.structure.tileId === tileId
+      );
+
+      // Find first available slot (0-4)
+      const usedSlots = new Set(
+        existingExtractors.map((e) => e.structure.slotPosition).filter((s) => s !== null)
+      );
+      for (let slot = 0; slot < 5; slot++) {
+        if (!usedSlots.has(slot)) {
+          slotPosition = slot;
+          break;
+        }
+      }
+
+      // If no slots available, return error
+      if (slotPosition === null) {
+        const errorResponse = {
+          success: false,
+          error: 'No available slots on settlement tile. All 5 slots occupied.',
+          timestamp: Date.now(),
+        };
+        return callback ? callback(errorResponse) : undefined;
+      }
+
+      logger.info(`[EXTRACTOR] Auto-assigned to tile ${tileId}, slot ${slotPosition}`, {
+        structureType: structureConfig.name,
+        settlementId: data.settlementId,
+      });
+    }
+
     // Create the structure with all required data
     const structureResult = await createStructure(
       data.settlementId,
@@ -396,7 +437,9 @@ async function handleBuildStructure(
         stone: requiredResources.stone,
         ore: requiredResources.ore,
       },
-      modifiers
+      modifiers,
+      tileId,
+      slotPosition
     );
 
     const response = {
