@@ -13,20 +13,23 @@ import { sendServerError, sendNotFoundError } from '../utils/responses.js';
 
 const router = Router();
 
-// Only enable these routes in test/development environments
-const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development';
+// Only enable these routes in test/development/e2e environments
+const isTestEnvironment =
+  process.env.NODE_ENV === 'test' ||
+  process.env.NODE_ENV === 'development' ||
+  process.env.NODE_ENV === 'e2e';
 
 if (!isTestEnvironment) {
   logger.warn('[TEST HELPERS] Test helper routes are disabled in production');
 }
 
 /**
- * Middleware to ensure test routes only work in test/dev
+ * Middleware to ensure test routes only work in test/dev/e2e
  */
 const requireTestEnvironment = (req: Request, res: Response, next: NextFunction) => {
   if (!isTestEnvironment) {
     return res.status(403).json({
-      error: 'Test helper routes are only available in test/development environments',
+      error: 'Test helper routes are only available in test/development/e2e environments',
       code: 'FORBIDDEN',
     });
   }
