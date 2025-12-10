@@ -52,7 +52,19 @@ function calculateBaseProduction(
   // Get base production modifier (disaster impacts like drought)
   const baseModifier = tile.baseProductionModifier || 1;
 
-  return qualityMultiplier * biomeEfficiency * baseModifier * 0.2;
+  const result = qualityMultiplier * biomeEfficiency * baseModifier * 0.2;
+
+  logger.debug(`[BASE PRODUCTION] Calculated for ${resourceType}`, {
+    tileId: tile.id,
+    quality,
+    qualityMultiplier,
+    biomeEfficiency,
+    baseModifier,
+    formula: `${qualityMultiplier} × ${biomeEfficiency} × ${baseModifier} × 0.2`,
+    result,
+  });
+
+  return result;
 }
 
 /**
@@ -85,6 +97,7 @@ function getExtractorTierMultiplier(level: number): number {
 import type { Tile, SettlementStructure } from '../db/schema.js';
 import { getBiomeEfficiency } from '../config/biome-config.js';
 import { getEffectiveness } from './structure-effectiveness.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Resource types in the game
@@ -281,6 +294,15 @@ export function calculateProduction(
     ore: 0,
   };
 
+  // Log production calculation start
+  logger.debug('[RESOURCE CALC] Starting production calculation', {
+    tileId: tile.id,
+    biomeName,
+    extractorCount: extractors.length,
+    tickCount,
+    worldTemplateMultiplier,
+  });
+
   // BLOCKER 2 FIX: Process EACH resource type independently
   // Base production (20%) happens even WITHOUT extractors
   const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
@@ -292,6 +314,7 @@ export function calculateProduction(
 
     if (resourceQuality === 0) {
       // Tile doesn't have this resource - skip
+      logger.debug(`[RESOURCE CALC] Skipping ${resourceType} (quality = 0)`);
       continue;
     }
 
@@ -328,13 +351,36 @@ export function calculateProduction(
 
       // Apply structure health modifier (disaster damage impact)
       healthModifier = getEffectiveness(extractor.health);
+
+      logger.debug(`[RESOURCE CALC] ${resourceType} extractor found`, {
+        extractorType: extractor.extractorType,
+        level: extractor.level,
+        health: extractor.health,
+        tierMultiplier,
+        healthModifier,
+      });
+    } else {
+      logger.debug(`[RESOURCE CALC] ${resourceType} - NO extractor (base production only)`);
     }
 
     // Step 4: Calculate final production for this resource
     // Formula: BaseProduction × TierMultiplier × HealthModifier × Ticks × WorldTemplate
     production[resourceType] =
       baseProduction * tierMultiplier * healthModifier * tickCount * worldTemplateMultiplier;
+
+    logger.debug(`[RESOURCE CALC] ${resourceType} production calculated`, {
+      baseProduction,
+      tierMultiplier,
+      healthModifier,
+      tickCount,
+      worldTemplateMultiplier,
+      finalProduction: production[resourceType],
+    });
   }
+
+  logger.debug('[RESOURCE CALC] Total production', {
+    production,
+  });
 
   return production;
 }

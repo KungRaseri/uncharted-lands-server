@@ -115,6 +115,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
     xCoord: number;
     yCoord: number;
     foodQuality: number;
+    waterQuality: number;
     woodQuality: number;
     stoneQuality: number;
     oreQuality: number;
@@ -158,6 +159,7 @@ export async function createWorld(options: WorldCreationOptions): Promise<WorldC
           xCoord: x,
           yCoord: y,
           foodQuality: resourceQuality.foodQuality,
+          waterQuality: resourceQuality.waterQuality,
           woodQuality: resourceQuality.woodQuality,
           stoneQuality: resourceQuality.stoneQuality,
           oreQuality: resourceQuality.oreQuality,

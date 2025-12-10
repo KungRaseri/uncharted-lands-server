@@ -270,18 +270,32 @@ router.post('/', authenticate, async (req, res) => {
         (tile.elevation ?? -101) > 0 && // Land (elevation > 0, ocean is <= 0)
         (tile.elevation ?? 101) < 80 && // Not too mountainous (< 80 out of 100)
         (tile.precipitation ?? 0) >= 20 && // Some rainfall for crops
-        (tile.temperature ?? -100) > -20 // Not frozen tundra
+        (tile.temperature ?? -100) > -20 && // Not frozen tundra
+        (tile.foodQuality ?? 0) >= 40 && // Good food production potential
+        (tile.waterQuality ?? 0) >= 40 // Good water access
     );
 
     logger.info(`[SETTLEMENT CREATE] Found ${viableTiles.length} ideal tiles (worldId=${worldId})`);
 
     // Fallback if no ideal tiles
     if (viableTiles.length === 0) {
-      logger.warn('[SETTLEMENT CREATE] No ideal tiles, using relaxed criteria');
+      logger.warn('[SETTLEMENT CREATE] No ideal tiles, using relaxed criteria (food/water >= 20)');
       viableTiles = suitableTiles.filter(
-        (tile) => (tile.elevation ?? -101) > 0 // Must still be land (elevation > 0)
+        (tile) =>
+          (tile.elevation ?? -101) > 0 && // Must still be land (elevation > 0)
+          (tile.foodQuality ?? 0) >= 20 && // Minimum food potential
+          (tile.waterQuality ?? 0) >= 20 // Minimum water access
       );
       logger.info(`[SETTLEMENT CREATE] Found ${viableTiles.length} relaxed tiles`);
+    }
+
+    // Final fallback - just land
+    if (viableTiles.length === 0) {
+      logger.warn('[SETTLEMENT CREATE] No suitable tiles with resources, using any land');
+      viableTiles = suitableTiles.filter(
+        (tile) => (tile.elevation ?? -101) > 0 // Must be land
+      );
+      logger.info(`[SETTLEMENT CREATE] Found ${viableTiles.length} fallback tiles`);
     }
 
     if (viableTiles.length === 0) {
@@ -294,9 +308,16 @@ router.post('/', authenticate, async (req, res) => {
     // Pick a random tile
     const chosenTile = viableTiles[Math.floor(Math.random() * viableTiles.length)];
 
-    logger.info(
-      `[SETTLEMENT CREATE] Chosen tile ${chosenTile.id} with elevation=${chosenTile.elevation}, precipitation=${chosenTile.precipitation}, temperature=${chosenTile.temperature}`
-    );
+    logger.info(`[SETTLEMENT CREATE] Chosen tile ${chosenTile.id}`, {
+      elevation: chosenTile.elevation,
+      precipitation: chosenTile.precipitation,
+      temperature: chosenTile.temperature,
+      foodQuality: chosenTile.foodQuality,
+      waterQuality: chosenTile.waterQuality,
+      woodQuality: chosenTile.woodQuality,
+      stoneQuality: chosenTile.stoneQuality,
+      oreQuality: chosenTile.oreQuality,
+    });
 
     // Step 2: Get or create profile
     // PRODUCTION BUG #8 FIX: Check if profile exists before creating

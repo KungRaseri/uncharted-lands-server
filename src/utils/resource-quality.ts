@@ -9,6 +9,7 @@ interface Biome {
   id: string;
   name: string;
   foodModifier: number;
+  waterModifier: number;
   woodModifier: number;
   stoneModifier: number;
   oreModifier: number;
@@ -18,6 +19,7 @@ interface Biome {
 
 interface ResourceQuality {
   foodQuality: number;
+  waterQuality: number;
   woodQuality: number;
   stoneQuality: number;
   oreQuality: number;
@@ -30,24 +32,35 @@ interface ResourceQuality {
  * - Base quality = modifier * 10 (maps modifier range ~0-10 to 0-100)
  * - Add random variance ±15 points for natural variation
  * - Clamp to 0-100 range
+ *
+ * FIX (December 9, 2025): Use independent variance per resource
+ * - Old bug: Same variance applied to all 5 resources
+ * - New: Each resource gets unique variance from seed
  */
 export function calculateResourceQuality(
   biome: Biome,
   seed: number = Math.random()
 ): ResourceQuality {
-  // Use deterministic variance based on seed
-  const variance = () => Math.sin(seed) * 30 - 15; // ±15 variation
+  // Generate unique variance for each resource based on seed
+  // Use different multipliers to ensure independence
+  const foodVariance = Math.sin(seed * 1.1) * 30 - 15; // ±15 variation
+  const waterVariance = Math.sin(seed * 2.3) * 30 - 15;
+  const woodVariance = Math.sin(seed * 3.7) * 30 - 15;
+  const stoneVariance = Math.sin(seed * 5.1) * 30 - 15;
+  const oreVariance = Math.sin(seed * 7.9) * 30 - 15;
 
   const foodBase = Math.min(100, biome.foodModifier * 10);
+  const waterBase = Math.min(100, biome.waterModifier * 10);
   const woodBase = Math.min(100, biome.woodModifier * 10);
   const stoneBase = Math.min(100, biome.stoneModifier * 10);
   const oreBase = Math.min(100, biome.oreModifier * 10);
 
   return {
-    foodQuality: Math.max(0, Math.min(100, foodBase + variance())),
-    woodQuality: Math.max(0, Math.min(100, woodBase + variance())),
-    stoneQuality: Math.max(0, Math.min(100, stoneBase + variance())),
-    oreQuality: Math.max(0, Math.min(100, oreBase + variance())),
+    foodQuality: Math.max(0, Math.min(100, foodBase + foodVariance)),
+    waterQuality: Math.max(0, Math.min(100, waterBase + waterVariance)),
+    woodQuality: Math.max(0, Math.min(100, woodBase + woodVariance)),
+    stoneQuality: Math.max(0, Math.min(100, stoneBase + stoneVariance)),
+    oreQuality: Math.max(0, Math.min(100, oreBase + oreVariance)),
   };
 }
 
