@@ -945,24 +945,6 @@ async function handleRequestRegion(
                   temperature: t.temperature,
                   precipitation: t.precipitation,
                   type: t.type,
-                  plots:
-                    'plots' in t && Array.isArray(t.plots)
-                      ? t.plots.map(
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          (p: any) => ({
-                            id: p.id,
-                            tileId: p.tileId,
-                            area: p.area,
-                            solar: p.solar,
-                            wind: p.wind,
-                            food: p.food,
-                            water: p.water,
-                            wood: p.wood,
-                            stone: p.stone,
-                            ore: p.ore,
-                          })
-                        )
-                      : undefined,
                 })
               )
             : undefined,

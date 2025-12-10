@@ -212,7 +212,6 @@ export class TestDataTracker {
       worlds: this.worldIds.length,
       regions: this.regionIds.length,
       tiles: this.tileIds.length,
-      plots: this.plotIds.length,
       settlements: this.settlementIds.length,
       storage: this.storageIds.length,
       structures: this.structureIds.length,

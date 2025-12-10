@@ -262,10 +262,6 @@ export function createMockDb() {
         findFirst: vi.fn(),
         findMany: vi.fn(),
       },
-      plots: {
-        findFirst: vi.fn(),
-        findMany: vi.fn(),
-      },
       profiles: {
         findFirst: vi.fn(),
         findMany: vi.fn(),

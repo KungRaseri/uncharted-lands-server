@@ -235,8 +235,7 @@ describe('Geography API Routes', () => {
         id: 'tile-123',
         elevation: 10,
         region: { world: {} },
-        biome: {},
-        plots: [],
+        biome: {}
       };
 
       vi.mocked(db.db.query.tiles.findFirst).mockResolvedValue(mockTile as any);

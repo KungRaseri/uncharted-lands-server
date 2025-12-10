@@ -72,11 +72,6 @@ router.get('/', authenticate, async (req, res) => {
         tiles: {
           with: {
             biome: true,
-            plots: {
-              with: {
-                settlement: true,
-              },
-            },
           },
         },
       },
@@ -248,11 +243,6 @@ router.get('/map', authenticate, async (req, res) => {
         tiles: {
           with: {
             biome: true,
-            plots: {
-              with: {
-                settlement: true,
-              },
-            },
           },
         },
       },
@@ -334,8 +324,10 @@ router.get('/:id', authenticateAdmin, async (req, res) => {
 /**
  * GET /api/tiles/:id
  * Get tile details
+ *
+ * ✅ CHANGED: authenticateAdmin → authenticate (players need to see their settlement's tile)
  */
-router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
+router.get('/tiles/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -348,7 +340,7 @@ router.get('/tiles/:id', authenticateAdmin, async (req, res) => {
           },
         },
         biome: true,
-        plots: true,
+        // ✅ REMOVED: plots relation (Plot table was removed, settlements now reference tiles directly)
       },
     });
 
