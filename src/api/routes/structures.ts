@@ -8,7 +8,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db, settlementStructures, settlements, structures } from '../../db/index.js';
 import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
@@ -121,7 +121,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    const { settlementId, structureName } = req.body;
+    const { settlementId, structureName, tileId, slotPosition } = req.body;
 
     if (!settlementId || !structureName) {
       return res.status(400).json({
@@ -163,6 +163,47 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    // If tileId is provided, verify it matches the settlement's tile
+    // (For now, we only support building on the settlement's founding tile)
+    if (tileId && tileId !== settlement.tileId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bad Request',
+        code: 'INVALID_TILE',
+        message: "Structures can only be built on the settlement's founding tile",
+      });
+    }
+
+    // Validate slotPosition if provided
+    if (slotPosition !== undefined && slotPosition !== null) {
+      if (typeof slotPosition !== 'number' || slotPosition < 0 || slotPosition > 4) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          code: 'INVALID_SLOT',
+          message: 'Slot position must be between 0 and 4',
+        });
+      }
+
+      // Check if slot is already occupied
+      const existingStructure = await db.query.settlementStructures.findFirst({
+        where: and(
+          eq(settlementStructures.settlementId, settlementId),
+          eq(settlementStructures.tileId, tileId || settlement.tileId),
+          eq(settlementStructures.slotPosition, slotPosition)
+        ),
+      });
+
+      if (existingStructure) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          code: 'SLOT_OCCUPIED',
+          message: `Slot ${slotPosition} is already occupied`,
+        });
+      }
+    }
+
     // Create structure in transaction
     const result = await db.transaction(async (tx) => {
       // 1. Query structure definition from database by name
@@ -198,14 +239,17 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       // ✅ FIX: Set tileId to settlement's founding tile for extractors
       // This allows the game loop to find extractors by filtering on tile.id
 
-      // Use settlement.tileId directly (it's a required field on settlements table)
+      // Use tileId from request if provided (for extractors), otherwise use settlement's founding tile
+      const finalTileId = tileId || settlement.tileId;
+
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
           structureId: structureDefinition.id,
           settlementId,
-          tileId: settlement.tileId, // Use settlement's founding tile ID directly
+          tileId: finalTileId,
+          slotPosition: slotPosition ?? null, // Use null if not provided
           level: 1,
         })
         .returning();
