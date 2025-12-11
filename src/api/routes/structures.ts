@@ -8,7 +8,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { db, settlementStructures, settlements, structures } from '../../db/index.js';
 import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
@@ -198,32 +198,46 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         });
       }
 
-      // Check if slot is already occupied
+      // Check if slot is already occupied by another EXTRACTOR
+      // Note: Only EXTRACTOR structures use slotPosition; BUILDING structures ignore it
       const existingStructure = await db.query.settlementStructures.findFirst({
         where: and(
           eq(settlementStructures.settlementId, settlementId),
           eq(settlementStructures.tileId, tileId || settlement.tileId),
           eq(settlementStructures.slotPosition, slotPosition)
         ),
+        with: {
+          structure: true, // Include structure definition to check category
+        },
       });
 
-      if (existingStructure) {
+      // Only consider it occupied if an EXTRACTOR is already in this slot
+      const existingStructureDef = existingStructure?.structure as Structure | undefined;
+      if (existingStructure && existingStructureDef?.category === 'EXTRACTOR') {
         return res.status(400).json({
           success: false,
           error: 'Bad Request',
           code: 'SLOT_OCCUPIED',
-          message: `Slot ${slotPosition} is already occupied`,
+          message: `Slot ${slotPosition} is already occupied by another extractor`,
         });
       }
     }
 
     // Create structure in transaction
     const result = await db.transaction(async (tx) => {
-      // 1. Query structure definition from database by name
+      // 1. Query structure definition from database
+      // The client sends uppercase types like 'FARM', 'TENT', etc.
+      // We need to search by extractorType, buildingType, or name to handle all cases
       const [structureDefinition] = await tx
         .select()
         .from(structures)
-        .where(eq(structures.name, structureName))
+        .where(
+          or(
+            eq(structures.extractorType, structureName),
+            eq(structures.buildingType, structureName),
+            eq(structures.name, structureName)
+          )
+        )
         .limit(1);
 
       if (!structureDefinition) {
