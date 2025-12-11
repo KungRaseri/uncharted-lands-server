@@ -195,12 +195,17 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       }
 
       // 3. Create the settlement structure instance
+      // ✅ FIX: Set tileId to settlement's founding tile for extractors
+      // This allows the game loop to find extractors by filtering on tile.id
+
+      // Use settlement.tileId directly (it's a required field on settlements table)
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
           structureId: structureDefinition.id,
           settlementId,
+          tileId: settlement.tileId, // Use settlement's founding tile ID directly
           level: 1,
         })
         .returning();
