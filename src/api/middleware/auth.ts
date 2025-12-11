@@ -50,12 +50,28 @@ function extractSessionToken(cookies: string | undefined): string | null {
  * @returns User account or null
  */
 async function validateSessionToken(sessionToken: string) {
-  return await db.query.accounts.findFirst({
+  logger.info('[API AUTH] Validating session token', {
+    sessionToken: sessionToken.substring(0, 8) + '...',
+    fullTokenLength: sessionToken.length,
+  });
+
+  const account = await db.query.accounts.findFirst({
     where: eq(accounts.userAuthToken, sessionToken),
     with: {
       profile: true,
     },
   });
+
+  logger.info('[API AUTH] Account lookup result', {
+    found: !!account,
+    accountId: account?.id,
+    email: account?.email,
+    role: account?.role,
+    hasProfile: !!account?.profile,
+    userAuthTokenMatches: account?.userAuthToken === sessionToken,
+  });
+
+  return account;
 }
 
 /**
@@ -157,13 +173,23 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const reqLogger = req.logger || logger;
+
+    // ✅ DEBUG: Log all authentication attempts
+    reqLogger.info('[API AUTH] Authentication attempt', {
+      method: req.method,
+      path: req.path,
+      hasCookieHeader: !!req.headers.cookie,
+      cookieHeaderPreview: req.headers.cookie?.substring(0, 50) + '...',
+    });
+
     const cookies = req.headers.cookie;
     const sessionToken = extractSessionToken(cookies);
 
-    const reqLogger = req.logger || logger;
-
     if (!sessionToken) {
-      reqLogger.warn('[API AUTH] No session token found');
+      reqLogger.warn('[API AUTH] No session token found', {
+        cookieHeader: req.headers.cookie,
+      });
       sendUnauthorizedResponse(res, 'NO_SESSION', 'Authentication required');
       return;
     }
