@@ -121,7 +121,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    let { settlementId, structureName, tileId, slotPosition } = req.body;
+    let { settlementId, structureId, structureName, tileId, slotPosition } = req.body;
 
     // Parse slotPosition if provided (comes as string from form data)
     if (slotPosition !== undefined && slotPosition !== null) {
@@ -136,12 +136,14 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       }
     }
 
-    if (!settlementId || !structureName) {
+    // Accept either structureId or structureName (prefer structureId)
+    const lookupValue = structureId || structureName;
+    if (!settlementId || !lookupValue) {
       return res.status(400).json({
         success: false,
         error: 'Bad Request',
         code: 'MISSING_FIELDS',
-        message: 'settlementId and structureName are required',
+        message: 'settlementId and (structureId or structureName) are required',
       });
     }
 
@@ -227,21 +229,28 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     const result = await db.transaction(async (tx) => {
       // 1. Query structure definition from database
       // The client sends uppercase types like 'FARM', 'TENT', etc.
-      // We need to search by extractorType, buildingType, or name to handle all cases
+      // Database has:
+      //   - extractorType: 'FARM' (for extractors)
+      //   - buildingType: 'TENT' (for buildings)
+      //   - name: 'Farm', 'Tent' (proper case display names)
+      //   - id: generated CUID (not useful for lookup)
       const [structureDefinition] = await tx
         .select()
         .from(structures)
         .where(
           or(
-            eq(structures.extractorType, structureName),
-            eq(structures.buildingType, structureName),
-            eq(structures.name, structureName)
+            // Try extractorType match (e.g., 'FARM', 'LUMBER_MILL')
+            eq(structures.extractorType, lookupValue),
+            // Try buildingType match (e.g., 'TENT', 'HOUSE')
+            eq(structures.buildingType, lookupValue),
+            // Try name match (e.g., 'Farm', 'Tent')
+            eq(structures.name, lookupValue)
           )
         )
         .limit(1);
 
       if (!structureDefinition) {
-        throw new Error(`Structure not found: ${structureName}`);
+        throw new Error(`Structure not found: ${lookupValue}`);
       }
 
       // 2. Validate and deduct resources BEFORE creating structure

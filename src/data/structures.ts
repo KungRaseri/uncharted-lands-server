@@ -25,7 +25,6 @@ export type BuildingType =
   | null;
 
 export interface StructureDefinition {
-  id: string;
   name: string;
   description: string;
   category: StructureCategory;
@@ -43,7 +42,6 @@ export interface StructureDefinition {
 
 export const STRUCTURES: StructureDefinition[] = [
   {
-    id: 'tent',
     name: 'Tent',
     description: 'Basic shelter for settlers',
     category: 'BUILDING',
@@ -57,7 +55,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'house',
     name: 'House',
     description: 'Provides housing capacity for settlers',
     category: 'BUILDING',
@@ -70,7 +67,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'warehouse',
     name: 'Warehouse',
     description: 'Increases storage capacity',
     category: 'BUILDING',
@@ -83,7 +79,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'town_hall',
     name: 'Town Hall',
     description: 'Administrative center for the settlement',
     category: 'BUILDING',
@@ -97,7 +92,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'workshop',
     name: 'Workshop',
     description: 'Allows upgrading structures',
     category: 'BUILDING',
@@ -111,7 +105,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'farm',
     name: 'Farm',
     description: 'Produces food',
     category: 'EXTRACTOR',
@@ -124,7 +117,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'quarry',
     name: 'Quarry',
     description: 'Extracts stone from the ground',
     category: 'EXTRACTOR',
@@ -137,7 +129,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'mine',
     name: 'Mine',
     description: 'Extracts ore from the ground',
     category: 'EXTRACTOR',
@@ -150,7 +141,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'lumber_mill',
     name: 'Lumber Mill',
     description: 'Produces wood',
     category: 'EXTRACTOR',
@@ -163,7 +153,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'fishing_dock',
     name: 'Fishing Dock',
     description: 'Produces food from water',
     category: 'EXTRACTOR',
@@ -176,7 +165,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'hunters_lodge',
     name: "Hunter's Lodge",
     description: 'Produces pelts and food from hunting',
     category: 'EXTRACTOR',
@@ -189,7 +177,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'well',
     name: 'Well',
     description: 'Provides water to the settlement',
     category: 'EXTRACTOR',
@@ -202,7 +189,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'herb_garden',
     name: 'Herb Garden',
     description: 'Grows medicinal herbs',
     category: 'EXTRACTOR',
@@ -215,7 +201,6 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    id: 'marketplace',
     name: 'Marketplace',
     description: 'Enables trading with other settlements',
     category: 'BUILDING',
