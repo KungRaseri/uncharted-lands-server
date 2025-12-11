@@ -121,7 +121,20 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    const { settlementId, structureName, tileId, slotPosition } = req.body;
+    let { settlementId, structureName, tileId, slotPosition } = req.body;
+
+    // Parse slotPosition if provided (comes as string from form data)
+    if (slotPosition !== undefined && slotPosition !== null) {
+      slotPosition = Number.parseInt(slotPosition, 10);
+      if (Number.isNaN(slotPosition)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          code: 'INVALID_SLOT',
+          message: 'Slot position must be a valid number',
+        });
+      }
+    }
 
     if (!settlementId || !structureName) {
       return res.status(400).json({
