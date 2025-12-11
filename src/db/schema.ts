@@ -501,7 +501,7 @@ export const settlementStructures = pgTable(
     // ✅ CHANGED: Tile linkage for extractors (replaces plotId)
     // Extractors are built on specific tiles, in specific slots (0 to plotSlots-1)
     tileId: text('tileId').references(() => tiles.id, { onDelete: 'cascade' }),
-    slotPosition: integer('slotPosition').default(-1), // Which slot on the tile (0 to plotSlots-1)
+    slotPosition: integer('slotPosition'), // Which slot on the tile (0 to plotSlots-1)
     // Population assignment for structure staffing
     populationAssigned: integer('populationAssigned').notNull().default(0),
     // Structure health system (0-100, for disaster damage tracking)
