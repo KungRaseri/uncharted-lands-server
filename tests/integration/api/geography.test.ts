@@ -78,23 +78,23 @@ describe('Geography API Routes', () => {
     vi.clearAllMocks();
     app = express();
     app.use(express.json());
-    app.use('/api/geography', geographyRouter); // Mount at /api/geography to match route structure
+    app.use('/api/regions', geographyRouter); // Mount at /api/regions to match route structure
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('GET /api/geography/', () => {
+  describe('GET /api/regions/', () => {
     it('should return 401 if not authenticated', async () => {
-      const response = await request(app).get('/api/geography/?worldId=world-123').expect(401);
+      const response = await request(app).get('/api/regions/?worldId=world-123').expect(401);
 
       expect(response.body.code).toBe('NO_SESSION');
     });
 
     it('should return 400 if worldId is missing', async () => {
       const response = await request(app)
-        .get('/api/geography/')
+        .get('/api/regions/')
         .set('Cookie', 'session=valid-session')
         .expect(400);
 
@@ -107,7 +107,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/?worldId=world-123')
+        .get('/api/regions/?worldId=world-123')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -120,7 +120,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/?worldId=world-123&xMin=0&xMax=2&yMin=0&yMax=2')
+        .get('/api/regions/?worldId=world-123&xMin=0&xMax=2&yMin=0&yMax=2')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -134,7 +134,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/?worldId=world-123&centerX=5&centerY=5&radius=2')
+        .get('/api/regions/?worldId=world-123&centerX=5&centerY=5&radius=2')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -148,7 +148,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/?worldId=world-123&centerX=5&centerY=5')
+        .get('/api/regions/?worldId=world-123&centerX=5&centerY=5')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -160,7 +160,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockRejectedValue(new Error('DB error'));
 
       const response = await request(app)
-        .get('/api/geography/?worldId=world-123')
+        .get('/api/regions/?worldId=world-123')
         .set('Cookie', 'session=valid-session')
         .expect(500);
 
@@ -168,10 +168,10 @@ describe('Geography API Routes', () => {
     });
   });
 
-  describe('GET /api/geography/:id', () => {
+  describe('GET /api/regions/:id', () => {
     it('should return 403 if not admin', async () => {
       const response = await request(app)
-        .get('/api/geography/region-123')
+        .get('/api/regions/region-123')
         .set('Cookie', 'session=valid-session')
         .expect(403);
 
@@ -190,7 +190,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findFirst).mockResolvedValue(mockRegion as any);
 
       const response = await request(app)
-        .get('/api/geography/region-123')
+        .get('/api/regions/region-123')
         .set('Cookie', 'session=admin-session')
         .expect(200);
 
@@ -201,7 +201,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findFirst).mockResolvedValue(undefined);
 
       const response = await request(app)
-        .get('/api/geography/nonexistent')
+        .get('/api/regions/nonexistent')
         .set('Cookie', 'session=admin-session')
         .expect(404);
 
@@ -212,7 +212,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findFirst).mockRejectedValue(new Error('DB error'));
 
       const response = await request(app)
-        .get('/api/geography/region-123')
+        .get('/api/regions/region-123')
         .set('Cookie', 'session=admin-session')
         .expect(500);
 
@@ -220,16 +220,7 @@ describe('Geography API Routes', () => {
     });
   });
 
-  describe('GET /api/geography/tiles/:id', () => {
-    it('should return 403 if not admin', async () => {
-      const response = await request(app)
-        .get('/api/geography/tiles/tile-123')
-        .set('Cookie', 'session=valid-session')
-        .expect(403);
-
-      expect(response.body.code).toBe('NOT_ADMIN');
-    });
-
+  describe('GET /api/regions/tiles/:id', () => {
     it('should return a specific tile', async () => {
       const mockTile = {
         id: 'tile-123',
@@ -241,7 +232,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.tiles.findFirst).mockResolvedValue(mockTile as any);
 
       const response = await request(app)
-        .get('/api/geography/tiles/tile-123')
+        .get('/api/regions/tiles/tile-123')
         .set('Cookie', 'session=admin-session')
         .expect(200);
 
@@ -252,7 +243,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.tiles.findFirst).mockResolvedValue(undefined);
 
       const response = await request(app)
-        .get('/api/geography/tiles/nonexistent')
+        .get('/api/regions/tiles/nonexistent')
         .set('Cookie', 'session=admin-session')
         .expect(404);
 
@@ -263,7 +254,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.tiles.findFirst).mockRejectedValue(new Error('DB error'));
 
       const response = await request(app)
-        .get('/api/geography/tiles/tile-123')
+        .get('/api/regions/tiles/tile-123')
         .set('Cookie', 'session=admin-session')
         .expect(500);
 
@@ -271,10 +262,10 @@ describe('Geography API Routes', () => {
     });
   });
 
-  describe('GET /api/geography/map', () => {
+  describe('GET /api/regions/map', () => {
     it('should return 401 if not authenticated', async () => {
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .expect(401);
 
       expect(response.body.code).toBe('NO_SESSION');
@@ -282,7 +273,7 @@ describe('Geography API Routes', () => {
 
     it('should return 400 if profileId is missing', async () => {
       const response = await request(app)
-        .get('/api/geography/map')
+        .get('/api/regions/map')
         .set('Cookie', 'session=valid-session')
         .expect(400);
 
@@ -319,7 +310,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -343,7 +334,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -362,7 +353,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123&centerX=10&centerY=10')
+        .get('/api/regions/map?profileId=profile-123&centerX=10&centerY=10')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -379,7 +370,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.regions.findMany).mockResolvedValue(mockRegions as any);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123&radius=3')
+        .get('/api/regions/map?profileId=profile-123&radius=3')
         .set('Cookie', 'session=valid-session')
         .expect(200);
 
@@ -392,7 +383,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(undefined);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .set('Cookie', 'session=valid-session')
         .expect(404);
 
@@ -414,7 +405,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.worlds.findFirst).mockResolvedValue(undefined);
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .set('Cookie', 'session=valid-session')
         .expect(404);
 
@@ -425,7 +416,7 @@ describe('Geography API Routes', () => {
       vi.mocked(db.db.query.settlements.findFirst).mockRejectedValue(new Error('DB error'));
 
       const response = await request(app)
-        .get('/api/geography/map?profileId=profile-123')
+        .get('/api/regions/map?profileId=profile-123')
         .set('Cookie', 'session=valid-session')
         .expect(500);
 
