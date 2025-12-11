@@ -17,6 +17,9 @@ import { createId } from '@paralleldrive/cuid2';
 // ===========================
 
 export interface WorldTemplateConfig {
+  id: string;
+  name: string;
+  description: string;
   magicLevel?: 'NONE' | 'LOW' | 'HIGH';
   difficulty?: 'CASUAL' | 'NORMAL' | 'HARDCORE' | 'EXTREME';
   resourceAbundance?: 'SCARCE' | 'NORMAL' | 'ABUNDANT' | 'EXTREME_SCARCITY';

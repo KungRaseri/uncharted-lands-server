@@ -12,24 +12,6 @@ export interface ResourceDefinition {
 
 export const RESOURCES: ResourceDefinition[] = [
   {
-    id: 'area',
-    name: 'area',
-    description: 'Plot area required for construction',
-    category: 'plot',
-  },
-  {
-    id: 'solar',
-    name: 'solar',
-    description: 'Solar energy requirement',
-    category: 'energy',
-  },
-  {
-    id: 'wind',
-    name: 'wind',
-    description: 'Wind energy requirement',
-    category: 'energy',
-  },
-  {
     id: 'food',
     name: 'food',
     description: 'Food resource',

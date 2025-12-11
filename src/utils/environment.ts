@@ -18,6 +18,11 @@ export const isDevelopment =
   NODE_ENV === 'development' || NODE_ENV === 'test' || NODE_ENV === 'e2e';
 
 /**
+ * Is the server running in local development mode specifically?
+ */
+export const isLocalDevelopment = NODE_ENV === 'development';
+
+/**
  * Is the server running in production mode?
  */
 export const isProduction = NODE_ENV === 'production';

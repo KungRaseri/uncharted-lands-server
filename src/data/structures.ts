@@ -33,9 +33,6 @@ export interface StructureDefinition {
   buildingType: BuildingType;
   maxLevel: number;
   requirements: {
-    area?: number;
-    solar?: number;
-    wind?: number;
     food?: number;
     water?: number;
     wood?: number;
@@ -54,7 +51,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'HOUSE',
     maxLevel: 3,
     requirements: {
-      area: 1,
       food: 5,
       water: 2,
       wood: 10,
@@ -69,8 +65,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'HOUSE',
     maxLevel: 10,
     requirements: {
-      area: 2,
-      solar: 5,
       wood: 50,
       stone: 20,
     },
@@ -84,7 +78,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'STORAGE',
     maxLevel: 10,
     requirements: {
-      area: 3,
       wood: 40,
       stone: 20,
     },
@@ -98,8 +91,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'TOWN_HALL',
     maxLevel: 5,
     requirements: {
-      area: 5,
-      solar: 10,
       wood: 200,
       stone: 150,
       ore: 50,
@@ -114,8 +105,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'WORKSHOP',
     maxLevel: 10,
     requirements: {
-      area: 3,
-      solar: 8,
       wood: 60,
       stone: 60,
       ore: 30,
@@ -130,8 +119,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 4,
-      solar: 5,
       wood: 20,
       stone: 10,
     },
@@ -145,7 +132,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 5,
       wood: 30,
       stone: 20,
     },
@@ -159,7 +145,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 6,
       wood: 40,
       stone: 30,
     },
@@ -173,7 +158,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 4,
       wood: 20,
       stone: 10,
     },
@@ -187,7 +171,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 3,
       wood: 30,
       stone: 15,
     },
@@ -201,7 +184,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 3,
       wood: 25,
       stone: 10,
     },
@@ -215,7 +197,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 2,
       wood: 15,
       stone: 20,
     },
@@ -229,7 +210,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: null,
     maxLevel: 5,
     requirements: {
-      area: 2,
       wood: 15,
       stone: 5,
     },
@@ -243,8 +223,6 @@ export const STRUCTURES: StructureDefinition[] = [
     buildingType: 'MARKETPLACE',
     maxLevel: 5,
     requirements: {
-      area: 4,
-      solar: 7,
       wood: 120,
       stone: 80,
     },

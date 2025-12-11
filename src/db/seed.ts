@@ -6,7 +6,20 @@
  */
 
 import 'dotenv/config';
-import { db, biomes, structures, resources, structureRequirements, accounts } from './index.js';
+import {
+  db,
+  biomes,
+  structures,
+  resources,
+  structureRequirements,
+  accounts,
+  servers,
+  NewServer,
+  NewWorld,
+  worlds,
+  regions,
+  tiles,
+} from './index.js';
 import { createId } from '@paralleldrive/cuid2';
 import { logger } from '../utils/logger.js';
 import { eq, and } from 'drizzle-orm';
@@ -14,6 +27,8 @@ import { RESOURCES } from '../data/resources.js';
 import { BIOMES } from '../data/biomes.js';
 import { STRUCTURES } from '../data/structures.js';
 import bcrypt from 'bcrypt';
+import { isLocalDevelopment } from '../utils/environment.js';
+// World generation imports moved to dynamic imports inside functions to avoid loading in production
 
 /**
  * Biome definitions with environmental parameters and modifiers
@@ -80,8 +95,8 @@ const structureRequirementsData = STRUCTURES.flatMap((structure) =>
 /**
  * Seed resources with upsert logic (create or update)
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function _seedResources() {
+ 
+async function seedResources() {
   logger.info(`[SEED] Starting resource seeding...`);
 
   let created = 0;
@@ -123,7 +138,7 @@ async function _seedResources() {
  * Seed structures with upsert logic (create or update)
  */
 
-async function _seedStructures() {
+async function seedStructures() {
   logger.info(`[SEED] Starting structure seeding...`);
 
   let created = 0;
@@ -165,8 +180,8 @@ async function _seedStructures() {
  * Seed structure requirements with upsert logic (create or update)
  * Links structures to their resource costs using composite key lookup
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function _seedStructureRequirements() {
+ 
+async function seedStructureRequirements() {
   logger.info(`[SEED] Starting structure requirements seeding...`);
 
   let created = 0;
@@ -350,20 +365,333 @@ async function seedAccounts() {
   return { created, updated, total: accountsToSeed.length };
 }
 
+async function seedServer() {
+  logger.info(`[SEED] Starting server seeding...`);
+
+  const serverData: NewServer = {
+    id: createId(),
+    name: 'MAIN-DEV',
+    hostname: 'main.dev.localhost',
+    port: 5000,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    status: 'ONLINE',
+  };
+
+  return await db.insert(servers).values(serverData).returning({ id: servers.id });
+}
+
+async function seedWorld(serverId: string) {
+  logger.info(`[SEED] Starting world seeding...`);
+
+  const worldData: NewWorld = {
+    id: createId(),
+    name: 'MAIN',
+    elevationSettings: {
+      scale: 1,
+      octaves: 8,
+      amplitude: 1,
+      frequency: 0.05,
+      persistence: 0.5,
+    },
+    precipitationSettings: {
+      scale: 1,
+      octaves: 8,
+      amplitude: 1,
+      frequency: 0.05,
+      persistence: 0.5,
+    },
+    temperatureSettings: {
+      scale: 1,
+      octaves: 8,
+      amplitude: 1,
+      frequency: 0.05,
+      persistence: 0.5,
+    },
+    status: 'ready',
+    worldTemplateType: 'STANDARD',
+    worldTemplateConfig: {
+      id: 'STANDARD',
+      name: 'Standard Mode',
+      description:
+        'Balanced gameplay recommended for most players and first playthroughs. Low magic, normal resources, balanced disasters.',
+      magicLevel: 'LOW',
+      difficulty: 'NORMAL',
+      resourceAbundance: 'NORMAL',
+      depletionEnabled: true,
+      depletionRate: 1,
+      productionMultiplier: 1,
+      consumptionMultiplier: 1,
+      populationGrowthRate: 1,
+      disasterFrequency: 'NORMAL',
+      disasterSeverity: 'NORMAL',
+      specialResourcesEnabled: true,
+      npcSettlementsEnabled: true,
+    },
+    serverId: serverId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  return await db.insert(worlds).values(worldData).returning({ id: worlds.id });
+}
+
+/**
+ * Seed regions for a world using world generation settings
+ */
+async function seedRegions(worldId: string) {
+  logger.info(`[SEED] Starting region seeding for world ${worldId}...`);
+
+  // Dynamic import of world generation utilities (only loaded in development)
+  const { generateWorldLayers } = await import('../game/world-generator.js');
+
+  // Get the world settings
+  const world = await db.query.worlds.findFirst({
+    where: eq(worlds.id, worldId),
+  });
+
+  if (!world) {
+    throw new Error(`World not found: ${worldId}`);
+  }
+
+  // Use the world's settings to generate regions
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapOptions: any = {
+    serverId: world.serverId,
+    worldName: world.name,
+    width: 100, // Default to 100x100 for development
+    height: 100,
+    seed: Date.now(),
+  };
+
+  // Cast settings to any to access properties (they're stored as JSON)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const elevationSettings = world.elevationSettings as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const precipitationSettings = world.precipitationSettings as any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const temperatureSettings = world.temperatureSettings as any;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const elevationOptions: any = {
+    amplitude: elevationSettings?.amplitude || 1,
+    persistence: elevationSettings?.persistence || 0.5,
+    frequency: elevationSettings?.frequency || 0.05,
+    octaves: elevationSettings?.octaves || 8,
+    scale: (x: number) => x * (elevationSettings?.scale || 1),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const precipitationOptions: any = {
+    amplitude: precipitationSettings?.amplitude || 1,
+    persistence: precipitationSettings?.persistence || 0.5,
+    frequency: precipitationSettings?.frequency || 0.05,
+    octaves: precipitationSettings?.octaves || 8,
+    scale: (x: number) => x * (precipitationSettings?.scale || 1),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const temperatureOptions: any = {
+    amplitude: temperatureSettings?.amplitude || 1,
+    persistence: temperatureSettings?.persistence || 0.5,
+    frequency: temperatureSettings?.frequency || 0.05,
+    octaves: temperatureSettings?.octaves || 8,
+    scale: (x: number) => x * (temperatureSettings?.scale || 1),
+  };
+
+  // Generate world layers
+  logger.info(`[SEED] Generating world layers...`);
+  const regionData = await generateWorldLayers(
+    mapOptions,
+    elevationOptions,
+    precipitationOptions,
+    temperatureOptions
+  );
+
+  // Create region records
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const regionRecords = regionData.map((region: any) => ({
+    id: createId(),
+    worldId: worldId,
+    name: `Region ${region.xCoord},${region.yCoord}`,
+    xCoord: region.xCoord,
+    yCoord: region.yCoord,
+    elevationMap: region.elevationMap,
+    precipitationMap: region.precipitationMap,
+    temperatureMap: region.temperatureMap,
+  }));
+
+  logger.info(`[SEED] Inserting ${regionRecords.length} regions...`);
+
+  // Insert regions in batches
+  const regionBatchSize = 100;
+  for (let i = 0; i < regionRecords.length; i += regionBatchSize) {
+    const batch = regionRecords.slice(i, i + regionBatchSize);
+    await db.insert(regions).values(batch);
+    logger.info(`[SEED] Inserted regions ${i} to ${i + batch.length}`);
+  }
+
+  logger.info(`[SEED] Region seeding complete: ${regionRecords.length} regions created`);
+
+  return { created: regionRecords.length, regions: regionRecords };
+}
+
+interface RegionRecord {
+  id: string;
+  worldId: string;
+  name: string;
+  xCoord: number;
+  yCoord: number;
+  elevationMap: number[][];
+  precipitationMap: number[][];
+  temperatureMap: number[][];
+}
+
+/**
+ * Seed tiles for all regions in a world
+ */
+async function seedTiles(regionResult: { created: number; regions: RegionRecord[] }) {
+  logger.info(`[SEED] Starting tile seeding for ${regionResult.created} regions...`);
+
+  // Dynamic import of utility functions (only loaded in development)
+  const { normalizeValue } = await import('../game/world-generator.js');
+  const { getAllBiomes, findBiome } = await import('./queries.js');
+  const { calculateResourceQuality, calculatePlotSlots, determineSpecialResource } = await import(
+    '../utils/resource-quality.js'
+  );
+
+  // Load all biomes from database
+  const allBiomes = await getAllBiomes();
+
+  if (allBiomes.length === 0) {
+    throw new Error('No biomes found in database. Please ensure biomes are seeded first.');
+  }
+
+  logger.info(`[SEED] Loaded ${allBiomes.length} biomes`);
+
+  // Generate tiles for each region
+  const tileRecords: Array<{
+    id: string;
+    regionId: string;
+    biomeId: string;
+    type: 'OCEAN' | 'LAND';
+    elevation: number;
+    precipitation: number;
+    temperature: number;
+    xCoord: number;
+    yCoord: number;
+    foodQuality: number;
+    waterQuality: number;
+    woodQuality: number;
+    stoneQuality: number;
+    oreQuality: number;
+    plotSlots: number;
+    specialResource?: 'GEMS' | 'EXOTIC_WOOD' | 'MAGICAL_HERBS' | 'ANCIENT_STONE' | null;
+  }> = [];
+
+  const seed = Date.now();
+  let processedRegions = 0;
+
+  for (const region of regionResult.regions) {
+    const elevationMap = region.elevationMap;
+    const precipitationMap = region.precipitationMap;
+    const temperatureMap = region.temperatureMap;
+
+    for (const [x, row] of elevationMap.entries()) {
+      for (const [y, elevation] of row.entries()) {
+        const type = elevation < 0 ? 'OCEAN' : 'LAND';
+        const normalizedPrecip = normalizeValue(precipitationMap[x][y], 0, 450);
+        const normalizedTemp = normalizeValue(temperatureMap[x][y], -10, 32);
+
+        const biome = await findBiome(normalizedPrecip, normalizedTemp);
+
+        if (!biome?.id) {
+          throw new Error(
+            `Failed to determine biome for tile at region ${region.xCoord}:${region.yCoord}, tile ${x}:${y}`
+          );
+        }
+
+        // Calculate resource quality based on biome
+        const tileSeed = seed + x * 1000 + y;
+        const resourceQuality = calculateResourceQuality(biome, tileSeed);
+        const plotSlots = calculatePlotSlots(biome);
+        const specialResource = determineSpecialResource(biome, (tileSeed % 100) / 100);
+
+        tileRecords.push({
+          id: createId(),
+          regionId: region.id,
+          biomeId: biome.id,
+          type,
+          elevation: elevationMap[x][y],
+          precipitation: precipitationMap[x][y],
+          temperature: temperatureMap[x][y],
+          xCoord: x,
+          yCoord: y,
+          foodQuality: resourceQuality.foodQuality,
+          waterQuality: resourceQuality.waterQuality,
+          woodQuality: resourceQuality.woodQuality,
+          stoneQuality: resourceQuality.stoneQuality,
+          oreQuality: resourceQuality.oreQuality,
+          plotSlots,
+          specialResource,
+        });
+      }
+    }
+
+    processedRegions++;
+    if (processedRegions % 10 === 0) {
+      logger.info(`[SEED] Processed ${processedRegions}/${regionResult.regions.length} regions`);
+    }
+  }
+
+  logger.info(`[SEED] Generated ${tileRecords.length} tiles`);
+  logger.info(`[SEED] Inserting tiles into database...`);
+
+  // Insert tiles in batches
+  const tileBatchSize = 500;
+  for (let i = 0; i < tileRecords.length; i += tileBatchSize) {
+    const batch = tileRecords.slice(i, i + tileBatchSize);
+    await db.insert(tiles).values(batch);
+    logger.info(`[SEED] Inserted tiles ${i} to ${i + batch.length}`);
+  }
+
+  logger.info(`[SEED] Tile seeding complete: ${tileRecords.length} tiles created`);
+
+  return { created: tileRecords.length };
+}
+
 /**
  * Main seeding execution
  */
 logger.info('[SEED] Starting database seeding...');
+
+if (isLocalDevelopment) {
+  logger.warn('[SEED] Development/Test data will be seeded.');
+}
 
 try {
   // Seed accounts (admin and test user)
   const accountResult = await seedAccounts();
 
   // Seed structures
-  const structureResult = await _seedStructures();
+  const structureResult = await seedStructures();
+
+  // Seed Resources
+  const resourceResult = await seedResources();
+
+  // Seed Structure Requirements
+  const structureRequirementResult = await seedStructureRequirements();
 
   // Seed biomes
   const biomeResult = await seedBiomes();
+
+  let serverResult, worldResult, regionResult, tileResult;
+  if (isLocalDevelopment) {
+    serverResult = await seedServer();
+    worldResult = await seedWorld(serverResult[0].id);
+    regionResult = await seedRegions(worldResult[0].id);
+    tileResult = await seedTiles(regionResult);
+  }
 
   logger.info('[SEED] ✅ Seeding completed successfully!', {
     accounts: {
@@ -376,11 +704,35 @@ try {
       updated: structureResult.updated,
       total: structureResult.total,
     },
+    resources: {
+      created: resourceResult.created,
+      updated: resourceResult.updated,
+      total: resourceResult.total,
+    },
+    structureRequirements: {
+      created: structureRequirementResult.created,
+      updated: structureRequirementResult.updated,
+      total: structureRequirementResult.total,
+    },
     biomes: {
       created: biomeResult.created,
       updated: biomeResult.updated,
       total: biomeResult.total,
     },
+    ...(isLocalDevelopment && {
+      server: {
+        id: serverResult?.[0]?.id,
+      },
+      world: {
+        id: worldResult?.[0]?.id,
+      },
+      regions: {
+        created: regionResult?.created,
+      },
+      tiles: {
+        created: tileResult?.created,
+      },
+    }),
   });
 } catch (error) {
   logger.error('[SEED] ❌ Seeding failed', error);
