@@ -170,11 +170,13 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       }
 
       // 2. Validate and deduct resources BEFORE creating structure
-      const validation = await validateAndDeductResources(
-        tx,
-        settlementId,
-        structureDefinition.name
-      );
+      // Use extractorType or buildingType depending on category
+      const structureType = structureDefinition.extractorType || structureDefinition.buildingType;
+      if (!structureType) {
+        throw new Error(`Invalid structure definition for ${structureName}: missing type`);
+      }
+
+      const validation = await validateAndDeductResources(tx, settlementId, structureType);
 
       if (!validation.success) {
         // Throw error to rollback transaction
@@ -209,14 +211,25 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Emit Socket.IO event for real-time updates
     const worldId = settlement.worldId;
+    console.log('[SERVER] Attempting to emit structure:built event', {
+      worldId,
+      settlementId,
+      hasIo: !!req.app.get('io'),
+      structureName: result.structureDefinition.name,
+    });
     if (worldId && req.app.get('io')) {
-      req.app.get('io').to(`world:${worldId}`).emit('structure:built', {
+      const io = req.app.get('io');
+      console.log('[SERVER] Emitting structure:built to room:', `world:${worldId}`);
+      io.to(`world:${worldId}`).emit('structure:built', {
         settlementId,
         structure: result.structure,
         category: result.structureDefinition.category,
         structureName: result.structureDefinition.name,
         resourcesDeducted: result.validation.deductedResources,
       });
+      console.log('[SERVER] structure:built event emitted successfully');
+    } else {
+      console.log('[SERVER] FAILED to emit - missing worldId or io instance');
     }
 
     return res.status(201).json({
