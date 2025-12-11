@@ -135,6 +135,13 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     // Verify settlement exists
     const settlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, settlementId),
+      with: {
+        tile: {
+          with: {
+            region: true,
+          },
+        },
+      },
     });
 
     if (!settlement) {
@@ -210,7 +217,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     });
 
     // Emit Socket.IO event for real-time updates
-    const worldId = settlement.worldId;
+    const worldId = settlement.tile?.region?.worldId;
     console.log('[SERVER] Attempting to emit structure:built event', {
       worldId,
       settlementId,

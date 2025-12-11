@@ -124,6 +124,9 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEve
   }
 );
 
+// Make Socket.IO instance available to Express routes
+app.set('io', io);
+
 // Apply middleware
 io.use(loggingMiddleware);
 io.use(authenticationMiddleware);
