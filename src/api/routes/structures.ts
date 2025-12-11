@@ -9,7 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import { eq, and, or } from 'drizzle-orm';
-import { db, settlementStructures, settlements, structures } from '../../db/index.js';
+import { db, settlementStructures, settlements, structures, tiles } from '../../db/index.js';
 import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -168,6 +168,19 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    const tile = await db.query.tiles.findFirst({
+      where: eq(tiles.id, tileId),
+    });
+
+    if (!tile) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not Found',
+        code: 'TILE_NOT_FOUND',
+        message: 'Tile not found',
+      });
+    }
+
     // Verify user owns the settlement
     if (!req.user || settlement.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
@@ -191,12 +204,16 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Validate slotPosition if provided
     if (slotPosition !== undefined && slotPosition !== null) {
-      if (typeof slotPosition !== 'number' || slotPosition < 0 || slotPosition > 4) {
+      if (
+        typeof slotPosition !== 'number' ||
+        slotPosition < 0 ||
+        slotPosition > tile.plotSlots - 1
+      ) {
         return res.status(400).json({
           success: false,
           error: 'Bad Request',
           code: 'INVALID_SLOT',
-          message: 'Slot position must be between 0 and 4',
+          message: `Slot position must be between 0 and ${tile.plotSlots - 1}`,
         });
       }
 
@@ -227,13 +244,6 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Create structure in transaction
     const result = await db.transaction(async (tx) => {
-      // 1. Query structure definition from database
-      // The client sends uppercase types like 'FARM', 'TENT', etc.
-      // Database has:
-      //   - extractorType: 'FARM' (for extractors)
-      //   - buildingType: 'TENT' (for buildings)
-      //   - name: 'Farm', 'Tent' (proper case display names)
-      //   - id: generated CUID (not useful for lookup)
       const [structureDefinition] = await tx
         .select()
         .from(structures)
