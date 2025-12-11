@@ -8,7 +8,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db, settlementStructures, settlements, structures, tiles } from '../../db/index.js';
 import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
@@ -27,29 +27,46 @@ const router = Router();
 /**
  * GET /api/structures/metadata
  * Get all structure definitions (costs, requirements, modifiers)
+ * Returns database IDs (CUIDs) for use in create structure endpoint
  * Must come before /:id route to avoid route collision
  */
 router.get('/metadata', async (req: Request, res: Response) => {
   try {
-    const allCosts = getAllStructureCosts();
-    const metadata = allCosts.map((structure) => {
-      const requirements = getStructureRequirements(structure.name);
-      const modifiers = getStructureModifiers(structure.name);
+    // Get structure definitions from database (with CUIDs)
+    const dbStructures = await db.query.structures.findMany();
 
-      return {
-        id: structure.id,
-        name: structure.name,
-        displayName: structure.displayName,
-        description: structure.description,
-        category: structure.category,
-        tier: structure.tier,
-        costs: structure.costs,
-        constructionTimeSeconds: structure.constructionTimeSeconds,
-        populationRequired: structure.populationRequired,
-        requirements,
-        modifiers: modifiers || [],
-      };
-    });
+    // Map to include cost and requirement data
+    const allCosts = getAllStructureCosts();
+    const metadata = dbStructures
+      .map((dbStructure) => {
+        // Find matching cost definition by name
+        const costDef = allCosts.find((c) => c.name === dbStructure.name);
+
+        if (!costDef) {
+          logger.warn(`[API] No cost definition found for structure: ${dbStructure.name}`);
+          return null;
+        }
+
+        const requirements = getStructureRequirements(dbStructure.name);
+        const modifiers = getStructureModifiers(dbStructure.name);
+
+        return {
+          id: dbStructure.id, // ✅ Database CUID, not hardcoded string
+          name: costDef.name, // capitalized structure name
+          displayName: costDef.displayName,
+          description: dbStructure.description,
+          category: dbStructure.category,
+          extractorType: dbStructure.extractorType,
+          buildingType: dbStructure.buildingType,
+          tier: costDef.tier,
+          costs: costDef.costs,
+          constructionTimeSeconds: costDef.constructionTimeSeconds,
+          populationRequired: costDef.populationRequired,
+          requirements,
+          modifiers: modifiers || [],
+        };
+      })
+      .filter(Boolean); // Remove nulls
 
     return res.json({
       success: true,
@@ -117,11 +134,27 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
 
 /**
  * POST /api/structures/create
- * Create a new settlement building (non-extractor)
+ * Create a new settlement structure (extractor or building)
+ *
+ * Required body params:
+ * - settlementId: string
+ * - structureId: string (Structure.id from database)
+ * - tileId: string (for extractors, where to place it)
+ * - slotPosition: number (for extractors, which slot 0-4)
  */
 router.post('/create', authenticate, async (req: Request, res: Response) => {
   try {
-    let { settlementId, structureId, structureName, tileId, slotPosition } = req.body;
+    let { settlementId, structureId, tileId, slotPosition } = req.body;
+
+    // Validate required fields
+    if (!settlementId || !structureId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bad Request',
+        code: 'MISSING_FIELDS',
+        message: 'settlementId and structureId are required',
+      });
+    }
 
     // Parse slotPosition if provided (comes as string from form data)
     if (slotPosition !== undefined && slotPosition !== null) {
@@ -136,18 +169,21 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       }
     }
 
-    // Accept either structureId or structureName (prefer structureId)
-    const lookupValue = structureId || structureName;
-    if (!settlementId || !lookupValue) {
-      return res.status(400).json({
+    // 1. Get structure definition BEFORE transaction
+    const structureDefinition = await db.query.structures.findFirst({
+      where: eq(structures.id, structureId),
+    });
+
+    if (!structureDefinition) {
+      return res.status(404).json({
         success: false,
-        error: 'Bad Request',
-        code: 'MISSING_FIELDS',
-        message: 'settlementId and (structureId or structureName) are required',
+        error: 'Not Found',
+        code: 'STRUCTURE_NOT_FOUND',
+        message: `Structure not found with id: ${structureId}`,
       });
     }
 
-    // Verify settlement exists
+    // 2. Verify settlement exists
     const settlement = await db.query.settlements.findFirst({
       where: eq(settlements.id, settlementId),
       with: {
@@ -168,20 +204,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    const tile = await db.query.tiles.findFirst({
-      where: eq(tiles.id, tileId),
-    });
-
-    if (!tile) {
-      return res.status(404).json({
-        success: false,
-        error: 'Not Found',
-        code: 'TILE_NOT_FOUND',
-        message: 'Tile not found',
-      });
-    }
-
-    // Verify user owns the settlement
+    // 3. Verify user owns the settlement
     if (!req.user || settlement.playerProfileId !== req.user.profileId) {
       return res.status(403).json({
         success: false,
@@ -191,24 +214,42 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
-    // If tileId is provided, verify it matches the settlement's tile
-    // (For now, we only support building on the settlement's founding tile)
-    if (tileId && tileId !== settlement.tileId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Bad Request',
-        code: 'INVALID_TILE',
-        message: "Structures can only be built on the settlement's founding tile",
-      });
-    }
+    // 4. For extractors, validate tileId and slotPosition
+    if (structureDefinition.category === 'EXTRACTOR') {
+      if (!tileId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          code: 'MISSING_TILE',
+          message: 'tileId is required for extractor structures',
+        });
+      }
 
-    // Validate slotPosition if provided
-    if (slotPosition !== undefined && slotPosition !== null) {
-      if (
-        typeof slotPosition !== 'number' ||
-        slotPosition < 0 ||
-        slotPosition > tile.plotSlots - 1
-      ) {
+      if (slotPosition === undefined || slotPosition === null) {
+        return res.status(400).json({
+          success: false,
+          error: 'Bad Request',
+          code: 'MISSING_SLOT',
+          message: 'slotPosition is required for extractor structures',
+        });
+      }
+
+      // Verify tile exists
+      const tile = await db.query.tiles.findFirst({
+        where: eq(tiles.id, tileId),
+      });
+
+      if (!tile) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          code: 'TILE_NOT_FOUND',
+          message: 'Tile not found',
+        });
+      }
+
+      // Validate slot position range
+      if (slotPosition < 0 || slotPosition > tile.plotSlots - 1) {
         return res.status(400).json({
           success: false,
           error: 'Bad Request',
@@ -217,63 +258,44 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         });
       }
 
-      // Check if slot is already occupied by another EXTRACTOR
-      // Note: Only EXTRACTOR structures use slotPosition; BUILDING structures ignore it
-      const existingStructure = await db.query.settlementStructures.findFirst({
+      // 5. Check if slot is already occupied by another EXTRACTOR on the SAME tile
+      const existingExtractorInSlot = await db.query.settlementStructures.findFirst({
         where: and(
           eq(settlementStructures.settlementId, settlementId),
-          eq(settlementStructures.tileId, tileId || settlement.tileId),
+          eq(settlementStructures.tileId, tileId),
           eq(settlementStructures.slotPosition, slotPosition)
         ),
         with: {
-          structure: true, // Include structure definition to check category
+          structure: true,
         },
       });
 
-      // Only consider it occupied if an EXTRACTOR is already in this slot
-      const existingStructureDef = existingStructure?.structure as Structure | undefined;
-      if (existingStructure && existingStructureDef?.category === 'EXTRACTOR') {
+      if (
+        existingExtractorInSlot?.structure &&
+        'category' in existingExtractorInSlot.structure &&
+        existingExtractorInSlot.structure.category === 'EXTRACTOR'
+      ) {
         return res.status(400).json({
           success: false,
           error: 'Bad Request',
           code: 'SLOT_OCCUPIED',
-          message: `Slot ${slotPosition} is already occupied by another extractor`,
+          message: `Slot ${slotPosition} on tile ${tileId} is already occupied by another extractor`,
         });
       }
     }
 
-    // Create structure in transaction
+    // 6. Start transaction to validate resources and create structure
     const result = await db.transaction(async (tx) => {
-      const [structureDefinition] = await tx
-        .select()
-        .from(structures)
-        .where(
-          or(
-            // Try extractorType match (e.g., 'FARM', 'LUMBER_MILL')
-            eq(structures.extractorType, lookupValue),
-            // Try buildingType match (e.g., 'TENT', 'HOUSE')
-            eq(structures.buildingType, lookupValue),
-            // Try name match (e.g., 'Farm', 'Tent')
-            eq(structures.name, lookupValue)
-          )
-        )
-        .limit(1);
-
-      if (!structureDefinition) {
-        throw new Error(`Structure not found: ${lookupValue}`);
-      }
-
-      // 2. Validate and deduct resources BEFORE creating structure
-      // Use extractorType or buildingType depending on category
+      // Get structure type for resource validation
       const structureType = structureDefinition.extractorType || structureDefinition.buildingType;
       if (!structureType) {
-        throw new Error(`Invalid structure definition for ${structureName}: missing type`);
+        throw new Error(`Invalid structure definition: missing extractorType/buildingType`);
       }
 
+      // Validate and deduct resources
       const validation = await validateAndDeductResources(tx, settlementId, structureType);
 
       if (!validation.success) {
-        // Throw error to rollback transaction
         const error = new Error('INSUFFICIENT_RESOURCES') as Error & {
           validation: ValidationResult;
         };
@@ -281,21 +303,15 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         throw error;
       }
 
-      // 3. Create the settlement structure instance
-      // ✅ FIX: Set tileId to settlement's founding tile for extractors
-      // This allows the game loop to find extractors by filtering on tile.id
-
-      // Use tileId from request if provided (for extractors), otherwise use settlement's founding tile
-      const finalTileId = tileId || settlement.tileId;
-
+      // Create the settlement structure instance
       const [structure] = await tx
         .insert(settlementStructures)
         .values({
           id: createId(),
           structureId: structureDefinition.id,
           settlementId,
-          tileId: finalTileId,
-          slotPosition: slotPosition ?? null, // Use null if not provided
+          tileId: structureDefinition.category === 'EXTRACTOR' ? tileId : null,
+          slotPosition: structureDefinition.category === 'EXTRACTOR' ? slotPosition : null,
           level: 1,
         })
         .returning();
