@@ -745,6 +745,53 @@ async function seedTiles(regionResult: { created: number; regions: RegionRecord[
 }
 
 /**
+ * ✅ Phase 4: Seed Settlement Modifiers
+ *
+ * NOTE: Currently not used because seed script doesn't create test settlements/structures.
+ * When test settlements are added in the future, call this function to pre-populate
+ * settlement modifier aggregations.
+ *
+ * This demonstrates how to use the aggregator after creating settlements with structures.
+ * In practice, the lifecycle hooks added in Task 4.5 (structures.ts) will handle this
+ * automatically during normal gameplay.
+ *
+ * @param settlementIds - Array of settlement IDs to aggregate modifiers for
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function seedSettlementModifiers(settlementIds: string[]) {
+  logger.info('[SEED] Starting settlement modifier aggregation for test data...');
+
+  // Dynamic import to avoid loading in production when not needed
+  const { aggregateSettlementModifiers } = await import(
+    '../game/settlement-modifier-aggregator.js'
+  );
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const settlementId of settlementIds) {
+    try {
+      await aggregateSettlementModifiers(settlementId);
+      successCount++;
+      logger.debug(`[SEED] Aggregated modifiers for settlement ${settlementId}`);
+    } catch (error) {
+      errorCount++;
+      logger.error(`[SEED] Failed to aggregate modifiers for settlement ${settlementId}`, {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  logger.info('[SEED] Settlement modifier aggregation complete', {
+    total: settlementIds.length,
+    success: successCount,
+    errors: errorCount,
+  });
+
+  return { total: settlementIds.length, success: successCount, errors: errorCount };
+}
+
+/**
  * Main seeding execution
  */
 logger.info('[SEED] Starting database seeding...');
