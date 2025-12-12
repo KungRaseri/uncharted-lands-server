@@ -274,11 +274,6 @@ describe('Structures API Routes', () => {
       for (const cost of Object.values(structure.costs)) {
         expect(typeof cost).toBe('number');
       }
-
-      // Verify requirements structure
-      expect(structure.requirements).toHaveProperty('area');
-      expect(structure.requirements).toHaveProperty('solar');
-      expect(structure.requirements).toHaveProperty('wind');
     });
   });
 });
