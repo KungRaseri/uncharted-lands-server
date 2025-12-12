@@ -4,9 +4,11 @@ import {
   timestamp,
   integer,
   doublePrecision,
+  decimal,
   json,
   pgEnum,
   uniqueIndex,
+  unique,
   index,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
@@ -441,6 +443,44 @@ export const settlements = pgTable(
   (table) => [
     index('Settlement_playerProfileId_idx').on(table.playerProfileId),
     index('Settlement_tileId_idx').on(table.tileId),
+  ]
+);
+
+// Interface for contributingStructures JSON field
+export interface ContributingStructure {
+  structureId: string;
+  structureName: string;
+  level: number;
+  value: number;
+}
+
+// Settlement modifiers aggregation table (Phase 4)
+// Tracks pre-calculated total modifiers for each settlement by type
+// Recalculated when structures are created/upgraded/deleted
+export const settlementModifiers = pgTable(
+  'SettlementModifier',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    settlementId: text('settlementId')
+      .notNull()
+      .references(() => settlements.id, { onDelete: 'cascade' }),
+    modifierType: text('modifierType').notNull(),
+    totalValue: decimal('totalValue', { precision: 10, scale: 2 }).notNull(),
+    sourceCount: integer('sourceCount').notNull().default(0),
+    contributingStructures: json('contributingStructures')
+      .$type<ContributingStructure[]>()
+      .default([]),
+    lastCalculatedAt: timestamp('lastCalculatedAt', { mode: 'date' }).defaultNow().notNull(),
+    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
+    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique().on(table.settlementId, table.modifierType),
+    index('SettlementModifier_settlementId_idx').on(table.settlementId),
+    index('SettlementModifier_modifierType_idx').on(table.modifierType),
+    index('SettlementModifier_lastCalculatedAt_idx').on(table.lastCalculatedAt),
   ]
 );
 
@@ -912,6 +952,9 @@ export type NewSettlementStorage = typeof settlementStorage.$inferInsert;
 
 export type Settlement = typeof settlements.$inferSelect;
 export type NewSettlement = typeof settlements.$inferInsert;
+
+export type SettlementModifier = typeof settlementModifiers.$inferSelect;
+export type NewSettlementModifier = typeof settlementModifiers.$inferInsert;
 
 export type SettlementStructure = typeof settlementStructures.$inferSelect;
 export type NewSettlementStructure = typeof settlementStructures.$inferInsert;

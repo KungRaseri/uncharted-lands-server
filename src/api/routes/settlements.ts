@@ -489,4 +489,107 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/settlements/:id/modifiers
+ *
+ * Get aggregated modifiers for a settlement (Phase 4).
+ *
+ * Returns pre-calculated modifier totals from the settlement_modifiers table.
+ * Much faster than calculating on-the-fly.
+ *
+ * Response:
+ * {
+ *   modifiers: [
+ *     {
+ *       id: string,
+ *       modifierType: string,
+ *       totalValue: string,
+ *       sourceCount: number,
+ *       contributingStructures: Array<{
+ *         structureId: string,
+ *         structureName: string,
+ *         level: number,
+ *         value: number
+ *       }>,
+ *       lastCalculatedAt: Date
+ *     }
+ *   ]
+ * }
+ */
+router.get('/:id/modifiers', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Import aggregator function
+    const { getSettlementModifiers } = await import('../../game/settlement-modifier-aggregator.js');
+
+    // Get aggregated modifiers
+    const modifiers = await getSettlementModifiers(id);
+
+    res.json({ modifiers });
+  } catch (error) {
+    logger.error('Failed to get settlement modifiers', {
+      settlementId: req.params.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    res.status(500).json({ error: 'Failed to get settlement modifiers' });
+  }
+});
+
+/**
+ * POST /api/settlements/:id/modifiers/recalculate
+ *
+ * Force recalculation of settlement modifiers (Phase 4).
+ *
+ * Triggers aggregation of all modifiers from structures and stores results.
+ * Use after structure create/upgrade/delete (automatically triggered),
+ * or manually for admin/debugging purposes.
+ *
+ * Response:
+ * {
+ *   success: true,
+ *   modifierCount: number,
+ *   modifiers: SettlementModifier[]
+ * }
+ */
+router.post('/:id/modifiers/recalculate', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify settlement exists
+    const settlement = await db.query.settlements.findFirst({
+      where: eq(settlements.id, id),
+    });
+
+    if (!settlement) {
+      return res.status(404).json({ error: 'Settlement not found' });
+    }
+
+    // Import aggregator function
+    const { aggregateSettlementModifiers } = await import(
+      '../../game/settlement-modifier-aggregator.js'
+    );
+
+    // Recalculate modifiers
+    const modifiers = await aggregateSettlementModifiers(id);
+
+    logger.info('Settlement modifiers recalculated', {
+      settlementId: id,
+      modifierCount: modifiers.length,
+    });
+
+    res.json({
+      success: true,
+      modifierCount: modifiers.length,
+      modifiers,
+    });
+  } catch (error) {
+    logger.error('Failed to recalculate settlement modifiers', {
+      settlementId: req.params.id,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    res.status(500).json({ error: 'Failed to recalculate settlement modifiers' });
+  }
+});
+
 export default router;

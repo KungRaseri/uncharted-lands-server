@@ -15,6 +15,13 @@
       "when": 1764910372232,
       "tag": "0001_smiling_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765513841428,
+      "tag": "0002_violet_guardsmen",
+      "breakpoints": true
     }
   ]
 }
