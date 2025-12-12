@@ -66,13 +66,26 @@ export async function aggregateSettlementModifiers(
         structureId: settlementStructures.structureId,
         level: settlementStructures.level,
         name: structures.name,
+        buildingType: structures.buildingType,
+        extractorType: structures.extractorType,
       })
       .from(settlementStructures)
       .innerJoin(structures, eq(settlementStructures.structureId, structures.id))
       .where(eq(settlementStructures.settlementId, settlementId));
 
-    logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Found structures', {
+    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Found structures', {
       count: settlementStructuresData.length,
+    });
+
+    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure data from query', {
+      settlementId,
+      structureCount: settlementStructuresData.length,
+      structures: settlementStructuresData.map((s) => ({
+        name: s.name,
+        buildingType: s.buildingType,
+        extractorType: s.extractorType,
+        level: s.level,
+      })),
     });
 
     // Step 2: Calculate modifiers for each structure
@@ -87,12 +100,25 @@ export async function aggregateSettlementModifiers(
     >();
 
     for (const structure of settlementStructuresData) {
-      // Use Phase 3's calculateStructureModifiers to get all modifiers
-      const modifiers = calculateStructureModifiers(structure.structureId, structure.level);
+      // Use buildingType or extractorType as the modifier config key
+      // These are already uppercase enum values (e.g., 'FARM', 'HOUSE')
+      const structureType = structure.buildingType || structure.extractorType;
 
-      logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Calculated modifiers', {
+      if (!structureType) {
+        logger.warn('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure has no type', {
+          structureId: structure.structureId,
+          structureName: structure.name,
+        });
+        continue;
+      }
+
+      // Use Phase 3's calculateStructureModifiers to get all modifiers
+      const modifiers = calculateStructureModifiers(structureType, structure.level);
+
+      logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Calculated modifiers', {
         structureId: structure.structureId,
         structureName: structure.name,
+        structureType,
         level: structure.level,
         modifierCount: modifiers.length,
       });

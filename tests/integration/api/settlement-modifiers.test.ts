@@ -3,7 +3,17 @@
  * 
  * Tests the complete settlement modifier lifecycle:
  * 1. API endpoints (GET modifiers, POST recalculate)
- * 2. Automatic aggregation on structure operations (create, upgrade, delete)
+ * 2. Automatic aggregation on structu      // Create first structure (Farm)
+      await request(app)
+        .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
+        .send({
+          settlementId,
+          structureId: masterFarm!.id,
+          tileId: testChain.tileId,
+          slotPosition: 0,
+        })
+        .expect(201);ons (create, upgrade, delete)
  * 3. Database state consistency
  * 
  * @module tests/integration/api/settlement-modifiers
@@ -71,7 +81,7 @@ describe('Settlement Modifiers API', () => {
       expect(response.body.modifiers.length).toBeGreaterThan(0);
 
       // Should contain FOOD_PRODUCTION modifier from Farm
-      const foodModifier = response.body.find((m: any) => m.modifierType === 'FOOD_PRODUCTION');
+      const foodModifier = response.body.modifiers.find((m: any) => m.modifierType === 'FOOD_PRODUCTION');
       expect(foodModifier).toBeDefined();
       expect(foodModifier.totalValue).toBeGreaterThan(0);
       expect(foodModifier.sourceCount).toBe(1);
@@ -195,6 +205,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
 
       await request(app)
         .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .send({
           settlementId,
           structureId: masterFarm!.id,
@@ -204,7 +215,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
         .expect(201);
 
       // Wait for aggregation to complete
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Then: Modifiers should be automatically created
       const finalModifiers = await db.query.settlementModifiers.findMany({
@@ -230,6 +241,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // Create first Farm
       await request(app)
         .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .send({
           settlementId,
           structureId: masterFarm!.id,
@@ -252,6 +264,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // For simplicity, use a different slot position on the same tile
       await request(app)
         .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .send({
           settlementId,
           structureId: masterFarm!.id,
@@ -297,6 +310,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // When: Upgrade the Farm to Level 2
       await request(app)
         .post(`/api/structures/${structureId}/upgrade`)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .expect(200);
 
       // Wait for aggregation
@@ -330,6 +344,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // Create first Farm
       const farm1Response = await request(app)
         .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .send({
           settlementId,
           structureId: masterFarm!.id,
@@ -342,6 +357,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // Create second Farm
       await request(app)
         .post('/api/structures/create')
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .send({
           settlementId,
           structureId: masterFarm!.id,
@@ -364,6 +380,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // When: Delete first Farm
       await request(app)
         .delete(`/api/structures/${farm1Id}`)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .expect(200);
 
       // Wait for aggregation
@@ -404,6 +421,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // When: Delete the Farm
       await request(app)
         .delete(`/api/structures/${structureId}`)
+        .set('Cookie', `session=${testChain.account.userAuthToken}`)
         .expect(200);
 
       // Wait for aggregation

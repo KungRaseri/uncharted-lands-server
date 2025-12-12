@@ -34,8 +34,8 @@ import {
     settlementStorage,
     settlements,
     settlementStructures,
+    settlementModifiers,
     structures,
-    NewServer
 } from '../../src/db/schema.js';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -325,6 +325,18 @@ export async function createTestStructure(
         health: options.structureHealth ?? 100,
     }).returning();
 
+    // ✅ CRITICAL FIX: Trigger modifier aggregation after structure creation
+    // This mirrors the behavior of the API endpoint
+    try {
+        const { aggregateSettlementModifiers } = await import(
+            '../../src/game/settlement-modifier-aggregator.js'
+        );
+        await aggregateSettlementModifiers(settlementId);
+    } catch (error) {
+        // Log but don't fail - aggregation errors shouldn't break test setup
+        console.warn(`[TEST FACTORY] Failed to aggregate modifiers for settlement ${settlementId}:`, error);
+    }
+
     return { structureId: structureInstanceId, structure };
 }
 
@@ -414,6 +426,12 @@ export async function cleanupTestChain(chain: TestEntityChain | undefined) {
     }
 
     // Delete in reverse dependency order
+
+    // ✅ CRITICAL FIX: Delete settlement modifiers BEFORE structures
+    // Otherwise aggregation can't find settlement when triggered by structure deletion
+    if (chain.settlementId) {
+        await db.delete(settlementModifiers).where(eq(settlementModifiers.settlementId, chain.settlementId));
+    }
 
     if (chain.structureId) {
         await db.delete(settlementStructures).where(eq(settlementStructures.id, chain.structureId));

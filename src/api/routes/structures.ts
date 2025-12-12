@@ -19,7 +19,6 @@ import {
   type ValidationResult,
 } from '../../game/structure-validation.js';
 import { getAllStructureCosts } from '../../data/structure-costs.js';
-import { getStructureModifiers } from '../../data/structure-modifiers.js';
 import {
   calculateStructureModifiers,
   getPrerequisitesForStructure,
@@ -29,13 +28,43 @@ import {
 const router = Router();
 
 /**
+ * Server-side cache for structure metadata
+ * Phase 3: Add 5-minute cache to reduce database queries
+ */
+interface MetadataCache {
+  data: unknown[];
+  timestamp: number;
+}
+
+let metadataCache: MetadataCache | null = null;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
  * GET /api/structures/metadata
  * Get all structure definitions (costs, requirements, modifiers)
  * Returns database IDs (CUIDs) for use in create structure endpoint
  * Must come before /:id route to avoid route collision
+ *
+ * Phase 3: Added server-side caching (5 min) and dynamic modifier calculation
  */
 router.get('/metadata', async (req: Request, res: Response) => {
   try {
+    // Check cache first
+    const now = Date.now();
+    if (metadataCache && now - metadataCache.timestamp < CACHE_DURATION_MS) {
+      logger.debug('[API] Returning cached structure metadata');
+      return res.json({
+        success: true,
+        data: metadataCache.data,
+        cached: true,
+        cacheAge: Math.floor((now - metadataCache.timestamp) / 1000), // seconds
+        timestamp: now,
+      });
+    }
+
+    // Cache miss - fetch from database
+    logger.debug('[API] Cache miss - fetching structure metadata from database');
+
     // Get structure definitions from database (with CUIDs)
     const dbStructures = await db.query.structures.findMany();
 
@@ -43,22 +72,32 @@ router.get('/metadata', async (req: Request, res: Response) => {
     const allCosts = getAllStructureCosts();
     const metadata = dbStructures
       .map((dbStructure) => {
-        // Find matching cost definition by displayName (DB uses user-friendly names)
-        const costDef = allCosts.find((c) => c.displayName === dbStructure.name);
+        // Find matching cost definition by structure type
+        // Database structure names use displayName format ("Warehouse", "Town Hall")
+        // Cost definitions use internal IDs ("STORAGE", "TOWN_HALL")
+        // Match by extractorType or buildingType from database structure
+        const structureType = dbStructure.extractorType || dbStructure.buildingType;
+        const costDef = allCosts.find((c) => c.name === structureType);
 
         if (!costDef) {
-          logger.warn(`[API] No cost definition found for structure: ${dbStructure.name}`);
+          logger.warn(
+            `[API] No cost definition found for structure: ${dbStructure.name} (type: ${structureType})`
+          );
+          logger.warn(
+            `[API] Available cost definitions: ${allCosts.map((c) => c.name).join(', ')}`
+          );
           return null;
         }
 
-        const modifiers = getStructureModifiers(dbStructure.name);
+        // ✅ Phase 3: Calculate modifiers dynamically at level 1 (NOT from database)
+        const modifiers = calculateStructureModifiers(dbStructure.name, 1);
 
         // ✅ Phase 3: Add prerequisites from config
         const prerequisites = getPrerequisitesForStructure(dbStructure.name);
 
         return {
           id: dbStructure.id, // ✅ Database CUID, not hardcoded string
-          name: costDef.name, // capitalized structure name
+          name: costDef.name,
           displayName: costDef.displayName,
           description: dbStructure.description,
           category: dbStructure.category,
@@ -68,16 +107,25 @@ router.get('/metadata', async (req: Request, res: Response) => {
           costs: costDef.costs,
           constructionTimeSeconds: costDef.constructionTimeSeconds,
           populationRequired: costDef.populationRequired,
-          modifiers: modifiers || [],
-          prerequisites, // ✅ Phase 3: Add prerequisites
+          modifiers, // ✅ Phase 3: Calculated modifiers (config-based)
+          prerequisites, // ✅ Phase 3: Config-based prerequisites
         };
       })
-      .filter(Boolean); // Remove nulls
+      .filter((item) => item !== null); // Remove nulls (defensive)
+
+    // Update cache
+    metadataCache = {
+      data: metadata,
+      timestamp: now,
+    };
+
+    logger.debug(`[API] Cached ${metadata.length} structure definitions`);
 
     return res.json({
       success: true,
       data: metadata,
-      timestamp: Date.now(),
+      cached: false,
+      timestamp: now,
     });
   } catch (error) {
     logger.error('[API] Failed to fetch structure metadata', { error });
