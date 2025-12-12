@@ -593,7 +593,9 @@ export const STRUCTURE_BASE_BONUSES: Record<string, StructureModifierConfig[]> =
  * @returns Array of modifier configs for this structure
  */
 export function getStructureModifierConfig(structureName: string): StructureModifierConfig[] {
-  return STRUCTURE_BASE_BONUSES[structureName.toUpperCase()] || [];
+  // Convert structure name to config key format (e.g., "Town Hall" → "TOWN_HALL")
+  const configKey = structureName.toUpperCase().replace(/ /g, '_');
+  return STRUCTURE_BASE_BONUSES[configKey] || [];
 }
 
 /**
@@ -603,5 +605,7 @@ export function getStructureModifierConfig(structureName: string): StructureModi
  * @returns True if structure has modifier configs
  */
 export function hasModifiers(structureName: string): boolean {
-  return structureName.toUpperCase() in STRUCTURE_BASE_BONUSES;
+  // Convert structure name to config key format (e.g., "Town Hall" → "TOWN_HALL")
+  const configKey = structureName.toUpperCase().replace(/ /g, '_');
+  return configKey in STRUCTURE_BASE_BONUSES;
 }

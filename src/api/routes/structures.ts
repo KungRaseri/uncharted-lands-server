@@ -20,6 +20,11 @@ import {
 } from '../../game/structure-validation.js';
 import { getAllStructureCosts } from '../../data/structure-costs.js';
 import { getStructureModifiers } from '../../data/structure-modifiers.js';
+import {
+  calculateStructureModifiers,
+  getPrerequisitesForStructure,
+  validatePrerequisites,
+} from '../../game/modifier-calculator.js';
 
 const router = Router();
 
@@ -48,6 +53,9 @@ router.get('/metadata', async (req: Request, res: Response) => {
 
         const modifiers = getStructureModifiers(dbStructure.name);
 
+        // ✅ Phase 3: Add prerequisites from config
+        const prerequisites = getPrerequisitesForStructure(dbStructure.name);
+
         return {
           id: dbStructure.id, // ✅ Database CUID, not hardcoded string
           name: costDef.name, // capitalized structure name
@@ -61,6 +69,7 @@ router.get('/metadata', async (req: Request, res: Response) => {
           constructionTimeSeconds: costDef.constructionTimeSeconds,
           populationRequired: costDef.populationRequired,
           modifiers: modifiers || [],
+          prerequisites, // ✅ Phase 3: Add prerequisites
         };
       })
       .filter(Boolean); // Remove nulls
@@ -108,6 +117,12 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
 
     // Flatten master structure fields into response
     const structureDef = structure.structure as Structure | undefined;
+
+    // Calculate dynamic modifiers based on current level
+    const calculatedModifiers = structureDef?.name
+      ? calculateStructureModifiers(structureDef.name, structure.level)
+      : [];
+
     const response = {
       ...structure,
       name: structureDef?.name,
@@ -116,6 +131,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       buildingType: structureDef?.buildingType,
       extractorType: structureDef?.extractorType,
       maxLevel: structureDef?.maxLevel,
+      calculatedModifiers, // ✅ Phase 3: Add calculated modifiers
     };
 
     return res.json(response);
@@ -208,6 +224,23 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         error: 'Forbidden',
         code: 'NOT_SETTLEMENT_OWNER',
         message: 'You do not own this settlement',
+      });
+    }
+
+    // ✅ Phase 3: Validate prerequisites before building
+    const prerequisiteValidation = await validatePrerequisites(
+      db,
+      structureDefinition.name,
+      settlementId
+    );
+
+    if (!prerequisiteValidation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Bad Request',
+        code: 'PREREQUISITES_NOT_MET',
+        message: 'Prerequisites not met for this structure',
+        missing: prerequisiteValidation.missing,
       });
     }
 
