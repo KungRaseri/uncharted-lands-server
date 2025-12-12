@@ -28,7 +28,6 @@ import {
   getSettlementStructures,
 } from '../db/queries.js';
 import { getStructureCostByName, isValidStructure } from '../data/structure-costs.js';
-import { getStructureRequirements } from '../data/structure-requirements.js';
 import { getStructureModifiers } from '../data/structure-modifiers.js';
 import {
   calculateTimedProduction,
@@ -377,8 +376,7 @@ async function handleBuildStructure(
     const newResources = subtractResources(currentResources, requiredResources);
     await updateSettlementStorage(storage.id, newResources);
 
-    // Get structure requirements and modifiers from separate configs
-    const requirements = getStructureRequirements(structureConfig.name);
+    // Get structure modifiers from config
     const modifiers = getStructureModifiers(structureConfig.name);
 
     // Check if this is an extractor (needs tileId and slotPosition)
@@ -428,9 +426,6 @@ async function handleBuildStructure(
       structureConfig.name,
       structureConfig.description,
       {
-        area: requirements.area,
-        solar: requirements.solar,
-        wind: requirements.wind,
         food: requiredResources.food,
         water: requiredResources.water,
         wood: requiredResources.wood,

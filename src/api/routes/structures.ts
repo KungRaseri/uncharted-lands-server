@@ -19,7 +19,6 @@ import {
   type ValidationResult,
 } from '../../game/structure-validation.js';
 import { getAllStructureCosts } from '../../data/structure-costs.js';
-import { getStructureRequirements } from '../../data/structure-requirements.js';
 import { getStructureModifiers } from '../../data/structure-modifiers.js';
 
 const router = Router();
@@ -39,15 +38,14 @@ router.get('/metadata', async (req: Request, res: Response) => {
     const allCosts = getAllStructureCosts();
     const metadata = dbStructures
       .map((dbStructure) => {
-        // Find matching cost definition by name
-        const costDef = allCosts.find((c) => c.name === dbStructure.name);
+        // Find matching cost definition by displayName (DB uses user-friendly names)
+        const costDef = allCosts.find((c) => c.displayName === dbStructure.name);
 
         if (!costDef) {
           logger.warn(`[API] No cost definition found for structure: ${dbStructure.name}`);
           return null;
         }
 
-        const requirements = getStructureRequirements(dbStructure.name);
         const modifiers = getStructureModifiers(dbStructure.name);
 
         return {
@@ -62,7 +60,6 @@ router.get('/metadata', async (req: Request, res: Response) => {
           costs: costDef.costs,
           constructionTimeSeconds: costDef.constructionTimeSeconds,
           populationRequired: costDef.populationRequired,
-          requirements,
           modifiers: modifiers || [],
         };
       })

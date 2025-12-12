@@ -377,9 +377,6 @@ export async function createStructure(
   name: string,
   description: string,
   requirements: {
-    area: number;
-    solar: number;
-    wind: number;
     food: number;
     water: number;
     wood: number;

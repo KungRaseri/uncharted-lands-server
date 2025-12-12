@@ -264,7 +264,6 @@ describe('Structures API Routes', () => {
       expect(structure).toHaveProperty('costs');
       expect(structure).toHaveProperty('constructionTimeSeconds');
       expect(structure).toHaveProperty('populationRequired');
-      expect(structure).toHaveProperty('requirements');
       expect(structure).toHaveProperty('modifiers');
 
       // Verify cost structure (real costs only include non-zero values)
