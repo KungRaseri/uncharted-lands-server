@@ -12,6 +12,7 @@ import {
   structures,
   resources,
   structureRequirements,
+  structurePrerequisites,
   accounts,
   servers,
   NewServer,
@@ -26,6 +27,7 @@ import { eq, and } from 'drizzle-orm';
 import { RESOURCES } from '../data/resources.js';
 import { BIOMES } from '../data/biomes.js';
 import { STRUCTURES } from '../data/structures.js';
+import { STRUCTURE_PREREQUISITES } from '../data/structure-prerequisites.js';
 import bcrypt from 'bcrypt';
 import { isLocalDevelopment } from '../utils/environment.js';
 // World generation imports moved to dynamic imports inside functions to avoid loading in production
@@ -48,11 +50,9 @@ const biomeData = BIOMES.map((biome) => {
  * Generated from master data file: src/data/resources.ts
  */
 const resourcesData = RESOURCES.map((resource) => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id: _id, ...resourceWithoutId } = resource;
   return {
     id: createId(),
-    ...resourceWithoutId,
+    ...resource,
   };
 });
 
@@ -62,10 +62,10 @@ const resourcesData = RESOURCES.map((resource) => {
  */
 const structuresData = STRUCTURES.map((structure) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id: _id, requirements: _requirements, ...structureWithoutId } = structure;
+  const { requirements: _requirements, ...structureWithoutRequirements } = structure;
   return {
     id: createId(),
-    ...structureWithoutId,
+    ...structureWithoutRequirements,
   };
 });
 
@@ -78,10 +78,10 @@ const structureRequirementsData = STRUCTURES.flatMap((structure) =>
   Object.entries(structure.requirements)
     .filter(([_, quantity]) => quantity && quantity > 0)
     .map(([resourceKey, quantity]) => {
-      const resource = RESOURCES.find((r) => r.id === resourceKey);
+      const resource = RESOURCES.find((r) => r.name === resourceKey);
       if (!resource) {
         throw new Error(
-          `Resource with id "${resourceKey}" not found for structure "${structure.name}"`
+          `Resource with name "${resourceKey}" not found for structure "${structure.name}"`
         );
       }
       return {
@@ -95,7 +95,7 @@ const structureRequirementsData = STRUCTURES.flatMap((structure) =>
 /**
  * Seed resources with upsert logic (create or update)
  */
- 
+
 async function seedResources() {
   logger.info(`[SEED] Starting resource seeding...`);
 
@@ -180,7 +180,7 @@ async function seedStructures() {
  * Seed structure requirements with upsert logic (create or update)
  * Links structures to their resource costs using composite key lookup
  */
- 
+
 async function seedStructureRequirements() {
   logger.info(`[SEED] Starting structure requirements seeding...`);
 
@@ -248,6 +248,90 @@ async function seedStructureRequirements() {
   }
 
   return { created, updated, total: structureRequirementsData.length };
+}
+
+/**
+ * Seed structure prerequisites with upsert logic (create or update)
+ */
+async function seedStructurePrerequisites() {
+  logger.info(`[SEED] Starting structure prerequisites seeding...`);
+
+  let created = 0;
+  let updated = 0;
+
+  for (const prerequisite of STRUCTURE_PREREQUISITES) {
+    try {
+      // Resolve structure names to IDs
+      const structure = await db
+        .select({ id: structures.id })
+        .from(structures)
+        .where(eq(structures.name, prerequisite.structureName))
+        .limit(1);
+
+      const requiredStructure = await db
+        .select({ id: structures.id })
+        .from(structures)
+        .where(eq(structures.name, prerequisite.requiredStructureName))
+        .limit(1);
+
+      if (structure.length === 0) {
+        logger.warn(
+          `[SEED] Structure "${prerequisite.structureName}" not found, skipping prerequisite`
+        );
+        continue;
+      }
+
+      if (requiredStructure.length === 0) {
+        logger.warn(
+          `[SEED] Required structure "${prerequisite.requiredStructureName}" not found, skipping prerequisite`
+        );
+        continue;
+      }
+
+      const structureId = structure[0].id;
+      const requiredStructureId = requiredStructure[0].id;
+
+      // Check if prerequisite already exists
+      const existing = await db
+        .select()
+        .from(structurePrerequisites)
+        .where(
+          and(
+            eq(structurePrerequisites.structureId, structureId),
+            eq(structurePrerequisites.requiredStructureId, requiredStructureId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Update existing prerequisite
+        await db
+          .update(structurePrerequisites)
+          .set({
+            requiredLevel: prerequisite.requiredLevel,
+          })
+          .where(eq(structurePrerequisites.id, existing[0].id));
+        updated++;
+      } else {
+        // Insert new prerequisite
+        await db.insert(structurePrerequisites).values({
+          id: createId(),
+          structureId: structureId,
+          requiredStructureId: requiredStructureId,
+          requiredLevel: prerequisite.requiredLevel,
+        });
+        created++;
+      }
+    } catch (error) {
+      logger.error(
+        `[SEED] Error seeding prerequisite ${prerequisite.structureName} -> ${prerequisite.requiredStructureName}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  return { created, updated, total: STRUCTURE_PREREQUISITES.length };
 }
 
 /**
@@ -682,6 +766,9 @@ try {
   // Seed Structure Requirements
   const structureRequirementResult = await seedStructureRequirements();
 
+  // Seed Structure Prerequisites
+  const structurePrerequisiteResult = await seedStructurePrerequisites();
+
   // Seed biomes
   const biomeResult = await seedBiomes();
 
@@ -713,6 +800,11 @@ try {
       created: structureRequirementResult.created,
       updated: structureRequirementResult.updated,
       total: structureRequirementResult.total,
+    },
+    structurePrerequisites: {
+      created: structurePrerequisiteResult.created,
+      updated: structurePrerequisiteResult.updated,
+      total: structurePrerequisiteResult.total,
     },
     biomes: {
       created: biomeResult.created,
