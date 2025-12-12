@@ -380,6 +380,25 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       console.log('[SERVER] FAILED to emit - missing worldId or io instance');
     }
 
+    // ✅ Phase 4: Trigger settlement modifier recalculation after structure creation
+    try {
+      const { aggregateSettlementModifiers } = await import(
+        '../../game/settlement-modifier-aggregator.js'
+      );
+      await aggregateSettlementModifiers(settlementId);
+      logger.debug('[API] Settlement modifiers recalculated after structure creation', {
+        settlementId,
+        structureId: result.structure.id,
+      });
+    } catch (aggError) {
+      // Log error but don't fail the structure creation operation
+      logger.error('[API] Failed to recalculate settlement modifiers after structure creation', {
+        settlementId,
+        structureId: result.structure.id,
+        error: aggError instanceof Error ? aggError.message : 'Unknown error',
+      });
+    }
+
     return res.status(201).json({
       success: true,
       structure: result.structure,
@@ -467,6 +486,26 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
       level: nextLevel,
       category: structureDef?.category,
     });
+
+    // ✅ Phase 4: Trigger settlement modifier recalculation after structure upgrade
+    try {
+      const { aggregateSettlementModifiers } = await import(
+        '../../game/settlement-modifier-aggregator.js'
+      );
+      await aggregateSettlementModifiers(settlementData.id);
+      logger.debug('[API] Settlement modifiers recalculated after structure upgrade', {
+        settlementId: settlementData.id,
+        structureId: id,
+        newLevel: nextLevel,
+      });
+    } catch (aggError) {
+      // Log error but don't fail the upgrade operation
+      logger.error('[API] Failed to recalculate settlement modifiers after structure upgrade', {
+        settlementId: settlementData.id,
+        structureId: id,
+        error: aggError instanceof Error ? aggError.message : 'Unknown error',
+      });
+    }
 
     return res.json(upgraded);
   } catch (error) {
@@ -567,6 +606,25 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
       settlementId: structure.settlementId,
       type: structureDef?.category,
     });
+
+    // ✅ Phase 4: Trigger settlement modifier recalculation after structure deletion
+    try {
+      const { aggregateSettlementModifiers } = await import(
+        '../../game/settlement-modifier-aggregator.js'
+      );
+      await aggregateSettlementModifiers(structure.settlementId);
+      logger.debug('[API] Settlement modifiers recalculated after structure deletion', {
+        settlementId: structure.settlementId,
+        structureId: id,
+      });
+    } catch (aggError) {
+      // Log error but don't fail the deletion operation
+      logger.error('[API] Failed to recalculate settlement modifiers after structure deletion', {
+        settlementId: structure.settlementId,
+        structureId: id,
+        error: aggError instanceof Error ? aggError.message : 'Unknown error',
+      });
+    }
 
     return res.json({
       success: true,
