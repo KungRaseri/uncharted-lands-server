@@ -124,8 +124,8 @@ describe('Settlement Modifiers API', () => {
       expect(foodModifier).toBeDefined();
       expect(Array.isArray(foodModifier.contributingStructures)).toBe(true);
       expect(foodModifier.contributingStructures).toHaveLength(1);
-      expect(foodModifier.contributingStructures[0].structureInstanceId).toBe(structureId);
-      expect(Number(foodModifier.contributingStructures[0].modifierValue)).toBeGreaterThan(0);
+      expect(foodModifier.contributingStructures[0].structureId).toBe(structureId);
+      expect(Number(foodModifier.contributingStructures[0].value)).toBeGreaterThan(0);
     });
 
     it('should return 404 for nonexistent settlement', async () => {
@@ -306,7 +306,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // Then: totalValue should be sum of both Farms
       expect(finalModifiers).toBeDefined();
       expect(Number(finalModifiers!.totalValue)).toBeGreaterThan(Number(initialValue));
-      expect(finalModifiers!.sourceCount).toBe(2);
+      expect(Number(finalModifiers!.sourceCount)).toBe(2);
     });
   });
 
@@ -332,7 +332,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // When: Upgrade the Farm to Level 2
       await request(app)
         .post(`/api/structures/${structureId}/upgrade`)
-        .set('Cookie', `session=${testChain.account.userAuthToken}`)
+        .set('Cookie', `session=${chainWithStructure.account.userAuthToken}`)
         .expect(200);
 
       // Wait for aggregation
@@ -396,7 +396,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
         where: eq(settlementModifiers.settlementId, settlementId),
       });
       expect(initialModifiers).toBeDefined();
-      expect(initialModifiers!.sourceCount).toBe(2);
+      expect(Number(initialModifiers!.sourceCount)).toBe(2);
       const initialValue = initialModifiers!.totalValue;
 
       // When: Delete first Farm
@@ -414,7 +414,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       });
       expect(finalModifiers).toBeDefined();
       expect(Number(finalModifiers!.totalValue)).toBeLessThan(Number(initialValue));
-      expect(finalModifiers!.sourceCount).toBe(1);
+      expect(Number(finalModifiers!.sourceCount)).toBe(1);
 
       // Verify structure was actually deleted
       const deletedStructure = await db.query.settlementStructures.findFirst({
@@ -443,7 +443,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // When: Delete the Farm
       await request(app)
         .delete(`/api/structures/${structureId}`)
-        .set('Cookie', `session=${testChain.account.userAuthToken}`)
+        .set('Cookie', `session=${chainWithStructure.account.userAuthToken}`)
         .expect(200);
 
       // Wait for aggregation
