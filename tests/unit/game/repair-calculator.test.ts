@@ -11,6 +11,110 @@ import {
   DISASTER_REPAIR_MULTIPLIERS,
   EMERGENCY_REPAIR_CONFIG,
 } from '../../../src/game/repair-calculator.js';
+import * as schema from '../../../src/db/schema.js';
+
+// ✅ Phase 4: Mock structures with requirements for testing
+// These match the structure-cost.ts hardcoded values for backward compatibility
+
+const mockHospitalStructure: typeof schema.structures.$inferSelect & {
+  requirements: Array<{
+    resource: { name: string };
+    quantity: number;
+  }>;
+} = {
+  id: 'struct-hospital',
+  name: 'HOSPITAL',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE', // Using HOUSE as placeholder (HOSPITAL not in enum)
+  description: 'Hospital structure',
+  maxLevel: 10,
+  tier: 1,
+  constructionTimeSeconds: 1000,
+  populationRequired: 0,
+  displayName: 'Hospital',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  requirements: [
+    { resource: { name: 'WOOD' }, quantity: 500 },
+    { resource: { name: 'STONE' }, quantity: 300 },
+    { resource: { name: 'ORE' }, quantity: 100 },
+  ],
+};
+
+const mockHouseStructure: typeof schema.structures.$inferSelect & {
+  requirements: Array<{
+    resource: { name: string };
+    quantity: number;
+  }>;
+} = {
+  id: 'struct-house',
+  name: 'HOUSE',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE',
+  description: 'House structure',
+  maxLevel: 10,
+  tier: 1,
+  constructionTimeSeconds: 500,
+  populationRequired: 0,
+  displayName: 'House',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  requirements: [
+    { resource: { name: 'WOOD' }, quantity: 50 },
+    { resource: { name: 'STONE' }, quantity: 20 },
+  ],
+};
+
+const mockTentStructure: typeof schema.structures.$inferSelect & {
+  requirements: Array<{
+    resource: { name: string };
+    quantity: number;
+  }>;
+} = {
+  id: 'struct-tent',
+  name: 'TENT',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE', // Using HOUSE as placeholder (TENT not in enum)
+  description: 'Tent structure',
+  maxLevel: 10,
+  tier: 1,
+  constructionTimeSeconds: 100,
+  populationRequired: 0,
+  displayName: 'Tent',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  requirements: [
+    { resource: { name: 'WOOD' }, quantity: 10 },
+  ],
+};
+
+const mockFarmStructure: typeof schema.structures.$inferSelect & {
+  requirements: Array<{
+    resource: { name: string };
+    quantity: number;
+  }>;
+} = {
+  id: 'struct-farm',
+  name: 'FARM',
+  category: 'EXTRACTOR',
+  extractorType: 'FARM',
+  buildingType: null,
+  description: 'Farm structure',
+  maxLevel: 10,
+  tier: 1,
+  constructionTimeSeconds: 800,
+  populationRequired: 0,
+  displayName: 'Farm',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  requirements: [
+    { resource: { name: 'WOOD' }, quantity: 100 },
+    { resource: { name: 'STONE' }, quantity: 50 },
+  ],
+};
 
 describe('Repair Calculator', () => {
   describe('calculateRepairCost', () => {
@@ -20,7 +124,7 @@ describe('Repair Calculator', () => {
       // Cost = { wood: 500, stone: 300, ore: 100 } × 0.25 × 3
       //      = { wood: 375, stone: 225, ore: 75 }
       const result = calculateRepairCost({
-        structureId: 'HOSPITAL',
+        structure: mockHospitalStructure,
         currentHealth: 70,
         targetHealth: 100,
         disasterType: 'EARTHQUAKE',
@@ -38,7 +142,7 @@ describe('Repair Calculator', () => {
       const damagedAt = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
 
       const result = calculateRepairCost({
-        structureId: 'HOSPITAL',
+        structure: mockHospitalStructure,
         currentHealth: 70,
         targetHealth: 100,
         disasterType: 'EARTHQUAKE',
@@ -58,7 +162,7 @@ describe('Repair Calculator', () => {
       const damagedAt = new Date(Date.now() - 49 * 60 * 60 * 1000); // 49 hours ago
 
       const result = calculateRepairCost({
-        structureId: 'HOSPITAL',
+        structure: mockHospitalStructure,
         currentHealth: 70,
         targetHealth: 100,
         disasterType: 'EARTHQUAKE',
@@ -73,7 +177,7 @@ describe('Repair Calculator', () => {
     test('handles different disaster types with correct multipliers', () => {
       // Wildfire: 0.15 multiplier (easiest to repair)
       const wildfireResult = calculateRepairCost({
-        structureId: 'HOUSE',
+        structure: mockHouseStructure,
         currentHealth: 80,
         targetHealth: 100,
         disasterType: 'WILDFIRE',
@@ -86,7 +190,7 @@ describe('Repair Calculator', () => {
 
       // Volcano: 0.4 multiplier (hard to repair)
       const volcanoResult = calculateRepairCost({
-        structureId: 'HOUSE',
+        structure: mockHouseStructure,
         currentHealth: 80,
         targetHealth: 100,
         disasterType: 'VOLCANO',
@@ -99,7 +203,7 @@ describe('Repair Calculator', () => {
     test('throws error for invalid health values', () => {
       expect(() => {
         calculateRepairCost({
-          structureId: 'HOUSE',
+          structure: mockHouseStructure,
           currentHealth: 110, // Invalid
           targetHealth: 100,
           disasterType: 'EARTHQUAKE',
@@ -108,7 +212,7 @@ describe('Repair Calculator', () => {
 
       expect(() => {
         calculateRepairCost({
-          structureId: 'HOUSE',
+          structure: mockHouseStructure,
           currentHealth: 50,
           targetHealth: 40, // Target less than current
           disasterType: 'EARTHQUAKE',
@@ -119,7 +223,7 @@ describe('Repair Calculator', () => {
 
   describe('calculateFullRepairCost', () => {
     test('repairs to 100% health', () => {
-      const result = calculateFullRepairCost('FARM', 45, 'FLOOD');
+      const result = calculateFullRepairCost(mockFarmStructure, 45, 'FLOOD');
 
       expect(result.healthRestored).toBe(55);
       expect(result.cost).toBeDefined();
@@ -129,7 +233,7 @@ describe('Repair Calculator', () => {
   describe('canAffordRepair', () => {
     test('returns true when player has sufficient resources', () => {
       const repairCost = calculateRepairCost({
-        structureId: 'TENT',
+        structure: mockTentStructure,
         currentHealth: 50,
         targetHealth: 100,
         disasterType: 'WILDFIRE',
@@ -149,7 +253,7 @@ describe('Repair Calculator', () => {
 
     test('returns false and shows missing resources when insufficient', () => {
       const repairCost = calculateRepairCost({
-        structureId: 'HOSPITAL',
+        structure: mockHospitalStructure,
         currentHealth: 50,
         targetHealth: 100,
         disasterType: 'EARTHQUAKE',
@@ -226,3 +330,4 @@ describe('Repair Calculator', () => {
     });
   });
 });
+

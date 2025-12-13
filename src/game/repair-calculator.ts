@@ -11,8 +11,8 @@
  */
 
 import type { DisasterType } from '../db/schema.js';
-import { getStructureCost } from '../data/structure-costs.js';
 import type { Resources } from './resource-calculator.js';
+import * as schema from '../db/schema.js';
 
 /**
  * Disaster-specific repair cost multipliers
@@ -66,8 +66,13 @@ export const EMERGENCY_REPAIR_CONFIG = {
 };
 
 export interface RepairCostParams {
-  /** Structure ID (to look up original cost) */
-  structureId: string;
+  /** Structure object with requirements (from database query) */
+  structure: typeof schema.structures.$inferSelect & {
+    requirements: Array<{
+      resource: { name: string };
+      quantity: number;
+    }>;
+  };
 
   /** Current health (0-100) */
   currentHealth: number;
@@ -126,7 +131,7 @@ export interface RepairCostResult {
  */
 export function calculateRepairCost(params: RepairCostParams): RepairCostResult {
   const {
-    structureId,
+    structure,
     currentHealth,
     targetHealth = 100,
     disasterType,
@@ -147,10 +152,14 @@ export function calculateRepairCost(params: RepairCostParams): RepairCostResult 
     );
   }
 
-  // Get structure's original cost
-  const structureCost = getStructureCost(structureId);
-  if (!structureCost) {
-    throw new Error(`Unknown structure ID: ${structureId}`);
+  // ✅ Phase 4: Extract structure costs from database requirements
+  // Mirror pattern from structure-validation.ts
+  const structureCost: Record<string, number> = {};
+  for (const req of structure.requirements) {
+    const resourceName = req.resource.name;
+    if (resourceName && req.quantity > 0) {
+      structureCost[resourceName.toLowerCase()] = req.quantity;
+    }
   }
 
   // Calculate health to restore
@@ -165,7 +174,7 @@ export function calculateRepairCost(params: RepairCostParams): RepairCostResult 
   // Calculate base repair cost
   // Cost = Original Cost × Multiplier × (Health Restored / 10)
   const normalCost: Partial<Resources> = {};
-  for (const [resource, baseCost] of Object.entries(structureCost.costs)) {
+  for (const [resource, baseCost] of Object.entries(structureCost)) {
     if (baseCost && baseCost > 0) {
       const resourceCost = baseCost * costMultiplier * (healthRestored / 10);
       normalCost[resource as keyof Resources] = Math.ceil(resourceCost);
@@ -217,13 +226,18 @@ export function calculateRepairCost(params: RepairCostParams): RepairCostResult 
  * Convenience wrapper around calculateRepairCost
  */
 export function calculateFullRepairCost(
-  structureId: string,
+  structure: typeof schema.structures.$inferSelect & {
+    requirements: Array<{
+      resource: { name: string };
+      quantity: number;
+    }>;
+  },
   currentHealth: number,
   disasterType: DisasterType,
   damagedAt?: Date
 ): RepairCostResult {
   return calculateRepairCost({
-    structureId,
+    structure,
     currentHealth,
     targetHealth: 100,
     disasterType,

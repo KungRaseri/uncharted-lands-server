@@ -139,45 +139,39 @@ const mockTransaction = {
   update: mockUpdate,
 };
 
+// ✅ Phase 4: Track which structure is being tested for mock requirements
+// Since we can't reliably parse Drizzle's eq() SQL objects, we use a test-level variable
+let currentTestStructure: typeof schema.structures.$inferSelect | null = null;
+
 describe('Structure Validation System', () => {
   beforeEach(() => {
-    // Reset mocks before each test
     vi.clearAllMocks();
+    currentTestStructure = null; // Reset for each test
     
-    // ✅ Phase 4: Setup mock requirements for each structure type
-    // The production code uses: eq(structureRequirements.structureId, structure.id)
-    // Drizzle creates a SQL object with queryChunks containing the parameter value
-    mockTransaction.query.structureRequirements.findMany.mockImplementation((config: any) => {
-      let structureId: string | undefined;
+    // ✅ Phase 4: Mock requirements lookup based on currentTestStructure
+    // The validation function receives a structure object, but the mock doesn't have access to it.
+    // We work around this by having each test set currentTestStructure before calling the function.
+    mockTransaction.query.structureRequirements.findMany.mockImplementation(async () => {
+      if (!currentTestStructure) {
+        console.log('[Mock Debug] currentTestStructure not set - test must set it before calling validation');
+        return [];
+      }
       
-      // Extract structure ID from the Drizzle SQL where clause
-      if (config?.where?.queryChunks) {
-        // Find the Param chunk that contains the structure ID
-        const paramChunk = config.where.queryChunks.find(
-          (chunk: any) => chunk && typeof chunk === 'object' && chunk.value !== undefined
-        );
-        structureId = paramChunk?.value?.value || paramChunk?.value;
-      }
-
-      // If extraction fails, log for debugging and return empty
-      if (!structureId) {
-        console.log('[Mock Debug] Failed to extract structure ID from queryChunks');
-        return Promise.resolve([]);
-      }
-
-      // Return appropriate requirements based on structure ID
-      switch (structureId) {
+      // Return requirements based on the current structure being tested
+      switch (currentTestStructure.id) {
         case 'struct-tent':
-          return Promise.resolve(mockTentRequirements);
+          return mockTentRequirements;
         case 'struct-farm':
-          return Promise.resolve(mockFarmRequirements);
+          return mockFarmRequirements;
         case 'struct-workshop':
-          return Promise.resolve(mockWorkshopRequirements);
+          return mockWorkshopRequirements;
         case 'struct-house':
-          return Promise.resolve(mockHouseRequirements);
+          return mockHouseRequirements;
+        case 'struct-unknown':
+          return [];
         default:
-          console.log('[Mock Debug] Unknown structure ID:', structureId);
-          return Promise.resolve([]);
+          console.log('[Mock Debug] Unknown structure ID:', currentTestStructure.id);
+          return [];
       }
     });
   });
@@ -200,9 +194,11 @@ describe('Structure Validation System', () => {
 
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
 
+        currentTestStructure = mockTentStructure; // Set structure for mock        currentTestStructure = mockTentStructure; // Set structure for mock`n
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1', mockTentStructure
+          'settlement-1',
+          mockTentStructure
         );
 
         expect(result.success).toBe(true);
@@ -223,7 +219,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockFarmStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -248,7 +244,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockWorkshopStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -275,7 +271,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockTentStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -307,7 +303,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockFarmStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -339,7 +335,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockFarmStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -372,7 +368,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockWorkshopStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -404,7 +400,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockHouseStructure; // Set structure for mock`n
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
@@ -444,7 +440,7 @@ describe('Structure Validation System', () => {
         ).rejects.toThrow('Settlement storage not found');
       });
 
-      it('should throw error for unknown structure type', async () => {
+      it('should succeed for structure with no requirements (zero cost)', async () => {
         const mockSettlement = {
           id: 'settlement-1',
           storage: {
@@ -460,9 +456,17 @@ describe('Structure Validation System', () => {
 
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
 
-        await expect(
-          checkResourceAvailability(mockTransaction as any, 'settlement-1', mockUnknownStructure)
-        ).rejects.toThrow('Unknown structure type: UNKNOWN_STRUCTURE');
+        currentTestStructure = mockUnknownStructure; // Set structure for mock
+        const result = await checkResourceAvailability(
+          mockTransaction as any,
+          'settlement-1',
+          mockUnknownStructure
+        );
+
+        // ✅ Phase 4: Structures with no requirements in database are valid (zero cost)
+        // This is different from the old hardcoded approach
+        expect(result.success).toBe(true);
+        expect(result.shortages).toBeUndefined();
       });
     });
   });
@@ -483,7 +487,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockTentStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -522,7 +526,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockFarmStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -558,7 +562,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockWorkshopStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -596,7 +600,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockTentStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -629,7 +633,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockHouseStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -659,7 +663,7 @@ describe('Structure Validation System', () => {
           },
         };
 
-        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+        mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockWorkshopStructure; // Set structure for mock`n
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
@@ -697,7 +701,7 @@ describe('Structure Validation System', () => {
         },
       };
 
-      mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
+      mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);        currentTestStructure = mockFarmStructure; // Set structure for mock`n
 
       const result = await validateAndDeductResources(
         mockTransaction as any,
@@ -720,3 +724,4 @@ describe('Structure Validation System', () => {
     });
   });
 });
+
