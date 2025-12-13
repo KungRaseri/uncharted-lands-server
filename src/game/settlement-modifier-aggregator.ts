@@ -253,18 +253,52 @@ export async function aggregateSettlementModifiers(
       }
 
       // Step 5: Delete any modifiers that no longer exist (all structures removed)
-      // DISABLED: This was deleting ALL modifiers, not just orphaned ones
-      // TODO: Implement proper cleanup using notIn when Drizzle supports it
-      // const currentTypes = Array.from(modifierMap.keys());
-      // if (currentTypes.length > 0) {
-      //   // Delete modifiers not in current types
-      //   await tx.delete(settlementModifiers).where(
-      //     and(
-      //       eq(settlementModifiers.settlementId, settlementId),
-      //       notIn(settlementModifiers.modifierType, currentTypes) // Not supported yet
-      //     )
-      //   );
-      // }
+      const currentTypes = Array.from(modifierMap.keys());
+
+      if (currentTypes.length === 0) {
+        // No structures left - delete ALL modifiers for this settlement
+        const deletedCount = await tx
+          .delete(settlementModifiers)
+          .where(eq(settlementModifiers.settlementId, settlementId));
+
+        logger.info(
+          '[SETTLEMENT_MODIFIER_AGGREGATOR] Deleted all modifiers (no structures remaining)',
+          {
+            settlementId,
+            deletedCount,
+          }
+        );
+      } else {
+        // Structures exist - delete orphaned modifiers (types no longer present)
+        // Get all existing modifier types for this settlement
+        const existingModifiers = await tx
+          .select({ modifierType: settlementModifiers.modifierType })
+          .from(settlementModifiers)
+          .where(eq(settlementModifiers.settlementId, settlementId));
+
+        const existingTypes = existingModifiers.map((m) => m.modifierType);
+        const orphanedTypes = existingTypes.filter((type) => !currentTypes.includes(type));
+
+        if (orphanedTypes.length > 0) {
+          // Delete orphaned modifiers one by one (until Drizzle supports notIn)
+          for (const orphanedType of orphanedTypes) {
+            await tx
+              .delete(settlementModifiers)
+              .where(
+                and(
+                  eq(settlementModifiers.settlementId, settlementId),
+                  eq(settlementModifiers.modifierType, orphanedType)
+                )
+              );
+          }
+
+          logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Deleted orphaned modifiers', {
+            settlementId,
+            orphanedTypes,
+            count: orphanedTypes.length,
+          });
+        }
+      }
 
       logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation complete', {
         settlementId,
