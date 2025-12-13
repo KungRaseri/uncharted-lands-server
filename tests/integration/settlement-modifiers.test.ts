@@ -19,6 +19,7 @@ import { createId } from '@paralleldrive/cuid2';
 import {
   createTestSettlement,
   createTestSettlementWithStructure,
+  createTestStructure,
   cleanupTestChain,
   type TestEntityChain,
 } from '../helpers/integration-test-factory.js';
@@ -84,18 +85,18 @@ describe('Settlement Modifiers Integration Tests', () => {
    * Test 3: Multiple structures of same type sum correctly
    */
   it('should sum modifiers from multiple structures of same type', async () => {
-    // Create two structures
-    const firstStructure = await createTestSettlementWithStructure({
-      structureType: 'TENT',
-      accountId: testChain!.account.id,
-      settlementId: testChain!.settlement.id
-    });
+    // Create two structures for the existing settlement
+    const { structureId: firstStructureId } = await createTestStructure(
+      testChain!.settlementId!,
+      testChain!.tileId,
+      { structureType: 'TENT' }
+    );
 
-    const secondStructure = await createTestSettlementWithStructure({
-      structureType: 'TENT',
-      accountId: testChain!.account.id,
-      settlementId: testChain!.settlement.id
-    });
+    const { structureId: secondStructureId } = await createTestStructure(
+      testChain!.settlementId!,
+      testChain!.tileId,
+      { structureType: 'TENT', slotPosition: 1 }
+    );
 
     // Get modifiers
     const response = await request(app)
@@ -104,15 +105,15 @@ describe('Settlement Modifiers Integration Tests', () => {
       .expect(200);
 
     expect(response.body.modifiers).toBeInstanceOf(Array);
+    expect(response.body.modifiers.length).toBeGreaterThan(0);
     
-    // If modifiers exist, verify aggregation
-    if (response.body.modifiers.length > 0) {
-      const modifier = response.body.modifiers[0];
-      expect(modifier.sourceCount).toBeGreaterThanOrEqual(2);
-    }
+    // Verify aggregation - should have at least 2 sources (both TENT structures)
+    const modifier = response.body.modifiers[0];
+    expect(modifier.sourceCount).toBeGreaterThanOrEqual(2);
 
-    await cleanupTestChain(firstStructure);
-    await cleanupTestChain(secondStructure);
+    // Cleanup structures (will cascade delete via foreign keys)
+    await db.delete(settlementStructures).where(eq(settlementStructures.id, firstStructureId));
+    await db.delete(settlementStructures).where(eq(settlementStructures.id, secondStructureId));
   });
 
   /**
@@ -156,18 +157,18 @@ describe('Settlement Modifiers Integration Tests', () => {
    * Test 5: Deleting structure updates modifiers
    */
   it('should update modifiers after deleting structure', async () => {
-    // Create two structures
-    const firstStructure = await createTestSettlementWithStructure({
-      structureType: 'TENT',
-      accountId: testChain!.account.id,
-      settlementId: testChain!.settlement.id
-    });
+    // Create two structures for the existing settlement
+    const { structureId: firstStructureId } = await createTestStructure(
+      testChain!.settlementId!,
+      testChain!.tileId,
+      { structureType: 'TENT' }
+    );
 
-    const secondStructure = await createTestSettlementWithStructure({
-      structureType: 'TENT',
-      accountId: testChain!.account.id,
-      settlementId: testChain!.settlement.id
-    });
+    const { structureId: secondStructureId } = await createTestStructure(
+      testChain!.settlementId!,
+      testChain!.tileId,
+      { structureType: 'TENT', slotPosition: 1 }
+    );
 
     // Verify modifiers sum both structures
     let response = await request(app)
@@ -176,10 +177,12 @@ describe('Settlement Modifiers Integration Tests', () => {
       .expect(200);
 
     const initialModifiers = response.body.modifiers;
+    expect(initialModifiers.length).toBeGreaterThan(0);
+    expect(initialModifiers[0].sourceCount).toBeGreaterThanOrEqual(2);
 
-    // Delete one structure
+    // Delete one structure via API
     await request(app)
-      .delete(`/api/structures/${secondStructure.structure!.id}`)
+      .delete(`/api/structures/${secondStructureId}`)
       .set('Cookie', `session=${testChain!.account.userAuthToken}`)
       .expect(200);
 
@@ -190,12 +193,11 @@ describe('Settlement Modifiers Integration Tests', () => {
       .expect(200);
 
     // Source count should decrease
-    if (response.body.modifiers.length > 0 && initialModifiers.length > 0) {
-      expect(response.body.modifiers[0].sourceCount).toBeLessThan(initialModifiers[0].sourceCount);
-    }
+    expect(response.body.modifiers.length).toBeGreaterThan(0);
+    expect(response.body.modifiers[0].sourceCount).toBeLessThan(initialModifiers[0].sourceCount);
 
-    await cleanupTestChain(firstStructure);
-    await cleanupTestChain(secondStructure);
+    // Cleanup remaining structure
+    await db.delete(settlementStructures).where(eq(settlementStructures.id, firstStructureId));
   });
 
   /**

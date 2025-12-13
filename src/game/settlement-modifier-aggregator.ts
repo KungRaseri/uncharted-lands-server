@@ -59,190 +59,220 @@ export async function aggregateSettlementModifiers(
       settlementId,
     });
 
-    // Step 1: Get all structures in the settlement with their definitions
-    const settlementStructuresData = await db
-      .select({
-        id: settlementStructures.id,
-        structureId: settlementStructures.structureId,
-        level: settlementStructures.level,
-        name: structures.name,
-        buildingType: structures.buildingType,
-        extractorType: structures.extractorType,
-      })
-      .from(settlementStructures)
-      .innerJoin(structures, eq(settlementStructures.structureId, structures.id))
-      .where(eq(settlementStructures.settlementId, settlementId));
+    // Wrap entire aggregation in a transaction to ensure atomicity
+    return await db.transaction(async (tx) => {
+      // Step 1: Get all structures in the settlement with their definitions
+      const settlementStructuresData = await tx
+        .select({
+          id: settlementStructures.id,
+          structureId: settlementStructures.structureId,
+          level: settlementStructures.level,
+          name: structures.name,
+          buildingType: structures.buildingType,
+          extractorType: structures.extractorType,
+        })
+        .from(settlementStructures)
+        .innerJoin(structures, eq(settlementStructures.structureId, structures.id))
+        .where(eq(settlementStructures.settlementId, settlementId));
 
-    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Found structures', {
-      count: settlementStructuresData.length,
-    });
-
-    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure data from query', {
-      settlementId,
-      structureCount: settlementStructuresData.length,
-      structures: settlementStructuresData.map((s) => ({
-        name: s.name,
-        buildingType: s.buildingType,
-        extractorType: s.extractorType,
-        level: s.level,
-      })),
-    });
-
-    // Step 2: Calculate modifiers for each structure
-    // Map to store aggregated modifiers: { modifierType: { total, sources[], sourceCount } }
-    const modifierMap = new Map<
-      string,
-      {
-        totalValue: number;
-        contributingStructures: ContributingStructure[];
-        sourceCount: number;
-      }
-    >();
-
-    for (const structure of settlementStructuresData) {
-      // Use buildingType or extractorType as the modifier config key
-      // These are already uppercase enum values (e.g., 'FARM', 'HOUSE')
-      const structureType = structure.buildingType || structure.extractorType;
-
-      if (!structureType) {
-        logger.warn('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure has no type', {
-          structureId: structure.structureId,
-          structureName: structure.name,
-        });
-        continue;
-      }
-
-      // Use Phase 3's calculateStructureModifiers to get all modifiers
-      const modifiers = calculateStructureModifiers(structureType, structure.level);
-
-      logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Calculated modifiers', {
-        structureId: structure.structureId,
-        structureName: structure.name,
-        structureType,
-        level: structure.level,
-        modifierCount: modifiers.length,
+      logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Found structures', {
+        count: settlementStructuresData.length,
       });
 
-      // Step 3: Group modifiers by type and sum values
-      for (const modifier of modifiers) {
-        const existing = modifierMap.get(modifier.type);
+      logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure data from query', {
+        settlementId,
+        structureCount: settlementStructuresData.length,
+        structures: settlementStructuresData.map((s) => ({
+          name: s.name,
+          buildingType: s.buildingType,
+          extractorType: s.extractorType,
+          level: s.level,
+        })),
+      });
 
-        if (existing) {
-          // Add to existing modifier
-          existing.totalValue += modifier.value;
-          existing.sourceCount += 1;
-          existing.contributingStructures.push({
-            structureId: structure.id,
+      // Step 2: Calculate modifiers for each structure
+      // Map to store aggregated modifiers: { modifierType: { total, sources[], sourceCount } }
+      const modifierMap = new Map<
+        string,
+        {
+          totalValue: number;
+          contributingStructures: ContributingStructure[];
+          sourceCount: number;
+        }
+      >();
+
+      for (const structure of settlementStructuresData) {
+        // Use buildingType or extractorType as the modifier config key
+        // These are already uppercase enum values (e.g., 'FARM', 'HOUSE')
+        const structureType = structure.buildingType || structure.extractorType;
+
+        if (!structureType) {
+          logger.warn('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure has no type', {
+            structureId: structure.structureId,
             structureName: structure.name,
-            level: structure.level,
-            value: modifier.value,
           });
-        } else {
-          // Create new modifier entry
-          modifierMap.set(modifier.type, {
-            totalValue: modifier.value,
-            sourceCount: 1,
-            contributingStructures: [
-              {
-                structureId: structure.id,
-                structureName: structure.name,
-                level: structure.level,
-                value: modifier.value,
-              },
-            ],
-          });
+          continue;
+        }
+
+        // Use Phase 3's calculateStructureModifiers to get all modifiers
+        const modifiers = calculateStructureModifiers(structureType, structure.level);
+
+        logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Calculated modifiers', {
+          structureId: structure.structureId,
+          structureName: structure.name,
+          structureType,
+          level: structure.level,
+          modifierCount: modifiers.length,
+        });
+
+        // Step 3: Group modifiers by type and sum values
+        for (const modifier of modifiers) {
+          const existing = modifierMap.get(modifier.type);
+
+          if (existing) {
+            // Add to existing modifier
+            existing.totalValue += modifier.value;
+            existing.sourceCount += 1;
+            existing.contributingStructures.push({
+              structureId: structure.id,
+              structureName: structure.name,
+              level: structure.level,
+              value: modifier.value,
+            });
+          } else {
+            // Create new modifier entry
+            modifierMap.set(modifier.type, {
+              totalValue: modifier.value,
+              sourceCount: 1,
+              contributingStructures: [
+                {
+                  structureId: structure.id,
+                  structureName: structure.name,
+                  level: structure.level,
+                  value: modifier.value,
+                },
+              ],
+            });
+          }
         }
       }
-    }
 
-    logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation complete', {
-      modifierTypeCount: modifierMap.size,
-    });
+      logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation complete', {
+        modifierTypeCount: modifierMap.size,
+      });
 
-    // Step 4: Upsert results to database
-    const results: SettlementModifier[] = [];
+      // Step 4: Upsert results to database
+      const results: SettlementModifier[] = [];
 
-    for (const [modifierType, data] of modifierMap.entries()) {
-      // Round total value to 2 decimal places
-      const totalValue = Math.round(data.totalValue * 100) / 100;
+      for (const [modifierType, data] of modifierMap.entries()) {
+        // Round total value to 2 decimal places
+        const totalValue = Math.round(data.totalValue * 100) / 100;
 
-      // Check if record exists
-      const existing = await db
-        .select()
-        .from(settlementModifiers)
-        .where(
-          and(
-            eq(settlementModifiers.settlementId, settlementId),
-            eq(settlementModifiers.modifierType, modifierType)
+        // Check if record exists
+        const existing = await tx
+          .select()
+          .from(settlementModifiers)
+          .where(
+            and(
+              eq(settlementModifiers.settlementId, settlementId),
+              eq(settlementModifiers.modifierType, modifierType)
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
 
-      if (existing.length > 0) {
-        // Update existing record
-        const [updated] = await db
-          .update(settlementModifiers)
-          .set({
-            totalValue: totalValue.toString(), // Convert to string for decimal type
-            sourceCount: data.sourceCount,
-            contributingStructures: data.contributingStructures,
-            lastCalculatedAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(eq(settlementModifiers.id, existing[0].id))
-          .returning();
+        if (existing.length > 0) {
+          // Update existing record
+          try {
+            const [updated] = await tx
+              .update(settlementModifiers)
+              .set({
+                totalValue: totalValue.toString(), // Convert to string for decimal type
+                sourceCount: data.sourceCount,
+                contributingStructures: data.contributingStructures,
+                lastCalculatedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(settlementModifiers.id, existing[0].id))
+              .returning();
 
-        results.push(updated);
+            results.push(updated);
 
-        logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Updated existing modifier', {
-          id: existing[0].id,
-          modifierType,
-          totalValue,
-          sourceCount: data.sourceCount,
-        });
-      } else {
-        // Insert new record
-        const newModifier: NewSettlementModifier = {
-          settlementId,
-          modifierType,
-          totalValue: totalValue.toString(), // Convert to string for decimal type
-          sourceCount: data.sourceCount,
-          contributingStructures: data.contributingStructures,
-        };
+            logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Updated existing modifier', {
+              id: existing[0].id,
+              modifierType,
+              totalValue,
+              sourceCount: data.sourceCount,
+            });
+          } catch (updateError) {
+            logger.error('[SETTLEMENT_MODIFIER_AGGREGATOR] Failed to update modifier', {
+              settlementId,
+              modifierType,
+              error: updateError instanceof Error ? updateError.message : 'Unknown error',
+              stack: updateError instanceof Error ? updateError.stack : undefined,
+            });
+            throw updateError;
+          }
+        } else {
+          // Insert new record
+          try {
+            const newModifier: NewSettlementModifier = {
+              settlementId,
+              modifierType,
+              totalValue: totalValue.toString(), // Convert to string for decimal type
+              sourceCount: data.sourceCount,
+              contributingStructures: data.contributingStructures,
+            };
 
-        const [inserted] = await db.insert(settlementModifiers).values(newModifier).returning();
+            logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] About to insert new modifier', {
+              settlementId,
+              modifierType,
+              totalValue,
+              sourceCount: data.sourceCount,
+            });
 
-        results.push(inserted);
+            const [inserted] = await tx.insert(settlementModifiers).values(newModifier).returning();
 
-        logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Inserted new modifier', {
-          id: inserted.id,
-          modifierType,
-          totalValue,
-          sourceCount: data.sourceCount,
-        });
+            results.push(inserted);
+
+            logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Inserted new modifier', {
+              id: inserted.id,
+              modifierType,
+              totalValue,
+              sourceCount: data.sourceCount,
+            });
+          } catch (insertError) {
+            logger.error('[SETTLEMENT_MODIFIER_AGGREGATOR] Failed to insert modifier', {
+              settlementId,
+              modifierType,
+              error: insertError instanceof Error ? insertError.message : 'Unknown error',
+              stack: insertError instanceof Error ? insertError.stack : undefined,
+            });
+            throw insertError;
+          }
+        }
       }
-    }
 
-    // Step 5: Delete any modifiers that no longer exist (all structures removed)
-    const currentTypes = Array.from(modifierMap.keys());
-    if (currentTypes.length > 0) {
-      // Delete modifiers not in current types
-      await db.delete(settlementModifiers).where(
-        and(
-          eq(settlementModifiers.settlementId, settlementId)
-          // Note: Drizzle doesn't have notIn operator, so we'll skip cleanup for now
-          // This is a minor issue - orphaned records will be rare (all structures of a type removed)
-          // TODO: Add cleanup logic in a future iteration
-        )
-      );
-    }
+      // Step 5: Delete any modifiers that no longer exist (all structures removed)
+      // DISABLED: This was deleting ALL modifiers, not just orphaned ones
+      // TODO: Implement proper cleanup using notIn when Drizzle supports it
+      // const currentTypes = Array.from(modifierMap.keys());
+      // if (currentTypes.length > 0) {
+      //   // Delete modifiers not in current types
+      //   await tx.delete(settlementModifiers).where(
+      //     and(
+      //       eq(settlementModifiers.settlementId, settlementId),
+      //       notIn(settlementModifiers.modifierType, currentTypes) // Not supported yet
+      //     )
+      //   );
+      // }
 
-    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation complete', {
-      settlementId,
-      modifierCount: results.length,
-    });
+      logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation complete', {
+        settlementId,
+        modifierCount: results.length,
+      });
 
-    return results;
+      return results;
+    }); // Close transaction
   } catch (error) {
     logger.error('[SETTLEMENT_MODIFIER_AGGREGATOR] Aggregation failed', {
       settlementId,
@@ -278,9 +308,10 @@ export async function getSettlementModifiers(settlementId: string): Promise<Sett
       .from(settlementModifiers)
       .where(eq(settlementModifiers.settlementId, settlementId));
 
-    logger.debug('[SETTLEMENT_MODIFIER_AGGREGATOR] Retrieved modifiers', {
+    logger.info('[SETTLEMENT_MODIFIER_AGGREGATOR] Retrieved modifiers', {
       settlementId,
       count: modifiers.length,
+      modifiers: modifiers.map((m) => ({ type: m.modifierType, value: m.totalValue })),
     });
 
     return modifiers;

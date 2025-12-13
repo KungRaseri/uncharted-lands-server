@@ -28,6 +28,7 @@ import { RESOURCES } from '../data/resources.js';
 import { BIOMES } from '../data/biomes.js';
 import { STRUCTURES } from '../data/structures.js';
 import { STRUCTURE_PREREQUISITES } from '../data/structure-prerequisites.js';
+import { getAllStructureCosts } from '../data/structure-costs.js';
 import bcrypt from 'bcrypt';
 import { isLocalDevelopment } from '../utils/environment.js';
 // World generation imports moved to dynamic imports inside functions to avoid loading in production
@@ -59,13 +60,28 @@ const resourcesData = RESOURCES.map((resource) => {
 /**
  * Structure Master Data
  * Generated from master data file: src/data/structures.ts
+ * Enriched with metadata from structure-costs.ts for tier, construction time, and population
  */
 const structuresData = STRUCTURES.map((structure) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { requirements: _requirements, ...structureWithoutRequirements } = structure;
+
+  // Get metadata from structure-costs.ts
+  const allCosts = getAllStructureCosts();
+  const structureType = structure.extractorType || structure.buildingType;
+  const costDef = allCosts.find((c) => c.name === structureType);
+
+  if (!costDef) {
+    throw new Error(`Cost definition not found for structure type: ${structureType}`);
+  }
+
   return {
     id: createId(),
     ...structureWithoutRequirements,
+    tier: costDef.tier,
+    constructionTimeSeconds: costDef.constructionTimeSeconds,
+    populationRequired: costDef.populationRequired,
+    displayName: costDef.displayName,
   };
 });
 

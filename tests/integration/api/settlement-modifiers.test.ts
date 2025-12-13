@@ -28,8 +28,18 @@ import { settlementModifiers, settlementStructures } from '../../../src/db/schem
 import {
   createTestSettlement,
   createTestSettlementWithStructure,
+  cleanupTestChain,
   type TestEntityChain,
 } from '../../helpers/integration-test-factory.js';
+
+// Module-level helpers for tracking test chains across describe blocks
+let additionalChains: TestEntityChain[] = [];
+
+async function createTrackedSettlementWithStructure(options?: { structureType?: string }) {
+  const chain = await createTestSettlementWithStructure(options);
+  additionalChains.push(chain);
+  return chain;
+}
 
 /**
  * Test Suite 1: Settlement Modifiers API Endpoints
@@ -41,10 +51,16 @@ describe('Settlement Modifiers API', () => {
 
   beforeEach(async () => {
     testChain = await createTestSettlement();
+    additionalChains = [];
   });
 
   afterEach(async () => {
-    // Cleanup is handled by global test hooks
+    // Clean up all additional chains created during test
+    for (const chain of additionalChains) {
+      await cleanupTestChain(chain);
+    }
+    // Clean up main test chain
+    await cleanupTestChain(testChain);
   });
 
   describe('GET /api/settlements/:id/modifiers', () => {
@@ -63,7 +79,7 @@ describe('Settlement Modifiers API', () => {
 
     it('should return cached modifiers for settlement with structures', async () => {
       // Given: Settlement with a Farm structure (adds FOOD_PRODUCTION modifier)
-      const chainWithStructure = await createTestSettlementWithStructure({
+      const chainWithStructure = await createTrackedSettlementWithStructure({
         structureType: 'FARM',
       });
       const settlementId = chainWithStructure.settlementId!;
@@ -83,13 +99,13 @@ describe('Settlement Modifiers API', () => {
       // Should contain FOOD_PRODUCTION modifier from Farm
       const foodModifier = response.body.modifiers.find((m: any) => m.modifierType === 'FOOD_PRODUCTION');
       expect(foodModifier).toBeDefined();
-      expect(foodModifier.totalValue).toBeGreaterThan(0);
-      expect(foodModifier.sourceCount).toBe(1);
+      expect(Number(foodModifier.totalValue)).toBeGreaterThan(0);
+      expect(Number(foodModifier.sourceCount)).toBe(1);
     });
 
     it('should track contributing structures correctly', async () => {
       // Given: Settlement with a Farm structure
-      const chainWithStructure = await createTestSettlementWithStructure({
+      const chainWithStructure = await createTrackedSettlementWithStructure({
         structureType: 'FARM',
       });
       const settlementId = chainWithStructure.settlementId!;
@@ -109,7 +125,7 @@ describe('Settlement Modifiers API', () => {
       expect(Array.isArray(foodModifier.contributingStructures)).toBe(true);
       expect(foodModifier.contributingStructures).toHaveLength(1);
       expect(foodModifier.contributingStructures[0].structureInstanceId).toBe(structureId);
-      expect(foodModifier.contributingStructures[0].modifierValue).toBeGreaterThan(0);
+      expect(Number(foodModifier.contributingStructures[0].modifierValue)).toBeGreaterThan(0);
     });
 
     it('should return 404 for nonexistent settlement', async () => {
@@ -129,7 +145,7 @@ describe('Settlement Modifiers API', () => {
   describe('POST /api/settlements/:id/modifiers/recalculate', () => {
     it('should recalculate and return updated modifiers', async () => {
       // Given: Settlement with a structure
-      const chainWithStructure = await createTestSettlementWithStructure({
+      const chainWithStructure = await createTrackedSettlementWithStructure({
         structureType: 'FARM',
       });
       const settlementId = chainWithStructure.settlementId!;
@@ -152,7 +168,7 @@ describe('Settlement Modifiers API', () => {
         (m: any) => m.modifierType === 'FOOD_PRODUCTION'
       );
       expect(foodModifier).toBeDefined();
-      expect(foodModifier.totalValue).toBeGreaterThan(0);
+      expect(Number(foodModifier.totalValue)).toBeGreaterThan(0);
     });
 
     it('should return 404 for nonexistent settlement', async () => {
@@ -180,10 +196,16 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
 
   beforeEach(async () => {
     testChain = await createTestSettlement();
+    additionalChains = []; // Reset module-level array
   });
 
   afterEach(async () => {
-    // Cleanup is handled by global test hooks
+    // Clean up all additional chains created during test
+    for (const chain of additionalChains) {
+      await cleanupTestChain(chain);
+    }
+    // Clean up main test chain
+    await cleanupTestChain(testChain);
   });
 
   describe('Structure Creation', () => {
@@ -226,7 +248,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
       // Should contain FOOD_PRODUCTION modifier
       const foodModifier = finalModifiers.find(m => m.modifierType === 'FOOD_PRODUCTION');
       expect(foodModifier).toBeDefined();
-      expect(foodModifier!.totalValue).toBeGreaterThan(0);
+      expect(Number(foodModifier!.totalValue)).toBeGreaterThan(0);
     });
 
     it('should sum modifiers from multiple structures of same type', async () => {
@@ -291,7 +313,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
   describe('Structure Upgrade', () => {
     it('should update modifiers when structure upgraded', async () => {
       // Given: Settlement with a Farm (Level 1)
-      const chainWithStructure = await createTestSettlementWithStructure({
+      const chainWithStructure = await createTrackedSettlementWithStructure({
         structureType: 'FARM',
       });
       const settlementId = chainWithStructure.settlementId!;
@@ -403,7 +425,7 @@ describe('Settlement Modifier Aggregation (Lifecycle)', () => {
 
     it('should remove modifiers when last structure deleted', async () => {
       // Given: Settlement with one Farm
-      const chainWithStructure = await createTestSettlementWithStructure({
+      const chainWithStructure = await createTrackedSettlementWithStructure({
         structureType: 'FARM',
       });
       const settlementId = chainWithStructure.settlementId!;

@@ -215,6 +215,11 @@ export const structures = pgTable('Structure', {
   extractorType: extractorTypeEnum('extractorType'),
   buildingType: buildingTypeEnum('buildingType'),
   maxLevel: integer('maxLevel').notNull().default(10),
+  // ✅ Phase 3: Added metadata fields to support database-first architecture
+  tier: integer('tier').notNull().default(1), // Structure tier (1-5)
+  constructionTimeSeconds: integer('constructionTimeSeconds').notNull().default(0), // Build time in seconds
+  populationRequired: integer('populationRequired').notNull().default(0), // Population needed to operate
+  displayName: text('displayName').notNull(), // User-friendly name
   createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow().notNull(),
 });

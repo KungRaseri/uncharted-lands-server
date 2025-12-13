@@ -18,7 +18,6 @@ import {
   validateAndDeductResources,
   type ValidationResult,
 } from '../../game/structure-validation.js';
-import { getAllStructureCosts } from '../../data/structure-costs.js';
 import {
   calculateStructureModifiers,
   getPrerequisitesForStructure,
@@ -66,26 +65,23 @@ router.get('/metadata', async (req: Request, res: Response) => {
     logger.debug('[API] Cache miss - fetching structure metadata from database');
 
     // Get structure definitions from database (with CUIDs)
-    const dbStructures = await db.query.structures.findMany();
+    const dbStructures = await db.query.structures.findMany({
+      with: {
+        requirements: {
+          with: {
+            resource: true, // Join to get resource names
+          },
+        },
+      },
+    });
 
-    // Map to include cost and requirement data
-    const allCosts = getAllStructureCosts();
+    // Map to include modifiers and prerequisites
     const metadata = dbStructures
       .map((dbStructure) => {
-        // Find matching cost definition by structure type
-        // Database structure names use displayName format ("Warehouse", "Town Hall")
-        // Cost definitions use internal IDs ("STORAGE", "TOWN_HALL")
-        // Match by extractorType or buildingType from database structure
+        // Skip structures without proper type definition
         const structureType = dbStructure.extractorType || dbStructure.buildingType;
-        const costDef = allCosts.find((c) => c.name === structureType);
-
-        if (!costDef) {
-          logger.warn(
-            `[API] No cost definition found for structure: ${dbStructure.name} (type: ${structureType})`
-          );
-          logger.warn(
-            `[API] Available cost definitions: ${allCosts.map((c) => c.name).join(', ')}`
-          );
+        if (!structureType) {
+          logger.warn(`[API] Structure missing type: ${dbStructure.name} (id: ${dbStructure.id})`);
           return null;
         }
 
@@ -95,18 +91,25 @@ router.get('/metadata', async (req: Request, res: Response) => {
         // ✅ Phase 3: Add prerequisites from config
         const prerequisites = getPrerequisitesForStructure(dbStructure.name);
 
+        // ✅ Phase 3 Complete: Build costs from StructureRequirement join table
+        const costs: Record<string, number> = {};
+        for (const req of dbStructure.requirements) {
+          costs[req.resource.name] = req.quantity;
+        }
+
+        // ✅ Phase 3 Complete: Use database fields directly (no hardcoded imports)
         return {
           id: dbStructure.id, // ✅ Database CUID, not hardcoded string
-          name: costDef.name,
-          displayName: costDef.displayName,
+          name: structureType,
+          displayName: dbStructure.displayName, // ✅ From database
           description: dbStructure.description,
           category: dbStructure.category,
           extractorType: dbStructure.extractorType,
           buildingType: dbStructure.buildingType,
-          tier: costDef.tier,
-          costs: costDef.costs,
-          constructionTimeSeconds: costDef.constructionTimeSeconds,
-          populationRequired: costDef.populationRequired,
+          tier: dbStructure.tier, // ✅ From database
+          costs, // ✅ From database (StructureRequirement join)
+          constructionTimeSeconds: dbStructure.constructionTimeSeconds, // ✅ From database
+          populationRequired: dbStructure.populationRequired, // ✅ From database
           modifiers, // ✅ Phase 3: Calculated modifiers (config-based)
           prerequisites, // ✅ Phase 3: Config-based prerequisites
         };
