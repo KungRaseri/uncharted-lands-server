@@ -12,6 +12,10 @@ export interface ClientToServerEvents {
     data: BuildStructureData,
     callback?: (response: ActionResponse) => void
   ) => void;
+  'upgrade-structure': (
+    data: UpgradeStructureData,
+    callback?: (response: ActionResponse) => void
+  ) => void;
   'collect-resources': (
     data: CollectResourcesData,
     callback?: (response: ResourceResponse) => void
@@ -38,6 +42,7 @@ export interface ServerToClientEvents {
   'game-state': (data: GameStateData) => void;
   'state-update': (data: StateUpdateData) => void;
   'structure-built': (data: StructureBuiltData) => void;
+  'structure-upgraded': (data: StructureUpgradedData) => void;
   'resources-collected': (data: ResourceResponse) => void;
   'resource-tick': (data: ResourceTickData) => void;
   'resource-update': (data: ResourceUpdateData) => void;
@@ -156,11 +161,27 @@ export interface BuildStructureData {
   position?: { x: number; y: number };
 }
 
+export interface UpgradeStructureData {
+  settlementId: string;
+  structureId: string; // The settlement_structure instance ID
+  structureType: string; // FARM, HOUSE, etc.
+}
+
 export interface StructureBuiltData {
   success: boolean;
   settlementId: string;
   structureType: string;
   structure?: unknown;
+  error?: string;
+  timestamp: number;
+}
+
+export interface StructureUpgradedData {
+  success: boolean;
+  settlementId: string;
+  structureId: string;
+  structureType: string;
+  newLevel: number;
   error?: string;
   timestamp: number;
 }

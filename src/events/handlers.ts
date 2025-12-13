@@ -11,6 +11,7 @@ import type {
   LeaveWorldData,
   GameStateRequest,
   BuildStructureData,
+  UpgradeStructureData,
   CollectResourcesData,
   CreateWorldData,
   CreateWorldResponse,
@@ -37,6 +38,10 @@ import {
   type Resources,
 } from '../game/resource-calculator.js';
 import { createWorld } from '../game/world-creator.js';
+import { aggregateSettlementModifiers } from '../game/settlement-modifier-aggregator.js';
+import { db } from '../db/index.js';
+import { settlementStructures } from '../db/schema.js';
+import { eq } from 'drizzle-orm';
 
 /**
  * Register all event handlers for a socket connection
@@ -59,6 +64,9 @@ export function registerEventHandlers(socket: Socket): void {
 
   // Settlement Actions
   socket.on('build-structure', (data, callback) => handleBuildStructure(socket, data, callback));
+  socket.on('upgrade-structure', (data, callback) =>
+    handleUpgradeStructure(socket, data, callback)
+  );
   socket.on('collect-resources', (data, callback) =>
     handleCollectResources(socket, data, callback)
   );
@@ -484,6 +492,228 @@ async function handleBuildStructure(
       socket.emit('error', {
         code: 'BUILD_ERROR',
         message: 'Failed to build structure',
+        timestamp: Date.now(),
+      });
+    }
+  }
+}
+
+/**
+ * Handle structure upgrade
+ */
+async function handleUpgradeStructure(
+  socket: Socket,
+  data: UpgradeStructureData,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  callback?: (response: any) => void
+): Promise<void> {
+  try {
+    logger.info(
+      `[ACTION] Upgrading structure: ${data.structureType} (${data.structureId}) in settlement ${data.settlementId}`,
+      {
+        socketId: socket.id,
+        playerId: socket.data.playerId,
+      }
+    );
+
+    // Verify player is authenticated
+    if (!socket.data.playerId) {
+      const errorResponse = {
+        success: false,
+        error: 'Authentication required',
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Get settlement with storage
+    const settlementData = await getSettlementWithDetails(data.settlementId);
+
+    if (!settlementData?.settlement) {
+      const errorResponse = {
+        success: false,
+        error: 'Settlement not found',
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Verify ownership
+    if (settlementData.settlement.playerProfileId !== socket.data.playerId) {
+      const errorResponse = {
+        success: false,
+        error: 'You do not own this settlement',
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    const storage = settlementData.storage;
+    if (!storage) {
+      const errorResponse = {
+        success: false,
+        error: 'Settlement storage not found',
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Find the structure to upgrade
+    const structures = await getSettlementStructures(data.settlementId);
+    const structureToUpgrade = structures.find((s) => s.structure.id === data.structureId);
+
+    if (!structureToUpgrade) {
+      const errorResponse = {
+        success: false,
+        error: 'Structure not found in this settlement',
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    const currentLevel = structureToUpgrade.structure.level;
+    const maxLevel = 5; // Default max level (could be from config)
+
+    // Check if already at max level
+    if (currentLevel >= maxLevel) {
+      const errorResponse = {
+        success: false,
+        error: `Structure already at maximum level (${maxLevel})`,
+        currentLevel,
+        maxLevel,
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Get structure configuration from centralized source
+    const normalizedStructureType = data.structureType.toUpperCase();
+    if (!isValidStructure(normalizedStructureType)) {
+      const errorResponse = {
+        success: false,
+        error: `Unknown structure type: ${data.structureType}`,
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    const structureConfig = getStructureCostByName(normalizedStructureType);
+    if (!structureConfig) {
+      const errorResponse = {
+        success: false,
+        error: `Structure configuration not found: ${data.structureType}`,
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Calculate upgrade cost (base cost * 1.5 per level)
+    const upgradeCostMultiplier = Math.pow(1.5, currentLevel);
+    const baseCosts: Resources = {
+      food: structureConfig.costs.food ?? 0,
+      water: structureConfig.costs.water ?? 0,
+      wood: structureConfig.costs.wood ?? 0,
+      stone: structureConfig.costs.stone ?? 0,
+      ore: structureConfig.costs.ore ?? 0,
+    };
+
+    const upgradeCosts: Resources = {
+      food: Math.floor(baseCosts.food * upgradeCostMultiplier),
+      water: Math.floor(baseCosts.water * upgradeCostMultiplier),
+      wood: Math.floor(baseCosts.wood * upgradeCostMultiplier),
+      stone: Math.floor(baseCosts.stone * upgradeCostMultiplier),
+      ore: Math.floor(baseCosts.ore * upgradeCostMultiplier),
+    };
+
+    // Check if player has enough resources
+    const currentResources = {
+      food: storage.food,
+      water: storage.water,
+      wood: storage.wood,
+      stone: storage.stone,
+      ore: storage.ore,
+    };
+
+    const hasResources = hasEnoughResources(currentResources, upgradeCosts);
+    if (!hasResources) {
+      const errorResponse = {
+        success: false,
+        error: 'Insufficient resources to upgrade structure',
+        required: upgradeCosts,
+        current: currentResources,
+        timestamp: Date.now(),
+      };
+      return callback ? callback(errorResponse) : undefined;
+    }
+
+    // Deduct resources
+    const newResources = subtractResources(currentResources, upgradeCosts);
+    await updateSettlementStorage(storage.id, newResources);
+
+    // Increment structure level
+    const newLevel = currentLevel + 1;
+    await db
+      .update(settlementStructures)
+      .set({ level: newLevel })
+      .where(eq(settlementStructures.id, data.structureId));
+
+    // Recalculate settlement modifiers (upgraded structures may change bonuses)
+    await aggregateSettlementModifiers(data.settlementId);
+
+    const response = {
+      success: true,
+      settlementId: data.settlementId,
+      structureId: data.structureId,
+      structureType: data.structureType,
+      oldLevel: currentLevel,
+      newLevel,
+      upgradeCost: upgradeCosts,
+      remainingResources: newResources,
+      timestamp: Date.now(),
+    };
+
+    // Acknowledge action
+    if (callback) {
+      callback(response);
+    } else {
+      socket.emit('structure-upgraded', response);
+    }
+
+    // Broadcast to world
+    if (socket.data.worldId) {
+      socket.to(`world:${socket.data.worldId}`).emit('state-update', {
+        type: 'structure-upgraded',
+        settlementId: data.settlementId,
+        structureId: data.structureId,
+        structureType: data.structureType,
+        newLevel,
+        playerId: socket.data.playerId,
+        timestamp: Date.now(),
+      });
+    }
+
+    logger.info('[ACTION] Structure upgraded successfully', {
+      settlementId: data.settlementId,
+      structureId: data.structureId,
+      structureType: data.structureType,
+      oldLevel: currentLevel,
+      newLevel,
+      playerId: socket.data.playerId,
+    });
+  } catch (error) {
+    logger.error('[ACTION] Error upgrading structure:', error);
+    const errorResponse = {
+      success: false,
+      error: 'Failed to upgrade structure',
+      timestamp: Date.now(),
+    };
+
+    if (callback) {
+      callback(errorResponse);
+    } else {
+      socket.emit('error', {
+        code: 'UPGRADE_ERROR',
+        message: 'Failed to upgrade structure',
         timestamp: Date.now(),
       });
     }
