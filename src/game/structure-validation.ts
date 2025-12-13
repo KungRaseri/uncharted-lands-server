@@ -1,12 +1,16 @@
 /**
  * Structure Validation Utilities
  * Validates resource requirements and deducts resources for structure construction
+ *
+ * ✅ Phase 4: Refactored to use database queries instead of hardcoded structure-costs
+ * - Changed function signatures to accept Structure object (not string)
+ * - Query StructureRequirement table for costs
+ * - Removed hardcoded getStructureCost import
  */
 
 import { eq } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { getStructureCost } from '../data/structure-costs.js';
-import { settlementStorage, settlements } from '../db/schema.js';
+import { settlementStorage, settlements, structureRequirements } from '../db/schema.js';
 import type * as schema from '../db/schema.js';
 
 /**
@@ -39,9 +43,13 @@ export interface ValidationResult {
  *
  * This function MUST be called within a database transaction to ensure atomicity.
  *
+ * ✅ Phase 4: Refactored signature
+ * - OLD: validateAndDeductResources(tx, settlementId, structureType: string)
+ * - NEW: validateAndDeductResources(tx, settlementId, structure: Structure)
+ *
  * @param tx - The database transaction
  * @param settlementId - The settlement attempting to build
- * @param structureType - The type of structure to build (e.g., 'FARM', 'HOUSE')
+ * @param structure - The Structure object (from database query)
  * @returns Validation result with success status, error message, or shortage details
  */
 export async function validateAndDeductResources(
@@ -49,15 +57,25 @@ export async function validateAndDeductResources(
     | PostgresJsDatabase<typeof schema>
     | Parameters<Parameters<PostgresJsDatabase<typeof schema>['transaction']>[0]>[0],
   settlementId: string,
-  structureType: string
+  structure: typeof schema.structures.$inferSelect
 ): Promise<ValidationResult> {
-  // 1. Get structure costs
-  const costDef = getStructureCost(structureType);
-  if (!costDef) {
-    throw new Error(`Unknown structure type: ${structureType}`);
-  }
+  // 1. Get structure costs from StructureRequirement table (database query)
+  const requirementRecords = await tx.query.structureRequirements.findMany({
+    where: eq(structureRequirements.structureId, structure.id),
+    with: {
+      resource: true,
+    },
+  });
 
-  const costs = costDef.costs;
+  // Build costs object from database records
+  const costs: Record<string, number> = {};
+  for (const req of requirementRecords) {
+    // Access resource name from the joined resource table
+    const resourceName = (req.resource as typeof schema.resources.$inferSelect)?.name;
+    if (resourceName && req.quantity) {
+      costs[resourceName.toLowerCase()] = req.quantity;
+    }
+  }
 
   // 2. Query settlement with storage
   const settlement = await tx.query.settlements.findFirst({
@@ -153,9 +171,13 @@ export async function validateAndDeductResources(
  * Check if a settlement has sufficient resources WITHOUT deducting them.
  * Useful for UI validation before attempting to build.
  *
+ * ✅ Phase 4: Refactored signature
+ * - OLD: checkResourceAvailability(tx, settlementId, structureType: string)
+ * - NEW: checkResourceAvailability(tx, settlementId, structure: Structure)
+ *
  * @param tx - The database transaction or connection
  * @param settlementId - The settlement to check
- * @param structureType - The type of structure to check
+ * @param structure - The Structure object (from database query)
  * @returns Validation result (success or shortages)
  */
 export async function checkResourceAvailability(
@@ -163,15 +185,25 @@ export async function checkResourceAvailability(
     | PostgresJsDatabase<typeof schema>
     | Parameters<Parameters<PostgresJsDatabase<typeof schema>['transaction']>[0]>[0],
   settlementId: string,
-  structureType: string
+  structure: typeof schema.structures.$inferSelect
 ): Promise<ValidationResult> {
-  // 1. Get structure costs
-  const costDef = getStructureCost(structureType);
-  if (!costDef) {
-    throw new Error(`Unknown structure type: ${structureType}`);
-  }
+  // 1. Get structure costs from StructureRequirement table (database query)
+  const requirementRecords = await tx.query.structureRequirements.findMany({
+    where: eq(structureRequirements.structureId, structure.id),
+    with: {
+      resource: true,
+    },
+  });
 
-  const costs = costDef.costs;
+  // Build costs object from database records
+  const costs: Record<string, number> = {};
+  for (const req of requirementRecords) {
+    // Access resource name from the joined resource table
+    const resourceName = (req.resource as typeof schema.resources.$inferSelect)?.name;
+    if (resourceName && req.quantity) {
+      costs[resourceName.toLowerCase()] = req.quantity;
+    }
+  }
 
   // 2. Query settlement storage
   const settlement = await tx.query.settlements.findFirst({

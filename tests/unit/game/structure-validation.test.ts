@@ -11,7 +11,110 @@ import {
   checkResourceAvailability,
 } from '../../../src/game/structure-validation.js';
 import type { ValidationResult, ResourceShortage } from '../../../src/game/structure-validation.js';
-import { getStructureCost } from '../../../src/data/structure-costs.js';
+import type * as schema from '../../../src/db/schema.js';
+
+// ✅ Phase 4: Mock Structure objects instead of hardcoded imports
+const mockTentStructure: typeof schema.structures.$inferSelect = {
+  id: 'struct-tent',
+  name: 'TENT',
+  displayName: 'Tent',
+  description: 'Basic shelter',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE', // TENT is a type of HOUSE in the enum
+  maxLevel: 1,
+  tier: 1,
+  constructionTimeSeconds: 0,
+  populationRequired: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockFarmStructure: typeof schema.structures.$inferSelect = {
+  id: 'struct-farm',
+  name: 'FARM',
+  displayName: 'Farm',
+  description: 'Produces food',
+  category: 'EXTRACTOR',
+  extractorType: 'FARM',
+  buildingType: null,
+  maxLevel: 5,
+  tier: 1,
+  constructionTimeSeconds: 180,
+  populationRequired: 2,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockWorkshopStructure: typeof schema.structures.$inferSelect = {
+  id: 'struct-workshop',
+  name: 'WORKSHOP',
+  displayName: 'Workshop',
+  description: 'Advanced crafting',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'WORKSHOP',
+  maxLevel: 5,
+  tier: 2,
+  constructionTimeSeconds: 900,
+  populationRequired: 2,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+const mockHouseStructure: typeof schema.structures.$inferSelect = {
+  id: 'struct-house',
+  name: 'HOUSE',
+  displayName: 'House',
+  description: 'Basic housing',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE',
+  maxLevel: 5,
+  tier: 1,
+  constructionTimeSeconds: 600,
+  populationRequired: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
+// Mock requirement records (costs) for each structure
+const mockTentRequirements = [
+  { resource: { name: 'WOOD' }, quantity: 10 },
+];
+
+const mockFarmRequirements = [
+  { resource: { name: 'WOOD' }, quantity: 20 },
+  { resource: { name: 'STONE' }, quantity: 10 },
+];
+
+const mockWorkshopRequirements = [
+  { resource: { name: 'WOOD' }, quantity: 60 },
+  { resource: { name: 'STONE' }, quantity: 60 },
+  { resource: { name: 'ORE' }, quantity: 30 },
+];
+
+const mockHouseRequirements = [
+  { resource: { name: 'WOOD' }, quantity: 50 },
+  { resource: { name: 'STONE' }, quantity: 20 },
+];
+
+// ✅ Mock for testing unknown structure error case
+const mockUnknownStructure: typeof schema.structures.$inferSelect = {
+  id: 'struct-unknown',
+  name: 'UNKNOWN_STRUCTURE',
+  displayName: 'Unknown Structure',
+  description: 'Invalid structure for testing',
+  category: 'BUILDING',
+  extractorType: null,
+  buildingType: 'HOUSE',
+  maxLevel: 1,
+  tier: 1,
+  constructionTimeSeconds: 0,
+  populationRequired: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 // Mock database and transaction
 const mockWhere = vi.fn().mockResolvedValue(true);
@@ -29,6 +132,9 @@ const mockTransaction = {
     settlements: {
       findFirst: vi.fn(),
     },
+    structureRequirements: {
+      findMany: vi.fn(), // ✅ Phase 4: Added mock for database queries
+    },
   },
   update: mockUpdate,
 };
@@ -37,6 +143,43 @@ describe('Structure Validation System', () => {
   beforeEach(() => {
     // Reset mocks before each test
     vi.clearAllMocks();
+    
+    // ✅ Phase 4: Setup mock requirements for each structure type
+    // The production code uses: eq(structureRequirements.structureId, structure.id)
+    // Drizzle creates a SQL object with queryChunks containing the parameter value
+    mockTransaction.query.structureRequirements.findMany.mockImplementation((config: any) => {
+      let structureId: string | undefined;
+      
+      // Extract structure ID from the Drizzle SQL where clause
+      if (config?.where?.queryChunks) {
+        // Find the Param chunk that contains the structure ID
+        const paramChunk = config.where.queryChunks.find(
+          (chunk: any) => chunk && typeof chunk === 'object' && chunk.value !== undefined
+        );
+        structureId = paramChunk?.value?.value || paramChunk?.value;
+      }
+
+      // If extraction fails, log for debugging and return empty
+      if (!structureId) {
+        console.log('[Mock Debug] Failed to extract structure ID from queryChunks');
+        return Promise.resolve([]);
+      }
+
+      // Return appropriate requirements based on structure ID
+      switch (structureId) {
+        case 'struct-tent':
+          return Promise.resolve(mockTentRequirements);
+        case 'struct-farm':
+          return Promise.resolve(mockFarmRequirements);
+        case 'struct-workshop':
+          return Promise.resolve(mockWorkshopRequirements);
+        case 'struct-house':
+          return Promise.resolve(mockHouseRequirements);
+        default:
+          console.log('[Mock Debug] Unknown structure ID:', structureId);
+          return Promise.resolve([]);
+      }
+    });
   });
 
   describe('checkResourceAvailability', () => {
@@ -59,8 +202,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'TENT'
+          'settlement-1', mockTentStructure
         );
 
         expect(result.success).toBe(true);
@@ -85,8 +227,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'FARM'
+          'settlement-1', mockFarmStructure
         );
 
         expect(result.success).toBe(true);
@@ -111,8 +252,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'WORKSHOP'
+          'settlement-1', mockWorkshopStructure
         );
 
   expect(result.success).toBe(true);
@@ -139,8 +279,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'TENT'
+          'settlement-1', mockTentStructure
         );
 
         expect(result.success).toBe(false);
@@ -172,8 +311,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'FARM'
+          'settlement-1', mockFarmStructure
         );
 
         expect(result.success).toBe(false);
@@ -205,8 +343,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'FARM'
+          'settlement-1', mockFarmStructure
         );
 
         expect(result.success).toBe(false);
@@ -239,8 +376,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'WORKSHOP'
+          'settlement-1', mockWorkshopStructure
         );
 
         expect(result.success).toBe(false);
@@ -272,8 +408,7 @@ describe('Structure Validation System', () => {
 
         const result = await checkResourceAvailability(
           mockTransaction as any,
-          'settlement-1',
-          'HOUSE'
+          'settlement-1', mockHouseStructure
         );
 
         expect(result.success).toBe(false);
@@ -292,7 +427,7 @@ describe('Structure Validation System', () => {
         mockTransaction.query.settlements.findFirst.mockResolvedValue(null);
 
         await expect(
-          checkResourceAvailability(mockTransaction as any, 'nonexistent-settlement', 'TENT')
+          checkResourceAvailability(mockTransaction as any, 'nonexistent-settlement', mockTentStructure)
         ).rejects.toThrow('Settlement not found');
       });
 
@@ -305,7 +440,7 @@ describe('Structure Validation System', () => {
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
 
         await expect(
-          checkResourceAvailability(mockTransaction as any, 'settlement-1', 'TENT')
+          checkResourceAvailability(mockTransaction as any, 'settlement-1', mockTentStructure)
         ).rejects.toThrow('Settlement storage not found');
       });
 
@@ -326,7 +461,7 @@ describe('Structure Validation System', () => {
         mockTransaction.query.settlements.findFirst.mockResolvedValue(mockSettlement);
 
         await expect(
-          checkResourceAvailability(mockTransaction as any, 'settlement-1', 'UNKNOWN_STRUCTURE')
+          checkResourceAvailability(mockTransaction as any, 'settlement-1', mockUnknownStructure)
         ).rejects.toThrow('Unknown structure type: UNKNOWN_STRUCTURE');
       });
     });
@@ -352,8 +487,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'TENT'
+          'settlement-1', mockTentStructure
         );
 
         expect(result.success).toBe(true);
@@ -392,8 +526,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'FARM'
+          'settlement-1', mockFarmStructure
         );
 
         expect(result.success).toBe(true);
@@ -429,8 +562,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'WORKSHOP'
+          'settlement-1', mockWorkshopStructure
         );
 
         expect(result.success).toBe(true);
@@ -468,8 +600,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'TENT'
+          'settlement-1', mockTentStructure
         );
 
         expect(result.success).toBe(false);
@@ -502,8 +633,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'HOUSE'
+          'settlement-1', mockHouseStructure
         );
 
         expect(result.success).toBe(false);
@@ -533,8 +663,7 @@ describe('Structure Validation System', () => {
 
         const result = await validateAndDeductResources(
           mockTransaction as any,
-          'settlement-1',
-          'WORKSHOP'
+          'settlement-1', mockWorkshopStructure
         );
 
         expect(result.success).toBe(false);
@@ -550,28 +679,6 @@ describe('Structure Validation System', () => {
           ore: 0,
         });
       });
-    });
-  });
-
-  describe('Integration with structure-costs.ts', () => {
-    it('should use correct costs from getStructureCost', () => {
-      const tentCost = getStructureCost('TENT');
-      expect(tentCost).toBeDefined();
-      expect(tentCost?.costs).toEqual({ wood: 10 });
-      expect(tentCost?.constructionTimeSeconds).toBe(60);
-      expect(tentCost?.populationRequired).toBe(0);
-
-      const farmCost = getStructureCost('FARM');
-      expect(farmCost).toBeDefined();
-      expect(farmCost?.costs).toEqual({ wood: 20, stone: 10 });
-      expect(farmCost?.constructionTimeSeconds).toBe(180);
-      expect(farmCost?.populationRequired).toBe(2);
-
-      const workshopCost = getStructureCost('WORKSHOP');
-      expect(workshopCost).toBeDefined();
-      expect(workshopCost?.costs).toEqual({ wood: 60, stone: 60, ore: 30 });
-      expect(workshopCost?.constructionTimeSeconds).toBe(900);
-      expect(workshopCost?.populationRequired).toBe(2);
     });
   });
 
@@ -594,8 +701,7 @@ describe('Structure Validation System', () => {
 
       const result = await validateAndDeductResources(
         mockTransaction as any,
-        'settlement-1',
-        'FARM'
+        'settlement-1', mockFarmStructure
       );
 
       expect(result.success).toBe(true);

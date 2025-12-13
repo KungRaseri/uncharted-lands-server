@@ -367,14 +367,9 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // 6. Start transaction to validate resources and create structure
     const result = await db.transaction(async (tx) => {
-      // Get structure type for resource validation
-      const structureType = structureDefinition.extractorType || structureDefinition.buildingType;
-      if (!structureType) {
-        throw new Error(`Invalid structure definition: missing extractorType/buildingType`);
-      }
-
-      // Validate and deduct resources
-      const validation = await validateAndDeductResources(tx, settlementId, structureType);
+      // ✅ Phase 4: Pass full Structure object (not string)
+      // Validate and deduct resources using the structureDefinition object
+      const validation = await validateAndDeductResources(tx, settlementId, structureDefinition);
 
       if (!validation.success) {
         const error = new Error('INSUFFICIENT_RESOURCES') as Error & {
