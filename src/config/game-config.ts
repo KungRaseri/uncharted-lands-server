@@ -170,6 +170,17 @@ export interface AccumulationConfig {
   maxHours: number;
 }
 
+export interface GameLoopTimingConfig {
+  /** Tick rate (ticks per second) */
+  tickRate: number;
+  /** Resource calculation interval (seconds) */
+  resourceIntervalSec: number;
+  /** Population update interval (seconds) */
+  populationIntervalSec: number;
+  /** Socket.IO emit interval (seconds) */
+  socketEmitIntervalSec: number;
+}
+
 export interface ProductionRateConfig {
   resourceType: ResourceType;
   extractorType: ExtractorType;
