@@ -30,7 +30,7 @@ export const EXTRACTOR_TYPES = [
   'QUARRY',
   'MINE',
   'FISHING_DOCK',
-  'HUNTERS_LODGE',
+  'HUNTING_LODGE',
   'HERB_GARDEN',
 ] as const;
 
@@ -152,7 +152,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     { resourceType: 'ORE', extractorType: 'MINE', baseRate: 4 },
     { resourceType: 'CLAY', extractorType: 'QUARRY', baseRate: 3 },
     { resourceType: 'HERBS', extractorType: 'HERB_GARDEN', baseRate: 5 },
-    { resourceType: 'PELTS', extractorType: 'HUNTERS_LODGE', baseRate: 4 },
+    { resourceType: 'PELTS', extractorType: 'HUNTING_LODGE', baseRate: 4 },
     { resourceType: 'GEMS', extractorType: 'MINE', baseRate: 1 },
     { resourceType: 'EXOTIC_WOOD', extractorType: 'LUMBER_MILL', baseRate: 2 },
   ],
@@ -197,7 +197,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     { type: 'QUARRY', name: 'Quarry', icon: '🪨', description: 'Extracts stone and clay' },
     { type: 'MINE', name: 'Mine', icon: '⛏️', description: 'Digs for ore and gems' },
     { type: 'FISHING_DOCK', name: 'Fishing Dock', icon: '🎣', description: 'Catches fish' },
-    { type: 'HUNTERS_LODGE', name: "Hunter's Lodge", icon: '🏹', description: 'Hunts for pelts' },
+    { type: 'HUNTING_LODGE', name: "Hunter's Lodge", icon: '🏹', description: 'Hunts for pelts' },
     { type: 'HERB_GARDEN', name: 'Herb Garden', icon: '🌿', description: 'Cultivates herbs' },
   ],
   buildingDisplay: [

@@ -279,7 +279,7 @@ export function getStructureCategory(structureType: string): string {
     'MINE',
     'WELL',
     'FISHING_DOCK',
-    'HUNTERS_LODGE',
+    'HUNTING_LODGE',
     'HERB_GARDEN',
   ];
 

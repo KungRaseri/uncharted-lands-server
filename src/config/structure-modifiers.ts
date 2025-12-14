@@ -103,7 +103,7 @@ export const STRUCTURE_BASE_BONUSES: Record<string, StructureModifierConfig[]> =
     },
   ],
 
-  HUNTERS_LODGE: [
+  HUNTING_LODGE: [
     {
       type: 'FOOD_PRODUCTION',
       name: 'Food Production',
@@ -131,6 +131,16 @@ export const STRUCTURE_BASE_BONUSES: Record<string, StructureModifierConfig[]> =
   ],
 
   // ===== Infrastructure Structures =====
+
+  TENT: [
+    {
+      type: 'POPULATION_CAPACITY',
+      name: 'Population Capacity',
+      description: 'Increases maximum population',
+      baseValue: 2,
+      formula: 'LINEAR',
+    },
+  ],
 
   HOUSE: [
     {

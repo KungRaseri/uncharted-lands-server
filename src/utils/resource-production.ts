@@ -30,7 +30,7 @@ export const BASE_PRODUCTION_RATES = {
     HERB_GARDEN: 5, // 5 units/hour base
   },
   PELTS: {
-    HUNTERS_LODGE: 4, // 4 units/hour base
+    HUNTING_LODGE: 4, // 4 units/hour base
   },
   // Tier 3: Rare resources (special locations only)
   GEMS: {

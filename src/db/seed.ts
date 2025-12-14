@@ -68,11 +68,15 @@ const structuresData = STRUCTURES.map((structure) => {
 
   // Get metadata from structure-costs.ts
   const allCosts = getAllStructureCosts();
-  const structureType = structure.extractorType || structure.buildingType;
-  const costDef = allCosts.find((c) => c.name === structureType);
+  // Match by structure name (e.g., 'Tent', 'House'), converted to uppercase to match cost definition IDs
+  // Remove apostrophes and replace spaces with underscores (e.g., "Hunter's Lodge" → "HUNTING_LODGE")
+  const structureName = structure.name.toUpperCase().replaceAll("'", '').replaceAll(/\s+/g, '_');
+  const costDef = allCosts.find((c) => c.id === structureName || c.name === structureName);
 
   if (!costDef) {
-    throw new Error(`Cost definition not found for structure type: ${structureType}`);
+    throw new Error(
+      `Cost definition not found for structure: ${structure.name} (looking for ${structureName})`
+    );
   }
 
   return {

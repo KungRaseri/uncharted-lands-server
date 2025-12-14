@@ -101,7 +101,7 @@ export const EXTRACTOR_STAFFING: Record<ExtractorType, StaffingRequirement> = {
     description: 'Fishermen catch fish from water',
   },
 
-  HUNTERS_LODGE: {
+  HUNTING_LODGE: {
     required: 2,
     optional: 3, // Max 5 workers total
     bonusPerWorker: 0.1,

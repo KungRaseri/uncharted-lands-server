@@ -10,7 +10,7 @@
   MINE: 5,
   // Tier 2 Extractors (8x base) - planned
   FISHING_DOCK: 8,
-  HUNTERS_LODGE: 8,
+  HUNTING_LODGE: 8,
   HERB_GARDEN: 8,
   // Tier 3 Extractors (12x base) - planned
   DEEP_MINE: 12,
@@ -135,7 +135,7 @@ const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
   QUARRY: 'stone',
   MINE: 'ore',
   FISHING_DOCK: 'food', // Alternative food source
-  HUNTERS_LODGE: 'food', // Alternative food source
+  HUNTING_LODGE: 'food', // Alternative food source
   HERB_GARDEN: 'food', // Special resource (treated as food for now)
   // Tier 3 Extractors
   DEEP_MINE: 'ore', // Advanced ore extraction
@@ -147,7 +147,7 @@ const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
  *
  * ISSUE #2 Spec:
  * - Tier 1: 5x base multiplier (FARM, LUMBER_MILL, QUARRY, MINE, WELL)
- * - Tier 2: 8x base multiplier (FISHING_DOCK, HUNTERS_LODGE, HERB_GARDEN - planned)
+ * - Tier 2: 8x base multiplier (FISHING_DOCK, HUNTING_LODGE, HERB_GARDEN - planned)
  * - Tier 3: 12x base multiplier (DEEP_MINE, ADVANCED_FARM - planned)
  *
  * Formula: Multiplier = TierBase + (level - 1) × 1
@@ -162,7 +162,7 @@ const EXTRACTOR_TIER_MAP: Record<string, number> = {
   MINE: 5,
   // Tier 2 Extractors (8x base) - planned
   FISHING_DOCK: 8,
-  HUNTERS_LODGE: 8,
+  HUNTING_LODGE: 8,
   HERB_GARDEN: 8,
   // Tier 3 Extractors (12x base) - planned
   DEEP_MINE: 12,

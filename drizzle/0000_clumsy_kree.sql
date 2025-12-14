@@ -4,7 +4,7 @@ CREATE TYPE "public"."BuildingType" AS ENUM('HOUSE', 'STORAGE', 'BARRACKS', 'WOR
 CREATE TYPE "public"."DisasterSeverity" AS ENUM('MILD', 'MODERATE', 'MAJOR', 'CATASTROPHIC');--> statement-breakpoint
 CREATE TYPE "public"."DisasterStatus" AS ENUM('SCHEDULED', 'WARNING', 'IMPACT', 'AFTERMATH', 'RESOLVED');--> statement-breakpoint
 CREATE TYPE "public"."DisasterType" AS ENUM('DROUGHT', 'FLOOD', 'BLIZZARD', 'HURRICANE', 'TORNADO', 'SANDSTORM', 'HEATWAVE', 'EARTHQUAKE', 'VOLCANO', 'LANDSLIDE', 'AVALANCHE', 'WILDFIRE', 'INSECT_PLAGUE', 'BLIGHT', 'LOCUST_SWARM');--> statement-breakpoint
-CREATE TYPE "public"."ExtractorType" AS ENUM('FARM', 'WELL', 'LUMBER_MILL', 'QUARRY', 'MINE', 'FISHING_DOCK', 'HUNTERS_LODGE', 'HERB_GARDEN');--> statement-breakpoint
+CREATE TYPE "public"."ExtractorType" AS ENUM('FARM', 'WELL', 'LUMBER_MILL', 'QUARRY', 'MINE', 'FISHING_DOCK', 'HUNTING_LODGE', 'HERB_GARDEN');--> statement-breakpoint
 CREATE TYPE "public"."ResourceType" AS ENUM('FOOD', 'WOOD', 'STONE', 'ORE', 'CLAY', 'HERBS', 'PELTS', 'GEMS', 'EXOTIC_WOOD');--> statement-breakpoint
 CREATE TYPE "public"."ServerStatus" AS ENUM('OFFLINE', 'MAINTENANCE', 'ONLINE');--> statement-breakpoint
 CREATE TYPE "public"."SpecialResource" AS ENUM('GEMS', 'EXOTIC_WOOD', 'MAGICAL_HERBS', 'ANCIENT_STONE');--> statement-breakpoint

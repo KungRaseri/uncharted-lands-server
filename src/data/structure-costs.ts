@@ -4,7 +4,7 @@
  * Single source of truth for all structure costs, construction times, and requirements.
  * This data is used to seed the database and ensure consistency between server and client.
  *
- * Source: GDD-Monolith.md Section 6.3 "Construction Time Balance"
+ * Source: GDD-Monolith.md Section 6.3 'Construction Time Balance'
  * Last Updated: 2025-11-18
  */
 
@@ -86,9 +86,9 @@ export const STRUCTURE_COSTS: StructureCostDefinition[] = [
     description: 'Extracts ore from ore-rich deposits. Requires 3 workers.',
   },
   {
-    id: 'STORAGE',
-    name: 'STORAGE',
-    displayName: 'Storage',
+    id: 'WAREHOUSE',
+    name: 'WAREHOUSE',
+    displayName: 'Warehouse',
     category: 'BUILDING',
     tier: 1,
     costs: { wood: 40, stone: 20 },
@@ -130,9 +130,9 @@ export const STRUCTURE_COSTS: StructureCostDefinition[] = [
     description: 'Cultivates medicinal herbs for healing. Requires 1 worker.',
   },
   {
-    id: 'HUNTERS_LODGE',
-    name: 'HUNTERS_LODGE',
-    displayName: "Hunter's Lodge",
+    id: 'HUNTING_LODGE',
+    name: 'HUNTING_LODGE',
+    displayName: 'Hunting Lodge',
     category: 'EXTRACTOR',
     tier: 1,
     costs: { wood: 35, stone: 15 },

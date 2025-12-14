@@ -11,7 +11,7 @@ export type ExtractorType =
   | 'QUARRY'
   | 'MINE'
   | 'FISHING_DOCK'
-  | 'HUNTERS_LODGE'
+  | 'HUNTING_LODGE'
   | 'HERB_GARDEN'
   | null;
 export type BuildingType =
@@ -165,10 +165,10 @@ export const STRUCTURES: StructureDefinition[] = [
     },
   },
   {
-    name: "Hunter's Lodge",
+    name: 'Hunting Lodge',
     description: 'Produces pelts and food from hunting',
     category: 'EXTRACTOR',
-    extractorType: 'HUNTERS_LODGE',
+    extractorType: 'HUNTING_LODGE',
     buildingType: null,
     maxLevel: 5,
     requirements: {

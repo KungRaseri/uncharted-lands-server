@@ -68,7 +68,7 @@ export const extractorTypeEnum = pgEnum('ExtractorType', [
   'QUARRY',
   'MINE',
   'FISHING_DOCK',
-  'HUNTERS_LODGE',
+  'HUNTING_LODGE',
   'HERB_GARDEN',
 ]);
 export const buildingTypeEnum = pgEnum('BuildingType', [

@@ -155,7 +155,7 @@ describe('Resource Production', () => {
     it('should calculate PELTS production in Tundra', () => {
       const rate = calculateProductionRate({
         resourceType: 'PELTS',
-        extractorType: 'HUNTERS_LODGE',
+        extractorType: 'HUNTING_LODGE',
         biomeName: 'Tundra',
         structureLevel: 1,
       });
