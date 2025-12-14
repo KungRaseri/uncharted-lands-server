@@ -26,6 +26,7 @@ export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 export const EXTRACTOR_TYPES = [
   'FARM',
+  'WELL',
   'LUMBER_MILL',
   'QUARRY',
   'MINE',
@@ -51,6 +52,75 @@ export type BuildingType = (typeof BUILDING_TYPES)[number];
 export const SPECIAL_RESOURCES = ['GEMS', 'EXOTIC_WOOD', 'MAGICAL_HERBS', 'ANCIENT_STONE'] as const;
 
 export type SpecialResource = (typeof SPECIAL_RESOURCES)[number];
+
+// ===========================
+// BIOME DISPLAY CONFIGURATION
+// ===========================
+
+/**
+ * Biome Display Configuration
+ * Icons, colors, and descriptions for UI rendering
+ * Colors use Skeleton UI variant classes
+ */
+export const BIOME_DISPLAY_CONFIG = {
+  GRASSLAND: {
+    icon: '🌾',
+    color: 'variant-soft-success',
+    name: 'Grassland',
+    description: 'Fertile plains ideal for farming',
+  },
+  FOREST: {
+    icon: '🌲',
+    color: 'variant-soft-primary',
+    name: 'Forest',
+    description: 'Dense woodlands rich in timber',
+  },
+  DESERT: {
+    icon: '🏜️',
+    color: 'variant-soft-warning',
+    name: 'Desert',
+    description: 'Arid wasteland with scarce water',
+  },
+  MOUNTAIN: {
+    icon: '⛰️',
+    color: 'variant-soft-surface',
+    name: 'Mountain',
+    description: 'Rocky highlands rich in stone and ore',
+  },
+  TUNDRA: {
+    icon: '🧊',
+    color: 'variant-soft-tertiary',
+    name: 'Tundra',
+    description: 'Frozen plains with harsh conditions',
+  },
+  SWAMP: {
+    icon: '🌿',
+    color: 'variant-soft-secondary',
+    name: 'Swamp',
+    description: 'Wetlands with unique resources',
+  },
+  COASTAL: {
+    icon: '🏖️',
+    color: 'variant-soft-primary',
+    name: 'Coastal',
+    description: 'Shoreline with access to fishing',
+  },
+  OCEAN: {
+    icon: '🌊',
+    color: 'variant-soft-tertiary',
+    name: 'Ocean',
+    description: 'Deep waters unsuitable for settlement',
+  },
+} as const;
+
+export type BiomeType = keyof typeof BIOME_DISPLAY_CONFIG;
+
+export interface BiomeDisplayConfig {
+  icon: string;
+  color: string;
+  name: string;
+  description: string;
+}
 
 // ===========================
 // CONFIGURATION TYPES
@@ -136,6 +206,7 @@ export interface GameConfig {
   resourceDisplay: ResourceDisplayConfig[];
   extractorDisplay: ExtractorDisplayConfig[];
   buildingDisplay: BuildingDisplayConfig[];
+  biomeDisplay: Record<BiomeType, BiomeDisplayConfig>;
   qualityDisplay: QualityDisplayConfig[];
   accumulation: AccumulationConfig;
 }
@@ -192,21 +263,55 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     { type: 'EXOTIC_WOOD', name: 'Exotic Wood', icon: '🌳', description: 'Rare hardwood timber' },
   ],
   extractorDisplay: [
-    { type: 'FARM', name: 'Farm', icon: '🌾', description: 'Grows food crops' },
-    { type: 'LUMBER_MILL', name: 'Lumber Mill', icon: '🪵', description: 'Processes timber' },
-    { type: 'QUARRY', name: 'Quarry', icon: '🪨', description: 'Extracts stone and clay' },
-    { type: 'MINE', name: 'Mine', icon: '⛏️', description: 'Digs for ore and gems' },
-    { type: 'FISHING_DOCK', name: 'Fishing Dock', icon: '🎣', description: 'Catches fish' },
-    { type: 'HUNTING_LODGE', name: "Hunter's Lodge", icon: '🏹', description: 'Hunts for pelts' },
-    { type: 'HERB_GARDEN', name: 'Herb Garden', icon: '🌿', description: 'Cultivates herbs' },
+    { type: 'FARM', name: 'Farm', icon: '🚜', description: 'Cultivates crops for food production' },
+    {
+      type: 'WELL',
+      name: 'Well',
+      icon: '🕳️',
+      description: 'Extracts groundwater for settlement use',
+    },
+    {
+      type: 'LUMBER_MILL',
+      name: 'Lumber Mill',
+      icon: '�',
+      description: 'Harvests and processes timber',
+    },
+    {
+      type: 'QUARRY',
+      name: 'Quarry',
+      icon: '⛏️',
+      description: 'Extracts stone and clay from rock',
+    },
+    { type: 'MINE', name: 'Mine', icon: '⚒️', description: 'Digs deep for ore and gems' },
+    {
+      type: 'FISHING_DOCK',
+      name: 'Fishing Dock',
+      icon: '🎣',
+      description: 'Catches fish from water',
+    },
+    {
+      type: 'HUNTING_LODGE',
+      name: "Hunter's Lodge",
+      icon: '🏹',
+      description: 'Hunts wildlife for pelts',
+    },
+    {
+      type: 'HERB_GARDEN',
+      name: 'Herb Garden',
+      icon: '🌿',
+      description: 'Cultivates medicinal herbs',
+    },
   ],
   buildingDisplay: [
     { type: 'HOUSE', name: 'House', icon: '🏠', description: 'Housing for settlers' },
     { type: 'STORAGE', name: 'Storage', icon: '📦', description: 'Stores resources' },
+    { type: 'BARRACKS', name: 'Barracks', icon: '⚔️', description: 'Military training facility' },
     { type: 'WORKSHOP', name: 'Workshop', icon: '🔨', description: 'Crafts tools and equipment' },
     { type: 'MARKETPLACE', name: 'Marketplace', icon: '🏪', description: 'Enables trade' },
     { type: 'TOWN_HALL', name: 'Town Hall', icon: '🏛️', description: 'Administrative center' },
+    { type: 'WALL', name: 'Wall', icon: '🧱', description: 'Defensive fortification' },
   ],
+  biomeDisplay: BIOME_DISPLAY_CONFIG,
   qualityDisplay: [
     { threshold: 20, rating: 'Very Poor', color: 'text-red-600', multiplier: 0.5 },
     { threshold: 40, rating: 'Poor', color: 'text-orange-600', multiplier: 0.75 },
