@@ -107,7 +107,7 @@ export const BIOME_DISPLAY_CONFIG = {
   },
   OCEAN: {
     icon: '🌊',
-    color: 'variant-soft-tertiary',
+    color: 'variant-soft-primary',
     name: 'Ocean',
     description: 'Deep waters unsuitable for settlement',
   },

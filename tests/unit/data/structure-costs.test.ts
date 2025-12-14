@@ -28,7 +28,7 @@ describe('Structure Costs Configuration', () => {
 				'QUARRY',
 				'MINE',
 				'HOUSE',
-				'STORAGE',
+				'WAREHOUSE',
 				'WORKSHOP',
 				'MARKETPLACE',
 				'TOWN_HALL'
@@ -168,12 +168,12 @@ describe('Structure Costs Configuration', () => {
 			});
 		});
 
-		test('STORAGE should match GDD specification', () => {
-			const storage = getStructureCostByName('STORAGE');
+		test('WAREHOUSE should match GDD specification', () => {
+			const warehouse = getStructureCostByName('WAREHOUSE');
 
-			expect(storage).toMatchObject({
-				id: 'STORAGE',
-				name: 'STORAGE',
+			expect(warehouse).toMatchObject({
+				id: 'WAREHOUSE',
+				name: 'WAREHOUSE',
 				costs: { wood: 40, stone: 20 }
 			});
 		});
