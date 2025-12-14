@@ -12,6 +12,7 @@
 
 export const RESOURCE_TYPES = [
   'FOOD',
+  'WATER',
   'WOOD',
   'STONE',
   'ORE',
@@ -218,6 +219,7 @@ export interface GameConfig {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   productionRates: [
     { resourceType: 'FOOD', extractorType: 'FARM', baseRate: 10 },
+    { resourceType: 'WATER', extractorType: 'WELL', baseRate: 15 },
     { resourceType: 'WOOD', extractorType: 'LUMBER_MILL', baseRate: 8 },
     { resourceType: 'STONE', extractorType: 'QUARRY', baseRate: 6 },
     { resourceType: 'ORE', extractorType: 'MINE', baseRate: 4 },
@@ -253,6 +255,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   },
   resourceDisplay: [
     { type: 'FOOD', name: 'Food', icon: '🌾', description: 'Basic sustenance for your people' },
+    { type: 'WATER', name: 'Water', icon: '💧', description: 'Vital for survival and growth' },
     { type: 'WOOD', name: 'Wood', icon: '🪵', description: 'Essential building material' },
     { type: 'STONE', name: 'Stone', icon: '🪨', description: 'Durable construction resource' },
     { type: 'ORE', name: 'Ore', icon: '⛏️', description: 'Metal for advanced structures' },

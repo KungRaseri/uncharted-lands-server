@@ -1,7 +1,91 @@
 import { Router } from 'express';
 import { DEFAULT_GAME_CONFIG } from '../../config/game-config.js';
+import { logger } from '../../utils/logger.js';
 
 const router = Router();
+
+/**
+ * Server-side cache for production rates
+ * Reduces config reads and improves response time
+ */
+interface ProductionRatesCache {
+  data: {
+    baseRates: Record<string, number>;
+    fullConfig: Array<{
+      resourceType: string;
+      extractorType: string;
+      baseRate: number;
+    }>;
+  };
+  timestamp: number;
+}
+
+let productionRatesCache: ProductionRatesCache | null = null;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * GET /api/config/production-rates
+ * Returns production rates for all resource types
+ * Includes server-side caching (5 min) for performance
+ */
+router.get('/production-rates', (_req, res) => {
+  try {
+    const now = Date.now();
+
+    // Check cache first
+    if (productionRatesCache && now - productionRatesCache.timestamp < CACHE_DURATION_MS) {
+      logger.debug('[API] Returning cached production rates');
+      return res.json({
+        success: true,
+        data: productionRatesCache.data,
+        cached: true,
+        cacheAge: Math.floor((now - productionRatesCache.timestamp) / 1000),
+        timestamp: now,
+      });
+    }
+
+    // Cache miss - build from config
+    logger.debug('[API] Cache miss - building production rates from config');
+
+    const rates = DEFAULT_GAME_CONFIG.productionRates;
+    const baseRates: Record<string, number> = {};
+
+    // Filter for primary resource extractors (not special/advanced)
+    const primaryExtractors = new Set(['FARM', 'WELL', 'LUMBER_MILL', 'QUARRY', 'MINE']);
+    const primaryRates = rates.filter((r) => primaryExtractors.has(r.extractorType));
+
+    for (const rate of primaryRates) {
+      const resourceKey = rate.resourceType.toLowerCase();
+      baseRates[resourceKey] = rate.baseRate;
+    }
+
+    const responseData = {
+      baseRates,
+      fullConfig: rates,
+    };
+
+    // Update cache
+    productionRatesCache = {
+      data: responseData,
+      timestamp: now,
+    };
+
+    logger.debug(`[API] Cached ${Object.keys(baseRates).length} base production rates`);
+
+    return res.json({
+      success: true,
+      data: responseData,
+      cached: false,
+      timestamp: now,
+    });
+  } catch (error) {
+    logger.error('[API] Error fetching production rates:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch production rates',
+    });
+  }
+});
 
 /**
  * GET /api/config/game
