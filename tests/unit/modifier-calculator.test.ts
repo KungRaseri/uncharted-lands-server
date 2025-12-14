@@ -186,12 +186,16 @@ describe('calculateModifierValue', () => {
 });
 
 describe('calculateStructureModifiers', () => {
-  it('should return empty array for structures without modifiers', () => {
-    // TENT has no modifiers in config
+  it('should calculate Tent modifiers at level 1', () => {
+    // TENT provides +2 population capacity per level (LINEAR)
     const modifiers = calculateStructureModifiers('TENT', 1);
     
     expect(Array.isArray(modifiers)).toBe(true);
-    expect(modifiers).toHaveLength(0);
+    expect(modifiers).toHaveLength(1);
+    
+    const popCapMod = modifiers.find(m => m.type === 'POPULATION_CAPACITY');
+    expect(popCapMod).toBeDefined();
+    expect(popCapMod?.value).toBe(2); // 2 * 1
   });
 
   it('should calculate Farm modifiers at level 1', () => {
@@ -316,13 +320,10 @@ describe('getPrerequisitesForStructure', () => {
 
 describe('structureHasModifiers', () => {
   it('should return true for structures with modifiers', () => {
+    expect(structureHasModifiers('TENT')).toBe(true);
     expect(structureHasModifiers('Farm')).toBe(true);
     expect(structureHasModifiers('Workshop')).toBe(true);
     expect(structureHasModifiers('Town Hall')).toBe(true);
-  });
-
-  it('should return false for structures without modifiers', () => {
-    expect(structureHasModifiers('TENT')).toBe(false);
   });
 
   it('should return false for non-existent structures', () => {
@@ -337,8 +338,8 @@ describe('structureHasPrerequisites', () => {
   });
 
   it('should return false for structures without prerequisites', () => {
-    expect(structureHasPrerequisites('Farm')).toBe(false);
     expect(structureHasPrerequisites('TENT')).toBe(false);
+    expect(structureHasPrerequisites('Farm')).toBe(false);
     expect(structureHasPrerequisites('TOWN_HALL')).toBe(false);
   });
 
