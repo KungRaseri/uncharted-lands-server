@@ -537,21 +537,80 @@ async function processSettlementWorldBased(
     const structureData = await getSettlementStructures(settlementId);
 
     // Transform structure data into format expected by calculators
-    const structures: Structure[] = structureData
-      .map((row) => ({
-        name: row.structureDef?.name || 'Unknown',
-        modifiers: structureData
-          .filter((r) => r.structure.id === row.structure.id && r.modifiers)
-          .map((r) => ({
-            name: r.modifiers!.name,
-            value: r.modifiers!.value,
-          })),
-      }))
-      .filter(
-        (struct, index, self) =>
-          // Remove duplicates (each structure appears once per modifier)
-          index === self.findIndex((s) => s.name === struct.name)
-      );
+    // NOTE: Query uses LEFT JOINs on structures, structureRequirements, and structureModifiers
+    // This can create duplicate rows when a structure has multiple requirements (e.g., TENT has 3 requirements)
+    // We need to deduplicate both structures AND modifiers to avoid counting the same modifier multiple times
+
+    logger.debug('[TRANSFORM DEBUG] Input rows:', {
+      rowCount: structureData.length,
+      rows: structureData.map((row, i) => ({
+        index: i,
+        structureId: row.structure.id,
+        structureName: row.structureDef?.name,
+        hasModifier: !!row.modifiers,
+        modifierId: row.modifiers?.id,
+        modifierName: row.modifiers?.name,
+        modifierValue: row.modifiers?.value,
+      })),
+    });
+
+    const structures: Structure[] = structureData.reduce((acc, row) => {
+      if (!row.structureDef) return acc;
+
+      // Find or create structure entry
+      let structure = acc.find((s) => s.name === row.structureDef?.name);
+      if (!structure) {
+        structure = {
+          name: row.structureDef.name,
+          modifiers: [],
+        };
+        acc.push(structure);
+        logger.debug(`[TRANSFORM DEBUG] Created new structure: ${row.structureDef.name}`);
+      }
+
+      // Add modifier if it exists and hasn't been added yet
+      if (row.modifiers) {
+        const modifierExists = structure.modifiers.some(
+          (m) => m.name === row.modifiers!.name && m.value === row.modifiers!.value
+        );
+        if (!modifierExists) {
+          structure.modifiers.push({
+            name: row.modifiers.name,
+            value: row.modifiers.value,
+          });
+          logger.debug(`[TRANSFORM DEBUG] Added modifier to ${structure.name}:`, {
+            name: row.modifiers.name,
+            value: row.modifiers.value,
+          });
+        } else {
+          logger.debug(`[TRANSFORM DEBUG] Skipped duplicate modifier for ${structure.name}:`, {
+            name: row.modifiers.name,
+          });
+        }
+      } else {
+        logger.debug(`[TRANSFORM DEBUG] Row ${structureData.indexOf(row)} has no modifier`);
+      }
+
+      return acc;
+    }, [] as Structure[]);
+
+    logger.debug('[TRANSFORM DEBUG] Final structures:', {
+      structures: structures.map((s) => ({
+        name: s.name,
+        modifierCount: s.modifiers.length,
+        modifiers: s.modifiers,
+      })),
+    });
+
+    // DEBUG: Log structures with modifiers for capacity calculation
+    logger.debug('[GAME LOOP] 🏗️ Structures for capacity calculation', {
+      settlementId,
+      structureCount: structures.length,
+      structures: structures.map((s) => ({
+        name: s.name,
+        modifiers: s.modifiers,
+      })),
+    });
 
     // Filter extractors on this specific tile
     const extractors = structureData
@@ -901,6 +960,14 @@ async function processPopulation(
       lastGrowthTick: popData.lastGrowthTick,
     });
 
+    logger.debug('[POP STATE DEBUG] About to calculate population state', {
+      settlementId,
+      structuresCount: structures.length,
+      structureNames: structures.map((s) => s.name),
+      hasModifiers: structures.some((s) => s.modifiers?.length > 0),
+      firstStructureModifiers: structures[0]?.modifiers,
+    });
+
     // Calculate current population state
     const popState = calculatePopulationState(
       popData.currentPopulation,
@@ -908,6 +975,12 @@ async function processPopulation(
       resources,
       popData.lastGrowthTick.getTime()
     );
+
+    logger.debug('[POP STATE DEBUG] Population state calculated', {
+      settlementId,
+      capacity: popState.capacity,
+      happiness: popState.happiness,
+    });
 
     logger.debug('[GAME LOOP] Population state calculated', {
       settlementId,
@@ -1020,6 +1093,12 @@ async function processPopulation(
 
     // Emit population state update
     const summary = getPopulationSummary(popState);
+    logger.debug('[SOCKET EMIT DEBUG] About to emit population-state', {
+      settlementId,
+      popState_capacity: popState.capacity,
+      finalPopulation,
+      payload_capacity: popState.capacity,
+    });
     io.to(`world:${worldId}`).emit('population-state', {
       settlementId,
       current: finalPopulation,

@@ -39,7 +39,7 @@ export const STRUCTURE_COSTS: StructureCostDefinition[] = [
     costs: { wood: 10 },
     constructionTimeSeconds: 60,
     populationRequired: 0,
-    description: 'Basic shelter, instant construction. Provides minimal housing capacity.',
+    description: 'Basic shelter, instant construction. Provides minimal population capacity.',
   },
   {
     id: 'FARM',

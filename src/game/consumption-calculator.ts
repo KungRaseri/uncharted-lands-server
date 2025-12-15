@@ -90,18 +90,46 @@ export interface Structure {
 export function calculatePopulationCapacity(structures: Structure[]): number {
   let capacity = CONSUMPTION_RATES.BASE_POPULATION_CAPACITY;
 
+  console.log('[CAPACITY DEBUG] Starting calculation', {
+    baseCapacity: CONSUMPTION_RATES.BASE_POPULATION_CAPACITY,
+    structureCount: structures.length,
+    structures: structures.map((s) => ({
+      name: s.name,
+      modifierCount: s.modifiers?.length || 0,
+      modifiers: JSON.stringify(s.modifiers?.map((m) => ({ name: m.name, value: m.value }))),
+    })),
+  });
+
   for (const structure of structures) {
     for (const modifier of structure.modifiers) {
       // Check for standard snake_case name OR legacy names (backward compatibility)
       const isPopulationCapacity = modifier.name === MODIFIER_NAMES.POPULATION_CAPACITY;
 
+      console.log('[CAPACITY DEBUG] Checking modifier', {
+        structureName: structure.name,
+        modifierName: modifier.name,
+        modifierValue: modifier.value,
+        expectedName: MODIFIER_NAMES.POPULATION_CAPACITY,
+        isMatch: isPopulationCapacity,
+      });
+
       if (isPopulationCapacity) {
         capacity += modifier.value;
+        console.log('[CAPACITY DEBUG] Added capacity', {
+          modifierValue: modifier.value,
+          newCapacity: capacity,
+        });
       }
     }
   }
 
-  return Math.max(0, Math.floor(capacity));
+  const finalCapacity = Math.max(0, Math.floor(capacity));
+  console.log('[CAPACITY DEBUG] Final capacity', {
+    beforeFloor: capacity,
+    afterFloor: finalCapacity,
+  });
+
+  return finalCapacity;
 }
 
 /**
@@ -175,7 +203,7 @@ export function calculateMorale(structures: Structure[]): number {
 
   for (const structure of structures) {
     for (const modifier of structure.modifiers) {
-      if (modifier.name === 'Morale Boost') {
+      if (modifier.name === MODIFIER_NAMES.MORALE_BONUS) {
         morale += modifier.value;
       }
     }

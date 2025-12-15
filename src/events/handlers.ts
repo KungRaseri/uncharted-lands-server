@@ -39,6 +39,7 @@ import {
 } from '../game/resource-calculator.js';
 import { createWorld } from '../game/world-creator.js';
 import { aggregateSettlementModifiers } from '../game/settlement-modifier-aggregator.js';
+import { calculatePopulationState } from '../game/population-calculator.js';
 import { db } from '../db/index.js';
 import { settlementStructures } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -478,6 +479,145 @@ async function handleBuildStructure(
       structureType: data.structureType,
       playerId: socket.data.playerId,
     });
+
+    // ===== RECALCULATE POPULATION STATE AFTER BUILDING STRUCTURE =====
+    // The new structure may have modifiers that affect population capacity (e.g., HOUSE +5)
+    // We need to recalculate and emit the updated population state immediately
+    try {
+      logger.debug('[POPULATION RECALC] Starting recalculation after structure built', {
+        settlementId: data.settlementId,
+        structureType: data.structureType,
+      });
+
+      // Fetch ALL structures for this settlement (including the one we just built)
+      const structureData = await getSettlementStructures(data.settlementId);
+      logger.debug('[POPULATION RECALC] Fetched structure data', {
+        settlementId: data.settlementId,
+        rowCount: structureData.length,
+        rows: structureData.map((r) => ({
+          structureName: r.structureDef?.name,
+          level: r.structure.level,
+          modifier: r.modifiers ? `${r.modifiers.name}=${r.modifiers.value}` : null,
+        })),
+      });
+
+      // Transform structure data (deduplicate modifiers like game-loop.ts does)
+      const structures = structureData.reduce(
+        (acc, row) => {
+          if (!row.structureDef) return acc;
+
+          // Find or create structure entry
+          let structure = acc.find((s) => s.name === row.structureDef?.name);
+          if (!structure) {
+            structure = {
+              name: row.structureDef.name,
+              level: row.structure.level,
+              modifiers: [],
+            };
+            acc.push(structure);
+          }
+
+          // Add modifier if it exists and hasn't been added yet
+          if (row.modifiers) {
+            const modifierExists = structure.modifiers.some(
+              (m) => m.name === row.modifiers!.name && m.value === row.modifiers!.value
+            );
+            if (!modifierExists) {
+              structure.modifiers.push({
+                name: row.modifiers.name,
+                value: row.modifiers.value,
+              });
+            }
+          }
+
+          return acc;
+        },
+        [] as Array<{
+          name: string;
+          level: number;
+          modifiers: Array<{ name: string; value: number }>;
+        }>
+      );
+
+      logger.debug('[POPULATION RECALC] Transformed structures', {
+        settlementId: data.settlementId,
+        structureCount: structures.length,
+        structures: structures.map((s) => ({
+          name: s.name,
+          level: s.level,
+          modifierCount: s.modifiers.length,
+          modifiers: s.modifiers.map((m) => `${m.name}=${m.value}`),
+        })),
+      });
+
+      // Get current population data
+      const popData = await db.query.settlementPopulation.findFirst({
+        where: (fields, { eq }) => eq(fields.settlementId, data.settlementId),
+      });
+
+      if (popData) {
+        logger.debug('[POPULATION RECALC] Found population data', {
+          settlementId: data.settlementId,
+          currentPopulation: popData.currentPopulation,
+          lastGrowthTick: popData.lastGrowthTick.getTime(),
+        });
+
+        // Calculate new population state with ALL structures (deduplicated)
+        const popState = calculatePopulationState(
+          popData.currentPopulation,
+          structures,
+          newResources, // Use the NEW resource amounts after deduction
+          popData.lastGrowthTick.getTime()
+        );
+
+        logger.debug('[POPULATION RECALC] Calculated new population state', {
+          settlementId: data.settlementId,
+          capacity: popState.capacity,
+          happiness: popState.happiness,
+          growthRate: popState.growthRate,
+          inputs: {
+            currentPopulation: popData.currentPopulation,
+            structureCount: structures.length,
+            hasResources: !!newResources,
+          },
+        });
+
+        // Emit the updated population state to the player
+        socket.emit('population-state', {
+          settlementId: data.settlementId,
+          currentPopulation: popData.currentPopulation,
+          capacity: popState.capacity,
+          happiness: popState.happiness,
+          growthRate: popState.growthRate,
+          immigrationChance: popState.immigrationChance,
+          emigrationChance: popState.emigrationChance,
+          timestamp: Date.now(),
+        });
+
+        // Also broadcast to other players in the world
+        if (socket.data.worldId) {
+          socket.to(`world:${socket.data.worldId}`).emit('population-state', {
+            settlementId: data.settlementId,
+            currentPopulation: popData.currentPopulation,
+            capacity: popState.capacity,
+            happiness: popState.happiness,
+            growthRate: popState.growthRate,
+            immigrationChance: popState.immigrationChance,
+            emigrationChance: popState.emigrationChance,
+            timestamp: Date.now(),
+          });
+        }
+
+        logger.info('[POPULATION] Population state emitted after structure build', {
+          settlementId: data.settlementId,
+          newCapacity: popState.capacity,
+        });
+      }
+    } catch (popError) {
+      logger.error('[POPULATION] Error recalculating population after structure build:', popError);
+      // Don't fail the whole operation if population update fails
+    }
+    // ===== END POPULATION RECALCULATION =====
   } catch (error) {
     logger.error('[ACTION] Error building structure:', error);
     const errorResponse = {

@@ -9,6 +9,8 @@
 
 import type { Resources } from './resource-calculator.js';
 import { MODIFIER_NAMES } from './modifier-names.js';
+import { calculatePopulationCapacity } from './consumption-calculator.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Structure modifiers that affect population
@@ -64,30 +66,6 @@ const IMMIGRATION_MIN_POP = 2;
 const IMMIGRATION_MAX_POP = 5;
 const EMIGRATION_MIN_POP = 1;
 const EMIGRATION_MAX_POP = 3;
-
-/**
- * Calculate population capacity based on housing structures
- *
- * @param structures - Array of settlement structures
- * @returns Maximum population the settlement can support
- */
-export function calculatePopulationCapacity(structures: Structure[]): number {
-  let capacity = 0;
-
-  for (const structure of structures) {
-    // Look for population_capacity modifier
-    const capacityModifier = structure.modifiers.find(
-      (m) => m.name === MODIFIER_NAMES.POPULATION_CAPACITY
-    );
-
-    if (capacityModifier) {
-      capacity += capacityModifier.value;
-    }
-  }
-
-  // Minimum capacity is 10 (emergency tent shelter)
-  return Math.max(10, capacity);
-}
 
 /**
  * Calculate morale bonus from structures
@@ -483,6 +461,12 @@ export function calculatePopulationState(
 ): PopulationState {
   // Calculate capacity
   const capacity = calculatePopulationCapacity(structures);
+  logger.debug('[CAPACITY ASSIGNMENT DEBUG]', {
+    capacityValue: capacity,
+    capacityType: typeof capacity,
+    capacityIsNaN: Number.isNaN(capacity),
+    structuresCount: structures.length,
+  });
 
   // Calculate happiness factors (GDD Section 3.3 weights)
   const resourceSufficiency = calculateResourceSufficiency(currentPop, resources);
@@ -507,6 +491,13 @@ export function calculatePopulationState(
   const growthRate = calculateGrowthRate(currentPop, capacity, happiness);
   const immigrationChance = calculateImmigrationChance(happiness, currentPop, capacity);
   const emigrationChance = calculateEmigrationChance(happiness, currentPop);
+
+  logger.debug('[RETURN VALUE DEBUG]', {
+    capacity_beforeReturn: capacity,
+    current_beforeReturn: currentPop,
+    growthRate_beforeReturn: growthRate,
+    happiness_beforeReturn: happiness,
+  });
 
   return {
     current: currentPop,

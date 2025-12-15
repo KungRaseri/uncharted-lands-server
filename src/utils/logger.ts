@@ -3,7 +3,11 @@
  *
  * Centralized logging with different levels, structured output, and request tracing
  * Integrates with Sentry for error tracking
+ * Writes logs to files for debugging
  */
+
+import fs from 'fs';
+import path from 'path';
 
 export enum LogLevel {
   DEBUG = 0,
@@ -29,12 +33,116 @@ class Logger {
   private readonly minLevel: LogLevel;
   private readonly timers: Map<string, PerformanceTimer> = new Map();
   private readonly isProd: boolean;
+  private readonly logDir: string;
+  private readonly logToFile: boolean;
+  private currentLogFile: string | null = null;
+  private logStartTime: string | null = null;
 
   constructor() {
     // Set log level from environment or default to INFO
     const envLevel = process.env.LOG_LEVEL?.toUpperCase();
     this.minLevel = LogLevel[envLevel as keyof typeof LogLevel] ?? LogLevel.INFO;
     this.isProd = process.env.NODE_ENV === 'production';
+
+    // File logging configuration
+    this.logToFile = process.env.LOG_TO_FILE === 'true' || !this.isProd; // Always log to file in dev
+    this.logDir = path.join(process.cwd(), 'logs');
+
+    // Create logs directory if it doesn't exist
+    if (this.logToFile && !fs.existsSync(this.logDir)) {
+      fs.mkdirSync(this.logDir, { recursive: true });
+    }
+
+    // Rename any existing .latest.log files from previous runs
+    if (this.logToFile) {
+      this.rotateExistingLatestLogs();
+    }
+
+    // Initialize new log file
+    if (this.logToFile) {
+      this.initializeLogFile();
+    }
+
+    // Register shutdown handlers to rename .latest.log on exit
+    if (this.logToFile) {
+      this.registerShutdownHandlers();
+    }
+  }
+
+  /**
+   * Rotate any existing .latest.log files from previous runs
+   */
+  private rotateExistingLatestLogs(): void {
+    try {
+      const files = fs.readdirSync(this.logDir);
+      const latestLogFiles = files.filter((f) => f.endsWith('.latest.log'));
+
+      for (const file of latestLogFiles) {
+        const oldPath = path.join(this.logDir, file);
+        const newPath = path.join(this.logDir, file.replace('.latest.log', '.log'));
+
+        try {
+          fs.renameSync(oldPath, newPath);
+          console.log(`[LOGGER] Rotated previous log: ${file} → ${path.basename(newPath)}`);
+        } catch (err) {
+          console.error(`[LOGGER] Failed to rotate ${file}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error('[LOGGER] Failed to rotate existing latest logs:', err);
+    }
+  }
+
+  /**
+   * Initialize new timestamped .latest.log file
+   */
+  private initializeLogFile(): void {
+    const now = new Date();
+    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const time = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0]; // HH-MM-SS
+    this.logStartTime = `${date}-${time}`;
+    this.currentLogFile = path.join(this.logDir, `${this.logStartTime}.latest.log`);
+
+    console.log(`[LOGGER] Started new log file: ${path.basename(this.currentLogFile)}`);
+  }
+
+  /**
+   * Register handlers to rename .latest.log on shutdown
+   */
+  private registerShutdownHandlers(): void {
+    const renameLatestLog = () => {
+      if (this.currentLogFile && fs.existsSync(this.currentLogFile)) {
+        const finalPath = this.currentLogFile.replace('.latest.log', '.log');
+        try {
+          fs.renameSync(this.currentLogFile, finalPath);
+          console.log(`[LOGGER] Finalized log: ${path.basename(finalPath)}`);
+        } catch (err) {
+          console.error('[LOGGER] Failed to rename .latest.log on shutdown:', err);
+        }
+      }
+    };
+
+    // Handle various shutdown signals
+    process.on('SIGINT', () => {
+      renameLatestLog();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', () => {
+      renameLatestLog();
+      process.exit(0);
+    });
+
+    process.on('exit', () => {
+      renameLatestLog();
+    });
+
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (err) => {
+      console.error('[LOGGER] Uncaught exception:', err);
+      renameLatestLog();
+      process.exit(1);
+    });
   }
 
   /**
@@ -92,11 +200,41 @@ class Logger {
   }
 
   /**
+   * Write log to file
+   */
+  private writeToFile(level: string, message: string, context?: LogContext): void {
+    if (!this.logToFile) return;
+
+    try {
+      const timestamp = this.timestamp();
+      const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+      // Write to daily log file
+      const logFile = path.join(this.logDir, `${date}.log`);
+      const logEntry = `[${timestamp}] [${level.padEnd(5)}] ${message}${
+        context ? ' ' + JSON.stringify(context) : ''
+      }\n`;
+
+      fs.appendFileSync(logFile, logEntry, 'utf8');
+
+      // Also write errors to separate error log
+      if (level === 'ERROR') {
+        const errorFile = path.join(this.logDir, `${date}-error.log`);
+        fs.appendFileSync(errorFile, logEntry, 'utf8');
+      }
+    } catch (err) {
+      // Don't crash if file writing fails
+      console.error('Failed to write log to file:', err);
+    }
+  }
+
+  /**
    * Log debug messages (verbose, for development)
    */
   debug(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.DEBUG) {
       console.debug(this.format('DEBUG', message, context));
+      this.writeToFile('DEBUG', message, context);
     }
   }
 
@@ -106,6 +244,7 @@ class Logger {
   info(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.INFO) {
       console.log(this.format('INFO', message, context));
+      this.writeToFile('INFO', message, context);
     }
   }
 
@@ -115,6 +254,7 @@ class Logger {
   warn(message: string, context?: LogContext): void {
     if (this.minLevel <= LogLevel.WARN) {
       console.warn(this.format('WARN', message, context));
+      this.writeToFile('WARN', message, context);
     }
   }
 
@@ -136,6 +276,7 @@ class Logger {
       }
 
       console.error(this.format('ERROR', message, errorContext));
+      this.writeToFile('ERROR', message, errorContext);
 
       // Send to Sentry in production or if explicitly enabled
       if (this.isProd) {

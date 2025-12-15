@@ -348,7 +348,7 @@ export async function updateSettlementPopulation(
  * Now includes the structure definition (category, extractorType, buildingType)
  */
 export async function getSettlementStructures(settlementId: string) {
-  return await db
+  const result = await db
     .select({
       structure: settlementStructures,
       structureDef: structures, // Actual structure definition with category/type info
@@ -363,6 +363,21 @@ export async function getSettlementStructures(settlementId: string) {
       eq(settlementStructures.id, structureModifiers.settlementStructureId)
     )
     .where(eq(settlementStructures.settlementId, settlementId));
+
+  console.log('[QUERY DEBUG] getSettlementStructures raw result', {
+    settlementId,
+    rowCount: result.length,
+    rows: result.map((row, index) => ({
+      rowIndex: index,
+      structureId: row.structure.id,
+      structureName: row.structureDef?.name,
+      modifierId: row.modifiers?.id,
+      modifierName: row.modifiers?.name,
+      modifierValue: row.modifiers?.value,
+    })),
+  });
+
+  return result;
 }
 
 /**
