@@ -8,6 +8,7 @@
  */
 
 import type { Resources } from './resource-calculator.js';
+import { MODIFIER_NAMES } from './modifier-names.js';
 
 /**
  * Structure modifiers that affect population
@@ -76,7 +77,7 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
   for (const structure of structures) {
     // Look for population_capacity modifier
     const capacityModifier = structure.modifiers.find(
-      (m) => m.name === 'population_capacity' || m.name === 'Population Capacity'
+      (m) => m.name === MODIFIER_NAMES.POPULATION_CAPACITY
     );
 
     if (capacityModifier) {
@@ -99,9 +100,7 @@ export function calculateMorale(structures: Structure[]): number {
 
   for (const structure of structures) {
     // Look for morale modifiers
-    const moraleModifier = structure.modifiers.find(
-      (m) => m.name.toLowerCase().includes('morale') || m.name === 'Morale Boost'
-    );
+    const moraleModifier = structure.modifiers.find((m) => m.name === MODIFIER_NAMES.MORALE_BONUS);
 
     if (moraleModifier) {
       morale += moraleModifier.value;

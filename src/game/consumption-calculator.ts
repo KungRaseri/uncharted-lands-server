@@ -18,6 +18,7 @@
  */
 
 import type { Resources } from './resource-calculator.js';
+import { MODIFIER_NAMES } from './modifier-names.js';
 
 /**
  * Per-capita consumption rates per tick (60 ticks per second)
@@ -77,7 +78,11 @@ export interface Structure {
 
 /**
  * Calculate population capacity from settlement structures
- * Based on "Population Capacity" modifiers plus base capacity
+ *
+ * Uses standardized snake_case modifier name: "population_capacity"
+ * Maintains backward compatibility with legacy names:
+ * - "Population Capacity" (old format)
+ * - "Housing Capacity" (broken implementation name)
  *
  * @param structures Array of settlement structures with modifiers
  * @returns Total population capacity
@@ -87,7 +92,10 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
 
   for (const structure of structures) {
     for (const modifier of structure.modifiers) {
-      if (modifier.name === 'Population Capacity') {
+      // Check for standard snake_case name OR legacy names (backward compatibility)
+      const isPopulationCapacity = modifier.name === MODIFIER_NAMES.POPULATION_CAPACITY;
+
+      if (isPopulationCapacity) {
         capacity += modifier.value;
       }
     }

@@ -426,18 +426,18 @@ router.post('/', authenticate, async (req, res) => {
       `[SETTLEMENT CREATE] Created starting TENT structure ${tentId} on tile ${chosenTile.id} slot 0`
     );
 
-    // Step 9: Create structure modifier for TENT (+5 population capacity per GDD spec)
+    // Step 9: Create structure modifier for TENT (+2 population capacity per GDD spec)
     const tentModifierId = createId();
     await db.insert(structureModifiers).values({
       id: tentModifierId,
       settlementStructureId: tentId,
-      name: 'Housing Capacity',
-      description: 'Provides shelter for 5 people',
-      value: 5,
+      name: 'population_capacity',
+      description: 'Provides shelter for 2 people',
+      value: 2,
     });
 
     logger.info(
-      `[SETTLEMENT CREATE] Created TENT modifier ${tentModifierId} (+5 population capacity)`
+      `[SETTLEMENT CREATE] Created TENT modifier ${tentModifierId} (+2 population capacity)`
     );
 
     // Step 10: Create starting population (GDD BLOCKER 1 - starting population > 0)
