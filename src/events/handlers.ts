@@ -39,7 +39,7 @@ import {
 } from '../game/resource-calculator.js';
 import { createWorld } from '../game/world-creator.js';
 import { aggregateSettlementModifiers } from '../game/settlement-modifier-aggregator.js';
-import { calculatePopulationState } from '../game/population-calculator.js';
+import { calculatePopulationState, getPopulationSummary } from '../game/population-calculator.js';
 import { db } from '../db/index.js';
 import { settlementStructures } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
@@ -582,15 +582,18 @@ async function handleBuildStructure(
           },
         });
 
+        // Get population summary for happiness description and status
+        const summary = getPopulationSummary(popState);
+
         // Emit the updated population state to the player
         socket.emit('population-state', {
           settlementId: data.settlementId,
-          currentPopulation: popData.currentPopulation,
+          current: popData.currentPopulation,
           capacity: popState.capacity,
-          happiness: popState.happiness,
+          happiness: summary.happiness,
+          happinessDescription: summary.happinessDescription,
           growthRate: popState.growthRate,
-          immigrationChance: popState.immigrationChance,
-          emigrationChance: popState.emigrationChance,
+          status: summary.status,
           timestamp: Date.now(),
         });
 
@@ -598,12 +601,12 @@ async function handleBuildStructure(
         if (socket.data.worldId) {
           socket.to(`world:${socket.data.worldId}`).emit('population-state', {
             settlementId: data.settlementId,
-            currentPopulation: popData.currentPopulation,
+            current: popData.currentPopulation,
             capacity: popState.capacity,
-            happiness: popState.happiness,
+            happiness: summary.happiness,
+            happinessDescription: summary.happinessDescription,
             growthRate: popState.growthRate,
-            immigrationChance: popState.immigrationChance,
-            emigrationChance: popState.emigrationChance,
+            status: summary.status,
             timestamp: Date.now(),
           });
         }

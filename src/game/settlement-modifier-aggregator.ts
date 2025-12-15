@@ -102,9 +102,9 @@ export async function aggregateSettlementModifiers(
       >();
 
       for (const structure of settlementStructuresData) {
-        // Use buildingType or extractorType as the modifier config key
-        // These are already uppercase enum values (e.g., 'FARM', 'HOUSE')
-        const structureType = structure.buildingType || structure.extractorType;
+        // Use structure name in uppercase as the modifier config key
+        // Config keys match structure names (e.g., 'TENT', 'HOUSE', 'FARM')
+        const structureType = structure.name.toUpperCase().replace(/ /g, '_');
 
         if (!structureType) {
           logger.warn('[SETTLEMENT_MODIFIER_AGGREGATOR] Structure has no type', {

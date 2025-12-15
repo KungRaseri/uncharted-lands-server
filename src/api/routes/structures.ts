@@ -447,6 +447,86 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
       });
     }
 
+    // ✅ IMMEDIATE CAPACITY UPDATE: Emit population-state event with updated capacity
+    // This ensures the UI receives the new population capacity immediately after building
+    // The population interval tick will still handle growth/immigration/emigration
+    if (worldId && req.app.get('io')) {
+      try {
+        const io = req.app.get('io');
+
+        // Get current population data
+        const { getSettlementPopulation } = await import('../../db/queries.js');
+        const popData = await getSettlementPopulation(settlementId);
+
+        // Get all structures with modifiers to calculate new capacity
+        const structuresWithModifiers = await db.query.settlementStructures.findMany({
+          where: eq(settlementStructures.settlementId, settlementId),
+          with: {
+            structure: true,
+            modifiers: true,
+          },
+        });
+
+        // Map to Structure type expected by calculatePopulationState
+        // Handle Drizzle relation result (can be array or single object)
+        const mappedStructures = structuresWithModifiers.map((s) => {
+          const struct = Array.isArray(s.structure) ? s.structure[0] : s.structure;
+
+          // Handle modifiers relation (Drizzle returns loosely typed objects)
+          const rawMods = Array.isArray(s.modifiers)
+            ? s.modifiers
+            : s.modifiers
+              ? [s.modifiers]
+              : [];
+
+          return {
+            id: s.id,
+            name: struct?.name || 'Unknown',
+            category: struct?.category || 'BUILDING',
+            level: s.level,
+            modifiers: (rawMods as Array<{ name: string; value: number }>).map((m) => ({
+              name: m.name,
+              value: m.value,
+            })),
+          };
+        });
+
+        // Calculate updated population state with new capacity
+        const { calculatePopulationState } = await import('../../game/population-calculator.js');
+        const popState = calculatePopulationState(
+          popData.currentPopulation,
+          mappedStructures,
+          { food: 0, water: 0, wood: 0, stone: 0, ore: 0 }, // Resources not needed for capacity calc
+          popData.lastGrowthTick.getTime()
+        );
+
+        // Emit updated population state with new capacity
+        io.to(`world:${worldId}`).emit('population-state', {
+          settlementId,
+          population: popData.currentPopulation,
+          capacity: popState.capacity,
+          happiness: Math.floor(popState.happiness),
+          growthRate: popState.growthRate,
+          timestamp: Date.now(),
+        });
+
+        logger.debug(
+          '[API] Emitted population-state with updated capacity after structure creation',
+          {
+            settlementId,
+            newCapacity: popState.capacity,
+            currentPopulation: popData.currentPopulation,
+          }
+        );
+      } catch (popError) {
+        // Log error but don't fail the structure creation operation
+        logger.error('[API] Failed to emit population-state after structure creation', {
+          settlementId,
+          error: popError instanceof Error ? popError.message : 'Unknown error',
+        });
+      }
+    }
+
     return res.status(201).json({
       success: true,
       structure: result.structure,
