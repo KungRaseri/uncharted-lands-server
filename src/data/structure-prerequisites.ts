@@ -11,9 +11,9 @@
  */
 
 export interface StructurePrerequisiteDefinition {
-  structureName: string; // Structure name (e.g., 'Workshop', 'Town Hall')
-  requiredStructureName: string; // Required structure name
-  requiredLevel: number; // Minimum level of required structure
+	structureName: string; // Structure name (e.g., 'Workshop', 'Town Hall')
+	requiredStructureName: string; // Required structure name
+	requiredLevel: number; // Minimum level of required structure
 }
 
 /**
@@ -29,21 +29,21 @@ export interface StructurePrerequisiteDefinition {
  * Future structures (Library, Guild structures, etc.) will be added when implemented.
  */
 export const STRUCTURE_PREREQUISITES: StructurePrerequisiteDefinition[] = [
-  // ===== Current Structure Prerequisites =====
+	// ===== Current Structure Prerequisites =====
 
-  // Workshop requires Town Hall (governance for crafting)
-  {
-    structureName: 'Workshop',
-    requiredStructureName: 'Town Hall',
-    requiredLevel: 1,
-  },
+	// Workshop requires Town Hall (governance for crafting)
+	{
+		structureName: 'Workshop',
+		requiredStructureName: 'Town Hall',
+		requiredLevel: 1,
+	},
 
-  // Marketplace requires Town Hall (governance for trade)
-  {
-    structureName: 'Marketplace',
-    requiredStructureName: 'Town Hall',
-    requiredLevel: 1,
-  },
+	// Marketplace requires Town Hall (governance for trade)
+	{
+		structureName: 'Marketplace',
+		requiredStructureName: 'Town Hall',
+		requiredLevel: 1,
+	},
 ];
 
 /**
@@ -53,9 +53,9 @@ export const STRUCTURE_PREREQUISITES: StructurePrerequisiteDefinition[] = [
  * @returns Array of prerequisite definitions
  */
 export function getStructurePrerequisites(
-  structureName: string
+	structureName: string
 ): StructurePrerequisiteDefinition[] {
-  return STRUCTURE_PREREQUISITES.filter((p) => p.structureName === structureName);
+	return STRUCTURE_PREREQUISITES.filter((p) => p.structureName === structureName);
 }
 
 /**
@@ -65,5 +65,5 @@ export function getStructurePrerequisites(
  * @returns True if structure requires other structures
  */
 export function hasPrerequisites(structureName: string): boolean {
-  return STRUCTURE_PREREQUISITES.some((p) => p.structureName === structureName);
+	return STRUCTURE_PREREQUISITES.some((p) => p.structureName === structureName);
 }

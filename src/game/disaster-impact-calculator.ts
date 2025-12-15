@@ -32,26 +32,26 @@ import type { Resources } from './resource-calculator.js';
  * Each disaster affects different resources and biomes
  */
 export enum DisasterType {
-  // Weather Disasters
-  DROUGHT = 'DROUGHT', // Reduces water/food production
-  FLOOD = 'FLOOD', // Reduces food/wood production
-  BLIZZARD = 'BLIZZARD', // Reduces all production
-  HURRICANE = 'HURRICANE', // Reduces food/water production (coastal)
-  TORNADO = 'TORNADO', // Reduces all production (localized)
-  SANDSTORM = 'SANDSTORM', // Reduces stone/ore production (desert)
-  HEATWAVE = 'HEATWAVE', // Reduces water/food production
+	// Weather Disasters
+	DROUGHT = 'DROUGHT', // Reduces water/food production
+	FLOOD = 'FLOOD', // Reduces food/wood production
+	BLIZZARD = 'BLIZZARD', // Reduces all production
+	HURRICANE = 'HURRICANE', // Reduces food/water production (coastal)
+	TORNADO = 'TORNADO', // Reduces all production (localized)
+	SANDSTORM = 'SANDSTORM', // Reduces stone/ore production (desert)
+	HEATWAVE = 'HEATWAVE', // Reduces water/food production
 
-  // Geological Disasters
-  EARTHQUAKE = 'EARTHQUAKE', // Reduces stone/ore production
-  VOLCANO = 'VOLCANO', // Reduces all production (regional)
-  LANDSLIDE = 'LANDSLIDE', // Reduces stone/wood production
-  AVALANCHE = 'AVALANCHE', // Reduces stone/ore production (mountain)
+	// Geological Disasters
+	EARTHQUAKE = 'EARTHQUAKE', // Reduces stone/ore production
+	VOLCANO = 'VOLCANO', // Reduces all production (regional)
+	LANDSLIDE = 'LANDSLIDE', // Reduces stone/wood production
+	AVALANCHE = 'AVALANCHE', // Reduces stone/ore production (mountain)
 
-  // Environmental Disasters
-  WILDFIRE = 'WILDFIRE', // Reduces wood production
-  INSECT_PLAGUE = 'INSECT_PLAGUE', // Reduces food production
-  BLIGHT = 'BLIGHT', // Reduces food production
-  LOCUST_SWARM = 'LOCUST_SWARM', // Reduces food production
+	// Environmental Disasters
+	WILDFIRE = 'WILDFIRE', // Reduces wood production
+	INSECT_PLAGUE = 'INSECT_PLAGUE', // Reduces food production
+	BLIGHT = 'BLIGHT', // Reduces food production
+	LOCUST_SWARM = 'LOCUST_SWARM', // Reduces food production
 }
 
 /**
@@ -72,10 +72,10 @@ export type DisasterSeverity = 'MILD' | 'MODERATE' | 'MAJOR' | 'CATASTROPHIC';
  * - CATASTROPHIC: 80% production reduction
  */
 const SEVERITY_IMPACT_MAP: Record<DisasterSeverity, number> = {
-  MILD: 0.2, // 20% reduction → 0.8 multiplier
-  MODERATE: 0.4, // 40% reduction → 0.6 multiplier
-  MAJOR: 0.6, // 60% reduction → 0.4 multiplier (GDD example)
-  CATASTROPHIC: 0.8, // 80% reduction → 0.2 multiplier
+	MILD: 0.2, // 20% reduction → 0.8 multiplier
+	MODERATE: 0.4, // 40% reduction → 0.6 multiplier
+	MAJOR: 0.6, // 60% reduction → 0.4 multiplier (GDD example)
+	CATASTROPHIC: 0.8, // 80% reduction → 0.2 multiplier
 };
 
 /**
@@ -85,40 +85,40 @@ const SEVERITY_IMPACT_MAP: Record<DisasterSeverity, number> = {
  * Based on GDD disaster specifications and logical mappings
  */
 const DISASTER_RESOURCE_IMPACT: Record<DisasterType, (keyof Resources)[]> = {
-  // Weather Disasters
-  DROUGHT: ['water', 'food'], // Dry conditions reduce water availability and crop growth
-  FLOOD: ['food', 'wood'], // Waterlogged fields, damaged trees
-  BLIZZARD: ['food', 'water', 'wood', 'stone', 'ore'], // Freezing conditions halt all production
-  HURRICANE: ['food', 'water', 'wood'], // Coastal storms damage crops, water supply, forests
-  TORNADO: ['food', 'water', 'wood', 'stone'], // Localized destruction across multiple resources
-  SANDSTORM: ['stone', 'ore', 'food'], // Desert storms bury quarries and mines
-  HEATWAVE: ['water', 'food'], // Extreme heat dries water sources, wilts crops
+	// Weather Disasters
+	DROUGHT: ['water', 'food'], // Dry conditions reduce water availability and crop growth
+	FLOOD: ['food', 'wood'], // Waterlogged fields, damaged trees
+	BLIZZARD: ['food', 'water', 'wood', 'stone', 'ore'], // Freezing conditions halt all production
+	HURRICANE: ['food', 'water', 'wood'], // Coastal storms damage crops, water supply, forests
+	TORNADO: ['food', 'water', 'wood', 'stone'], // Localized destruction across multiple resources
+	SANDSTORM: ['stone', 'ore', 'food'], // Desert storms bury quarries and mines
+	HEATWAVE: ['water', 'food'], // Extreme heat dries water sources, wilts crops
 
-  // Geological Disasters
-  EARTHQUAKE: ['stone', 'ore', 'wood'], // Structural damage to quarries, mines, lumber mills
-  VOLCANO: ['food', 'water', 'wood', 'stone', 'ore'], // Ash and lava affect all production
-  LANDSLIDE: ['stone', 'wood', 'food'], // Debris blocks quarries and farms
-  AVALANCHE: ['stone', 'ore', 'wood'], // Mountain disasters bury mines and quarries
+	// Geological Disasters
+	EARTHQUAKE: ['stone', 'ore', 'wood'], // Structural damage to quarries, mines, lumber mills
+	VOLCANO: ['food', 'water', 'wood', 'stone', 'ore'], // Ash and lava affect all production
+	LANDSLIDE: ['stone', 'wood', 'food'], // Debris blocks quarries and farms
+	AVALANCHE: ['stone', 'ore', 'wood'], // Mountain disasters bury mines and quarries
 
-  // Environmental Disasters
-  WILDFIRE: ['wood', 'food'], // Burns forests and crops
-  INSECT_PLAGUE: ['food'], // Insects devour crops
-  BLIGHT: ['food'], // Plant disease kills crops
-  LOCUST_SWARM: ['food'], // Locusts consume all vegetation
+	// Environmental Disasters
+	WILDFIRE: ['wood', 'food'], // Burns forests and crops
+	INSECT_PLAGUE: ['food'], // Insects devour crops
+	BLIGHT: ['food'], // Plant disease kills crops
+	LOCUST_SWARM: ['food'], // Locusts consume all vegetation
 };
 
 /**
  * Disaster impact data for a single disaster
  */
 export interface DisasterImpact {
-  /** Type of disaster */
-  disasterType: DisasterType;
+	/** Type of disaster */
+	disasterType: DisasterType;
 
-  /** Severity level (maps to reduction percentage) */
-  severity: DisasterSeverity;
+	/** Severity level (maps to reduction percentage) */
+	severity: DisasterSeverity;
 
-  /** Affected resource types (optional override, defaults to DISASTER_RESOURCE_IMPACT map) */
-  affectedResources?: (keyof Resources)[];
+	/** Affected resource types (optional override, defaults to DISASTER_RESOURCE_IMPACT map) */
+	affectedResources?: (keyof Resources)[];
 }
 
 /**
@@ -132,11 +132,11 @@ export interface DisasterImpact {
  * - Advanced Greenhouse: 40% drought resistance
  */
 export interface DisasterResistance {
-  /** General disaster resistance (applies to all disaster types) */
-  general?: number;
+	/** General disaster resistance (applies to all disaster types) */
+	general?: number;
 
-  /** Specific disaster type resistances (overrides general) */
-  specific?: Partial<Record<DisasterType, number>>;
+	/** Specific disaster type resistances (overrides general) */
+	specific?: Partial<Record<DisasterType, number>>;
 }
 
 /**
@@ -165,54 +165,54 @@ export interface DisasterResistance {
  * @returns Production modifier (0.1 to 1.0) to multiply with base production
  */
 export function calculateDisasterModifier(
-  resourceType: keyof Resources,
-  disasters: DisasterImpact[],
-  resistance: DisasterResistance = {}
+	resourceType: keyof Resources,
+	disasters: DisasterImpact[],
+	resistance: DisasterResistance = {}
 ): number {
-  // No disasters = normal production
-  if (!disasters || disasters.length === 0) {
-    return 1;
-  }
+	// No disasters = normal production
+	if (!disasters || disasters.length === 0) {
+		return 1;
+	}
 
-  // Filter disasters that affect this resource
-  const relevantDisasters = disasters.filter((disaster) => {
-    const affectedResources =
-      disaster.affectedResources || DISASTER_RESOURCE_IMPACT[disaster.disasterType];
-    return affectedResources.includes(resourceType);
-  });
+	// Filter disasters that affect this resource
+	const relevantDisasters = disasters.filter((disaster) => {
+		const affectedResources =
+			disaster.affectedResources || DISASTER_RESOURCE_IMPACT[disaster.disasterType];
+		return affectedResources.includes(resourceType);
+	});
 
-  // No relevant disasters = normal production
-  if (relevantDisasters.length === 0) {
-    return 1;
-  }
+	// No relevant disasters = normal production
+	if (relevantDisasters.length === 0) {
+		return 1;
+	}
 
-  // Calculate compound impact (multiplicative stacking)
-  let finalModifier = 1;
+	// Calculate compound impact (multiplicative stacking)
+	let finalModifier = 1;
 
-  for (const disaster of relevantDisasters) {
-    // Get base impact percentage from severity
-    const baseImpact = SEVERITY_IMPACT_MAP[disaster.severity];
+	for (const disaster of relevantDisasters) {
+		// Get base impact percentage from severity
+		const baseImpact = SEVERITY_IMPACT_MAP[disaster.severity];
 
-    // Get resistance for this disaster type
-    const disasterResistance = getDisasterResistance(disaster.disasterType, resistance);
+		// Get resistance for this disaster type
+		const disasterResistance = getDisasterResistance(disaster.disasterType, resistance);
 
-    // Apply resistance (reduces impact)
-    // Formula: Reduced Impact = Base Impact × (1 - Resistance)
-    // Example: 60% impact with 30% resistance = 60% × 0.7 = 42% final impact
-    const reducedImpact = baseImpact * (1 - disasterResistance);
+		// Apply resistance (reduces impact)
+		// Formula: Reduced Impact = Base Impact × (1 - Resistance)
+		// Example: 60% impact with 30% resistance = 60% × 0.7 = 42% final impact
+		const reducedImpact = baseImpact * (1 - disasterResistance);
 
-    // Convert impact to modifier (1.0 = no impact, 0.0 = total destruction)
-    // Example: 42% impact → 0.58 modifier (58% of normal production)
-    const disasterModifier = 1 - reducedImpact;
+		// Convert impact to modifier (1.0 = no impact, 0.0 = total destruction)
+		// Example: 42% impact → 0.58 modifier (58% of normal production)
+		const disasterModifier = 1 - reducedImpact;
 
-    // Compound with previous disasters (multiplicative)
-    // Example: First disaster 0.6, second disaster 0.8 → 0.6 × 0.8 = 0.48
-    finalModifier *= disasterModifier;
-  }
+		// Compound with previous disasters (multiplicative)
+		// Example: First disaster 0.6, second disaster 0.8 → 0.6 × 0.8 = 0.48
+		finalModifier *= disasterModifier;
+	}
 
-  // Minimum modifier is 0.1 (10% production, never complete shutdown)
-  // This ensures some resources always trickle in for recovery
-  return Math.max(0.1, finalModifier);
+	// Minimum modifier is 0.1 (10% production, never complete shutdown)
+	// This ensures some resources always trickle in for recovery
+	return Math.max(0.1, finalModifier);
 }
 
 /**
@@ -228,19 +228,19 @@ export function calculateDisasterModifier(
  * @returns Resistance value (0.0 to 1.0, where 0.6 = 60% resistance)
  */
 function getDisasterResistance(disasterType: DisasterType, resistance: DisasterResistance): number {
-  // Check for specific resistance first
-  const specificResistance = resistance.specific?.[disasterType];
-  if (specificResistance !== undefined) {
-    return clampResistance(specificResistance);
-  }
+	// Check for specific resistance first
+	const specificResistance = resistance.specific?.[disasterType];
+	if (specificResistance !== undefined) {
+		return clampResistance(specificResistance);
+	}
 
-  // Fall back to general resistance
-  if (resistance.general !== undefined) {
-    return clampResistance(resistance.general);
-  }
+	// Fall back to general resistance
+	if (resistance.general !== undefined) {
+		return clampResistance(resistance.general);
+	}
 
-  // No resistance
-  return 0;
+	// No resistance
+	return 0;
 }
 
 /**
@@ -250,7 +250,7 @@ function getDisasterResistance(disasterType: DisasterType, resistance: DisasterR
  * @returns Clamped resistance (0.0 to 1.0)
  */
 function clampResistance(resistance: number): number {
-  return Math.max(0, Math.min(1, resistance));
+	return Math.max(0, Math.min(1, resistance));
 }
 
 /**
@@ -263,16 +263,16 @@ function clampResistance(resistance: number): number {
  * @returns Object with modifiers for each resource type
  */
 export function calculateAllDisasterModifiers(
-  disasters: DisasterImpact[],
-  resistance: DisasterResistance = {}
+	disasters: DisasterImpact[],
+	resistance: DisasterResistance = {}
 ): Resources {
-  return {
-    food: calculateDisasterModifier('food', disasters, resistance),
-    water: calculateDisasterModifier('water', disasters, resistance),
-    wood: calculateDisasterModifier('wood', disasters, resistance),
-    stone: calculateDisasterModifier('stone', disasters, resistance),
-    ore: calculateDisasterModifier('ore', disasters, resistance),
-  };
+	return {
+		food: calculateDisasterModifier('food', disasters, resistance),
+		water: calculateDisasterModifier('water', disasters, resistance),
+		wood: calculateDisasterModifier('wood', disasters, resistance),
+		stone: calculateDisasterModifier('stone', disasters, resistance),
+		ore: calculateDisasterModifier('ore', disasters, resistance),
+	};
 }
 
 /**
@@ -283,11 +283,11 @@ export function calculateAllDisasterModifiers(
  * @returns True if disaster affects this resource
  */
 export function doesDisasterAffectResource(
-  disasterType: DisasterType,
-  resourceType: keyof Resources
+	disasterType: DisasterType,
+	resourceType: keyof Resources
 ): boolean {
-  const affectedResources = DISASTER_RESOURCE_IMPACT[disasterType];
-  return affectedResources.includes(resourceType);
+	const affectedResources = DISASTER_RESOURCE_IMPACT[disasterType];
+	return affectedResources.includes(resourceType);
 }
 
 /**
@@ -297,7 +297,7 @@ export function doesDisasterAffectResource(
  * @returns Array of affected resource types
  */
 export function getAffectedResources(disasterType: DisasterType): (keyof Resources)[] {
-  return DISASTER_RESOURCE_IMPACT[disasterType];
+	return DISASTER_RESOURCE_IMPACT[disasterType];
 }
 
 /**
@@ -313,10 +313,10 @@ export function getAffectedResources(disasterType: DisasterType): (keyof Resourc
  * @returns Severity level enum
  */
 export function getSeverityLevel(severityValue: number): DisasterSeverity {
-  if (severityValue <= 25) return 'MILD';
-  if (severityValue <= 50) return 'MODERATE';
-  if (severityValue <= 75) return 'MAJOR';
-  return 'CATASTROPHIC';
+	if (severityValue <= 25) return 'MILD';
+	if (severityValue <= 50) return 'MODERATE';
+	if (severityValue <= 75) return 'MAJOR';
+	return 'CATASTROPHIC';
 }
 
 /**
@@ -327,19 +327,19 @@ export function getSeverityLevel(severityValue: number): DisasterSeverity {
  * @returns Description string (e.g., "Drought (MAJOR) reducing water production by 42%")
  */
 export function getDisasterDescription(
-  disaster: DisasterImpact,
-  resistance: DisasterResistance = {}
+	disaster: DisasterImpact,
+	resistance: DisasterResistance = {}
 ): string {
-  const affectedResources =
-    disaster.affectedResources || DISASTER_RESOURCE_IMPACT[disaster.disasterType];
-  const baseImpact = SEVERITY_IMPACT_MAP[disaster.severity];
+	const affectedResources =
+		disaster.affectedResources || DISASTER_RESOURCE_IMPACT[disaster.disasterType];
+	const baseImpact = SEVERITY_IMPACT_MAP[disaster.severity];
 
-  // Calculate average impact across affected resources
-  const disasterResistance = getDisasterResistance(disaster.disasterType, resistance);
-  const reducedImpact = baseImpact * (1 - disasterResistance);
-  const impactPercentage = Math.round(reducedImpact * 100);
+	// Calculate average impact across affected resources
+	const disasterResistance = getDisasterResistance(disaster.disasterType, resistance);
+	const reducedImpact = baseImpact * (1 - disasterResistance);
+	const impactPercentage = Math.round(reducedImpact * 100);
 
-  const resourceList = affectedResources.join(', ');
+	const resourceList = affectedResources.join(', ');
 
-  return `${disaster.disasterType} (${disaster.severity}) reducing ${resourceList} production by ${impactPercentage}%`;
+	return `${disaster.disasterType} (${disaster.severity}) reducing ${resourceList} production by ${impactPercentage}%`;
 }

@@ -14,10 +14,10 @@ import { db } from '../../../src/db/index.js';
 import { settlementStructures } from '../../../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { calculateProduction } from '../../../src/game/resource-calculator.js';
-import { 
-	createTestSettlementWithStructure, 
+import {
+	createTestSettlementWithStructure,
 	cleanupTestChain,
-	type TestEntityChain 
+	type TestEntityChain,
 } from '../../helpers/integration-test-factory.js';
 
 describe('Damage → Production Chain Integration', () => {

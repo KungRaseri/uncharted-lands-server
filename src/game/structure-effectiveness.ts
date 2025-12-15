@@ -25,18 +25,18 @@ export type HealthColor = 'green' | 'yellow' | 'orange' | 'red' | 'gray';
  * Health breakpoint defining health range and corresponding effectiveness
  */
 interface HealthBreakpoint {
-  /** Minimum health for this breakpoint (inclusive) */
-  minHealth: number;
-  /** Maximum health for this breakpoint (inclusive) */
-  maxHealth: number;
-  /** Effectiveness multiplier at minimum health */
-  minEffectiveness: number;
-  /** Effectiveness multiplier at maximum health */
-  maxEffectiveness: number;
-  /** Human-readable label for this health state */
-  label: string;
-  /** Color code for UI display */
-  color: HealthColor;
+	/** Minimum health for this breakpoint (inclusive) */
+	minHealth: number;
+	/** Maximum health for this breakpoint (inclusive) */
+	maxHealth: number;
+	/** Effectiveness multiplier at minimum health */
+	minEffectiveness: number;
+	/** Effectiveness multiplier at maximum health */
+	maxEffectiveness: number;
+	/** Human-readable label for this health state */
+	label: string;
+	/** Color code for UI display */
+	color: HealthColor;
 }
 
 /**
@@ -44,62 +44,62 @@ interface HealthBreakpoint {
  * Must be sorted by minHealth ascending for binary search
  */
 const HEALTH_BREAKPOINTS: HealthBreakpoint[] = [
-  {
-    minHealth: 0,
-    maxHealth: 0,
-    minEffectiveness: 0,
-    maxEffectiveness: 0,
-    label: 'Destroyed',
-    color: 'gray',
-  },
-  {
-    minHealth: 1,
-    maxHealth: 19,
-    minEffectiveness: 0.1,
-    maxEffectiveness: 0.1,
-    label: 'Critical',
-    color: 'red',
-  },
-  {
-    minHealth: 20,
-    maxHealth: 39,
-    minEffectiveness: 0.5,
-    maxEffectiveness: 0.5,
-    label: 'Poor Condition',
-    color: 'red',
-  },
-  {
-    minHealth: 40,
-    maxHealth: 59,
-    minEffectiveness: 0.7,
-    maxEffectiveness: 0.7,
-    label: 'Damaged',
-    color: 'orange',
-  },
-  {
-    minHealth: 60,
-    maxHealth: 79,
-    minEffectiveness: 0.85,
-    maxEffectiveness: 0.85,
-    label: 'Good Condition',
-    color: 'yellow',
-  },
-  {
-    minHealth: 80,
-    maxHealth: 94,
-    minEffectiveness: 0.95,
-    maxEffectiveness: 0.95,
-    label: 'Excellent Condition',
-    color: 'green',
-  },
-  {
-    minHealth: 95,
-    maxHealth: 100,
-    minEffectiveness: 1,
-    maxEffectiveness: 1,
-    label: 'Pristine',
-    color: 'green',
-  },
+	{
+		minHealth: 0,
+		maxHealth: 0,
+		minEffectiveness: 0,
+		maxEffectiveness: 0,
+		label: 'Destroyed',
+		color: 'gray',
+	},
+	{
+		minHealth: 1,
+		maxHealth: 19,
+		minEffectiveness: 0.1,
+		maxEffectiveness: 0.1,
+		label: 'Critical',
+		color: 'red',
+	},
+	{
+		minHealth: 20,
+		maxHealth: 39,
+		minEffectiveness: 0.5,
+		maxEffectiveness: 0.5,
+		label: 'Poor Condition',
+		color: 'red',
+	},
+	{
+		minHealth: 40,
+		maxHealth: 59,
+		minEffectiveness: 0.7,
+		maxEffectiveness: 0.7,
+		label: 'Damaged',
+		color: 'orange',
+	},
+	{
+		minHealth: 60,
+		maxHealth: 79,
+		minEffectiveness: 0.85,
+		maxEffectiveness: 0.85,
+		label: 'Good Condition',
+		color: 'yellow',
+	},
+	{
+		minHealth: 80,
+		maxHealth: 94,
+		minEffectiveness: 0.95,
+		maxEffectiveness: 0.95,
+		label: 'Excellent Condition',
+		color: 'green',
+	},
+	{
+		minHealth: 95,
+		maxHealth: 100,
+		minEffectiveness: 1,
+		maxEffectiveness: 1,
+		label: 'Pristine',
+		color: 'green',
+	},
 ];
 
 /**
@@ -121,40 +121,40 @@ const HEALTH_BREAKPOINTS: HealthBreakpoint[] = [
  * ```
  */
 export function getEffectiveness(health: number | null | undefined): number {
-  // Handle null/undefined as full health
-  if (health === null || health === undefined) {
-    return 1;
-  }
+	// Handle null/undefined as full health
+	if (health === null || health === undefined) {
+		return 1;
+	}
 
-  // Clamp health to valid range [0, 100]
-  const clampedHealth = Math.max(0, Math.min(100, health));
+	// Clamp health to valid range [0, 100]
+	const clampedHealth = Math.max(0, Math.min(100, health));
 
-  // Find the breakpoint that contains this health value
-  for (const breakpoint of HEALTH_BREAKPOINTS) {
-    if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
-      // For single-value ranges (min === max), return exact effectiveness
-      if (breakpoint.minHealth === breakpoint.maxHealth) {
-        return breakpoint.minEffectiveness;
-      }
+	// Find the breakpoint that contains this health value
+	for (const breakpoint of HEALTH_BREAKPOINTS) {
+		if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
+			// For single-value ranges (min === max), return exact effectiveness
+			if (breakpoint.minHealth === breakpoint.maxHealth) {
+				return breakpoint.minEffectiveness;
+			}
 
-      // For ranges, check if effectiveness is constant
-      if (breakpoint.minEffectiveness === breakpoint.maxEffectiveness) {
-        return breakpoint.minEffectiveness;
-      }
+			// For ranges, check if effectiveness is constant
+			if (breakpoint.minEffectiveness === breakpoint.maxEffectiveness) {
+				return breakpoint.minEffectiveness;
+			}
 
-      // Linear interpolation between min and max effectiveness
-      const healthRange = breakpoint.maxHealth - breakpoint.minHealth;
-      const effectivenessRange = breakpoint.maxEffectiveness - breakpoint.minEffectiveness;
-      const healthOffset = clampedHealth - breakpoint.minHealth;
-      const ratio = healthOffset / healthRange;
+			// Linear interpolation between min and max effectiveness
+			const healthRange = breakpoint.maxHealth - breakpoint.minHealth;
+			const effectivenessRange = breakpoint.maxEffectiveness - breakpoint.minEffectiveness;
+			const healthOffset = clampedHealth - breakpoint.minHealth;
+			const ratio = healthOffset / healthRange;
 
-      return breakpoint.minEffectiveness + ratio * effectivenessRange;
-    }
-  }
+			return breakpoint.minEffectiveness + ratio * effectivenessRange;
+		}
+	}
 
-  // Should never reach here if breakpoints are correctly defined
-  // Fallback to 0 effectiveness for safety
-  return 0;
+	// Should never reach here if breakpoints are correctly defined
+	// Fallback to 0 effectiveness for safety
+	return 0;
 }
 
 /**
@@ -172,23 +172,23 @@ export function getEffectiveness(health: number | null | undefined): number {
  * ```
  */
 export function getEffectivenessLabel(health: number | null | undefined): string {
-  // Handle null/undefined as full health
-  if (health === null || health === undefined) {
-    return 'Pristine';
-  }
+	// Handle null/undefined as full health
+	if (health === null || health === undefined) {
+		return 'Pristine';
+	}
 
-  // Clamp health to valid range
-  const clampedHealth = Math.max(0, Math.min(100, health));
+	// Clamp health to valid range
+	const clampedHealth = Math.max(0, Math.min(100, health));
 
-  // Find matching breakpoint
-  for (const breakpoint of HEALTH_BREAKPOINTS) {
-    if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
-      return breakpoint.label;
-    }
-  }
+	// Find matching breakpoint
+	for (const breakpoint of HEALTH_BREAKPOINTS) {
+		if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
+			return breakpoint.label;
+		}
+	}
 
-  // Fallback (should never happen)
-  return 'Unknown';
+	// Fallback (should never happen)
+	return 'Unknown';
 }
 
 /**
@@ -206,23 +206,23 @@ export function getEffectivenessLabel(health: number | null | undefined): string
  * ```
  */
 export function getHealthColor(health: number | null | undefined): HealthColor {
-  // Handle null/undefined as full health
-  if (health === null || health === undefined) {
-    return 'green';
-  }
+	// Handle null/undefined as full health
+	if (health === null || health === undefined) {
+		return 'green';
+	}
 
-  // Clamp health to valid range
-  const clampedHealth = Math.max(0, Math.min(100, health));
+	// Clamp health to valid range
+	const clampedHealth = Math.max(0, Math.min(100, health));
 
-  // Find matching breakpoint
-  for (const breakpoint of HEALTH_BREAKPOINTS) {
-    if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
-      return breakpoint.color;
-    }
-  }
+	// Find matching breakpoint
+	for (const breakpoint of HEALTH_BREAKPOINTS) {
+		if (clampedHealth >= breakpoint.minHealth && clampedHealth <= breakpoint.maxHealth) {
+			return breakpoint.color;
+		}
+	}
 
-  // Fallback (should never happen)
-  return 'gray';
+	// Fallback (should never happen)
+	return 'gray';
 }
 
 /**
@@ -244,23 +244,23 @@ export function getHealthColor(health: number | null | undefined): HealthColor {
  * ```
  */
 export function getEffectivenessInfo(health: number | null | undefined): {
-  health: number;
-  effectiveness: number;
-  label: string;
-  color: HealthColor;
-  productionPenalty: number;
+	health: number;
+	effectiveness: number;
+	label: string;
+	color: HealthColor;
+	productionPenalty: number;
 } {
-  const actualHealth = health ?? 100;
-  const effectiveness = getEffectiveness(health);
-  const label = getEffectivenessLabel(health);
-  const color = getHealthColor(health);
-  const productionPenalty = Math.round((1 - effectiveness) * 100);
+	const actualHealth = health ?? 100;
+	const effectiveness = getEffectiveness(health);
+	const label = getEffectivenessLabel(health);
+	const color = getHealthColor(health);
+	const productionPenalty = Math.round((1 - effectiveness) * 100);
 
-  return {
-    health: actualHealth,
-    effectiveness,
-    label,
-    color,
-    productionPenalty,
-  };
+	return {
+		health: actualHealth,
+		effectiveness,
+		label,
+		color,
+		productionPenalty,
+	};
 }

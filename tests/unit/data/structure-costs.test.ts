@@ -1,8 +1,8 @@
 /**
  * Structure Costs Configuration Tests
- * 
+ *
  * Validates that structure-costs.ts is complete and matches GDD specifications.
- * 
+ *
  * Test Categories:
  * 1. Completeness Tests - All GDD structures are defined
  * 2. Format Tests - All cost entries have required fields
@@ -14,7 +14,7 @@ import { describe, test, expect } from 'vitest';
 import {
 	STRUCTURE_COSTS,
 	getStructureCostByName,
-	isValidStructure
+	isValidStructure,
 } from '../../../src/data/structure-costs';
 
 describe('Structure Costs Configuration', () => {
@@ -31,7 +31,7 @@ describe('Structure Costs Configuration', () => {
 				'WAREHOUSE',
 				'WORKSHOP',
 				'MARKETPLACE',
-				'TOWN_HALL'
+				'TOWN_HALL',
 			];
 
 			for (const structureName of requiredStructures) {
@@ -78,10 +78,7 @@ describe('Structure Costs Configuration', () => {
 				const costs = structure.costs;
 
 				for (const [resource, amount] of Object.entries(costs)) {
-					expect(
-						amount,
-						`${structure.id} ${resource} cost should be positive`
-					).toBeGreaterThan(0);
+					expect(amount, `${structure.id} ${resource} cost should be positive`).toBeGreaterThan(0);
 					expect(
 						Number.isInteger(amount),
 						`${structure.id} ${resource} cost should be an integer`
@@ -97,10 +94,7 @@ describe('Structure Costs Configuration', () => {
 				const costKeys = Object.keys(structure.costs);
 
 				for (const key of costKeys) {
-					expect(
-						validResources,
-						`${structure.id} has invalid resource: ${key}`
-					).toContain(key);
+					expect(validResources, `${structure.id} has invalid resource: ${key}`).toContain(key);
 				}
 			}
 		});
@@ -114,7 +108,7 @@ describe('Structure Costs Configuration', () => {
 			expect(tent).toMatchObject({
 				id: 'TENT',
 				name: 'TENT',
-				costs: { wood: 10 }
+				costs: { wood: 10 },
 			});
 		});
 
@@ -124,7 +118,7 @@ describe('Structure Costs Configuration', () => {
 			expect(farm).toMatchObject({
 				id: 'FARM',
 				name: 'FARM',
-				costs: { wood: 20, stone: 10 }
+				costs: { wood: 20, stone: 10 },
 			});
 		});
 
@@ -134,7 +128,7 @@ describe('Structure Costs Configuration', () => {
 			expect(mill).toMatchObject({
 				id: 'LUMBER_MILL',
 				name: 'LUMBER_MILL',
-				costs: { wood: 20, stone: 10 }
+				costs: { wood: 20, stone: 10 },
 			});
 		});
 
@@ -144,7 +138,7 @@ describe('Structure Costs Configuration', () => {
 			expect(quarry).toMatchObject({
 				id: 'QUARRY',
 				name: 'QUARRY',
-				costs: { wood: 20, stone: 10 }
+				costs: { wood: 20, stone: 10 },
 			});
 		});
 
@@ -154,7 +148,7 @@ describe('Structure Costs Configuration', () => {
 			expect(mine).toMatchObject({
 				id: 'MINE',
 				name: 'MINE',
-				costs: { wood: 30, stone: 20 }
+				costs: { wood: 30, stone: 20 },
 			});
 		});
 
@@ -164,7 +158,7 @@ describe('Structure Costs Configuration', () => {
 			expect(house).toMatchObject({
 				id: 'HOUSE',
 				name: 'HOUSE',
-				costs: { wood: 50, stone: 20 }
+				costs: { wood: 50, stone: 20 },
 			});
 		});
 
@@ -174,7 +168,7 @@ describe('Structure Costs Configuration', () => {
 			expect(warehouse).toMatchObject({
 				id: 'WAREHOUSE',
 				name: 'WAREHOUSE',
-				costs: { wood: 40, stone: 20 }
+				costs: { wood: 40, stone: 20 },
 			});
 		});
 
@@ -184,7 +178,7 @@ describe('Structure Costs Configuration', () => {
 			expect(workshop).toMatchObject({
 				id: 'WORKSHOP',
 				name: 'WORKSHOP',
-				costs: { wood: 60, stone: 60, ore: 30 }
+				costs: { wood: 60, stone: 60, ore: 30 },
 			});
 		});
 
@@ -194,7 +188,7 @@ describe('Structure Costs Configuration', () => {
 			expect(marketplace).toMatchObject({
 				id: 'MARKETPLACE',
 				name: 'MARKETPLACE',
-				costs: { wood: 120, stone: 80 }
+				costs: { wood: 120, stone: 80 },
 			});
 		});
 
@@ -204,7 +198,7 @@ describe('Structure Costs Configuration', () => {
 			expect(townHall).toMatchObject({
 				id: 'TOWN_HALL',
 				name: 'TOWN_HALL',
-				costs: { wood: 200, stone: 150, ore: 50 }
+				costs: { wood: 200, stone: 150, ore: 50 },
 			});
 		});
 	});

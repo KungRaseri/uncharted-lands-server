@@ -10,15 +10,15 @@
  */
 
 import {
-  type ScalingFormula,
-  type StructureModifierConfig,
-  getStructureModifierConfig,
-  hasModifiers,
+	type ScalingFormula,
+	type StructureModifierConfig,
+	getStructureModifierConfig,
+	hasModifiers,
 } from '../config/structure-modifiers.js';
 import {
-  type StructurePrerequisiteDefinition,
-  getStructurePrerequisites,
-  hasPrerequisites,
+	type StructurePrerequisiteDefinition,
+	getStructurePrerequisites,
+	hasPrerequisites,
 } from '../data/structure-prerequisites.js';
 import { db } from '../db/index.js';
 import { structures, settlementStructures } from '../db/schema.js';
@@ -28,48 +28,48 @@ import { eq, and } from 'drizzle-orm';
  * Calculated modifier result
  */
 export interface CalculatedModifier {
-  type: string; // e.g., 'FOOD_PRODUCTION'
-  name: string; // e.g., 'Food Production'
-  description: string; // Human-readable description
-  value: number; // Calculated value at current level
+	type: string; // e.g., 'FOOD_PRODUCTION'
+	name: string; // e.g., 'Food Production'
+	description: string; // Human-readable description
+	value: number; // Calculated value at current level
 }
 
 /**
  * Prerequisite validation result
  */
 export interface PrerequisiteValidationResult {
-  isValid: boolean;
-  missing: Array<{
-    structureName: string;
-    requiredLevel: number;
-    currentLevel?: number; // undefined if structure doesn't exist
-  }>;
+	isValid: boolean;
+	missing: Array<{
+		structureName: string;
+		requiredLevel: number;
+		currentLevel?: number; // undefined if structure doesn't exist
+	}>;
 }
 
 /**
  * Scaling formula implementations
  */
 const SCALING_FORMULAS: Record<ScalingFormula, (base: number, level: number) => number> = {
-  /**
-   * LINEAR: Steady growth per level
-   * Formula: base × level
-   * Example: Level 1 = 10, Level 2 = 20, Level 5 = 50
-   */
-  LINEAR: (base: number, level: number) => base * level,
+	/**
+	 * LINEAR: Steady growth per level
+	 * Formula: base × level
+	 * Example: Level 1 = 10, Level 2 = 20, Level 5 = 50
+	 */
+	LINEAR: (base: number, level: number) => base * level,
 
-  /**
-   * EXPONENTIAL: Accelerating growth per level
-   * Formula: base × 1.5^(level-1)
-   * Example: Level 1 = 10, Level 2 = 15, Level 5 = 50.6
-   */
-  EXPONENTIAL: (base: number, level: number) => base * Math.pow(1.5, level - 1),
+	/**
+	 * EXPONENTIAL: Accelerating growth per level
+	 * Formula: base × 1.5^(level-1)
+	 * Example: Level 1 = 10, Level 2 = 15, Level 5 = 50.6
+	 */
+	EXPONENTIAL: (base: number, level: number) => base * Math.pow(1.5, level - 1),
 
-  /**
-   * DIMINISHING: Diminishing returns per level
-   * Formula: base × (1 + log2(level + 1))
-   * Example: Level 1 = 10, Level 2 = 15.8, Level 5 = 28.6
-   */
-  DIMINISHING: (base: number, level: number) => base * (1 + Math.log2(level + 1)),
+	/**
+	 * DIMINISHING: Diminishing returns per level
+	 * Formula: base × (1 + log2(level + 1))
+	 * Example: Level 1 = 10, Level 2 = 15.8, Level 5 = 28.6
+	 */
+	DIMINISHING: (base: number, level: number) => base * (1 + Math.log2(level + 1)),
 };
 
 /**
@@ -80,9 +80,9 @@ const SCALING_FORMULAS: Record<ScalingFormula, (base: number, level: number) => 
  * @returns Calculated value (rounded to 2 decimals)
  */
 export function calculateModifierValue(config: StructureModifierConfig, level: number): number {
-  const formula = SCALING_FORMULAS[config.formula];
-  const rawValue = formula(config.baseValue, level);
-  return Math.round(rawValue * 100) / 100; // Round to 2 decimals
+	const formula = SCALING_FORMULAS[config.formula];
+	const rawValue = formula(config.baseValue, level);
+	return Math.round(rawValue * 100) / 100; // Round to 2 decimals
 }
 
 /**
@@ -107,19 +107,19 @@ export function calculateModifierValue(config: StructureModifierConfig, level: n
  * ```
  */
 export function calculateStructureModifiers(
-  structureName: string,
-  level: number
+	structureName: string,
+	level: number
 ): CalculatedModifier[] {
-  // Get modifier configs for this structure
-  const configs = getStructureModifierConfig(structureName);
+	// Get modifier configs for this structure
+	const configs = getStructureModifierConfig(structureName);
 
-  // Calculate each modifier's value at the given level
-  return configs.map((config) => ({
-    type: config.type,
-    name: config.name,
-    description: config.description,
-    value: calculateModifierValue(config, level),
-  }));
+	// Calculate each modifier's value at the given level
+	return configs.map((config) => ({
+		type: config.type,
+		name: config.name,
+		description: config.description,
+		value: calculateModifierValue(config, level),
+	}));
 }
 
 /**
@@ -144,54 +144,54 @@ export function calculateStructureModifiers(
  * ```
  */
 export async function validatePrerequisites(
-  dbInstance: typeof db,
-  structureName: string,
-  settlementId: string
+	dbInstance: typeof db,
+	structureName: string,
+	settlementId: string
 ): Promise<PrerequisiteValidationResult> {
-  // Get prerequisite definitions from config
-  const prerequisites = getStructurePrerequisites(structureName);
+	// Get prerequisite definitions from config
+	const prerequisites = getStructurePrerequisites(structureName);
 
-  // No prerequisites = always valid
-  if (prerequisites.length === 0) {
-    return { isValid: true, missing: [] };
-  }
+	// No prerequisites = always valid
+	if (prerequisites.length === 0) {
+		return { isValid: true, missing: [] };
+	}
 
-  const missing: PrerequisiteValidationResult['missing'] = [];
+	const missing: PrerequisiteValidationResult['missing'] = [];
 
-  // Check each prerequisite
-  for (const prereq of prerequisites) {
-    // Look up required structure by NAME in structures table
-    const requiredStructureDefinition = await dbInstance.query.structures.findFirst({
-      where: eq(structures.name, prereq.requiredStructureName),
-    });
+	// Check each prerequisite
+	for (const prereq of prerequisites) {
+		// Look up required structure by NAME in structures table
+		const requiredStructureDefinition = await dbInstance.query.structures.findFirst({
+			where: eq(structures.name, prereq.requiredStructureName),
+		});
 
-    if (!requiredStructureDefinition) {
-      // Structure definition doesn't exist (shouldn't happen)
-      throw new Error(`Required structure definition not found: ${prereq.requiredStructureName}`);
-    }
+		if (!requiredStructureDefinition) {
+			// Structure definition doesn't exist (shouldn't happen)
+			throw new Error(`Required structure definition not found: ${prereq.requiredStructureName}`);
+		}
 
-    // Check if settlement has this structure
-    const settlementStructure = await dbInstance.query.settlementStructures.findFirst({
-      where: and(
-        eq(settlementStructures.settlementId, settlementId),
-        eq(settlementStructures.structureId, requiredStructureDefinition.id)
-      ),
-    });
+		// Check if settlement has this structure
+		const settlementStructure = await dbInstance.query.settlementStructures.findFirst({
+			where: and(
+				eq(settlementStructures.settlementId, settlementId),
+				eq(settlementStructures.structureId, requiredStructureDefinition.id)
+			),
+		});
 
-    // Check if prerequisite is satisfied
-    if (!settlementStructure || settlementStructure.level < prereq.requiredLevel) {
-      missing.push({
-        structureName: prereq.requiredStructureName,
-        requiredLevel: prereq.requiredLevel,
-        currentLevel: settlementStructure?.level, // undefined if doesn't exist
-      });
-    }
-  }
+		// Check if prerequisite is satisfied
+		if (!settlementStructure || settlementStructure.level < prereq.requiredLevel) {
+			missing.push({
+				structureName: prereq.requiredStructureName,
+				requiredLevel: prereq.requiredLevel,
+				currentLevel: settlementStructure?.level, // undefined if doesn't exist
+			});
+		}
+	}
 
-  return {
-    isValid: missing.length === 0,
-    missing,
-  };
+	return {
+		isValid: missing.length === 0,
+		missing,
+	};
 }
 
 /**
@@ -211,9 +211,9 @@ export async function validatePrerequisites(
  * ```
  */
 export function getPrerequisitesForStructure(
-  structureName: string
+	structureName: string
 ): StructurePrerequisiteDefinition[] {
-  return getStructurePrerequisites(structureName);
+	return getStructurePrerequisites(structureName);
 }
 
 /**
@@ -223,7 +223,7 @@ export function getPrerequisitesForStructure(
  * @returns True if structure has modifier configurations
  */
 export function structureHasModifiers(structureName: string): boolean {
-  return hasModifiers(structureName);
+	return hasModifiers(structureName);
 }
 
 /**
@@ -233,5 +233,5 @@ export function structureHasModifiers(structureName: string): boolean {
  * @returns True if structure has prerequisite requirements
  */
 export function structureHasPrerequisites(structureName: string): boolean {
-  return hasPrerequisites(structureName);
+	return hasPrerequisites(structureName);
 }

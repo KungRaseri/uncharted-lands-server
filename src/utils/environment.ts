@@ -15,7 +15,7 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
  * Includes: 'development', 'test', 'e2e'
  */
 export const isDevelopment =
-  NODE_ENV === 'development' || NODE_ENV === 'test' || NODE_ENV === 'e2e';
+	NODE_ENV === 'development' || NODE_ENV === 'test' || NODE_ENV === 'e2e';
 
 /**
  * Is the server running in local development mode specifically?
@@ -71,44 +71,44 @@ export const enableDatabaseLogging = NODE_ENV === 'development';
  * Get a human-readable environment name
  */
 export function getEnvironmentName(): string {
-  switch (NODE_ENV) {
-    case 'production':
-      return 'Production';
-    case 'development':
-      return 'Development';
-    case 'test':
-      return 'Unit Test';
-    case 'e2e':
-      return 'E2E Test';
-    default:
-      return NODE_ENV;
-  }
+	switch (NODE_ENV) {
+		case 'production':
+			return 'Production';
+		case 'development':
+			return 'Development';
+		case 'test':
+			return 'Unit Test';
+		case 'e2e':
+			return 'E2E Test';
+		default:
+			return NODE_ENV;
+	}
 }
 
 /**
  * Log current environment info (useful for startup)
  */
 export function logEnvironmentInfo(logger?: {
-  info: (msg: string, meta?: Record<string, unknown>) => void;
+	info: (msg: string, meta?: Record<string, unknown>) => void;
 }) {
-  const info = {
-    environment: getEnvironmentName(),
-    nodeEnv: NODE_ENV,
-    isDevelopment,
-    isProduction,
-    isTest,
-    isE2E,
-    verboseLogging: isVerboseLogging,
-    strictRateLimiting: isStrictRateLimiting,
-    debugEndpoints: allowDebugEndpoints,
-    databaseLogging: enableDatabaseLogging,
-  };
+	const info = {
+		environment: getEnvironmentName(),
+		nodeEnv: NODE_ENV,
+		isDevelopment,
+		isProduction,
+		isTest,
+		isE2E,
+		verboseLogging: isVerboseLogging,
+		strictRateLimiting: isStrictRateLimiting,
+		debugEndpoints: allowDebugEndpoints,
+		databaseLogging: enableDatabaseLogging,
+	};
 
-  if (logger) {
-    logger.info('[ENVIRONMENT] Configuration loaded', info);
-  } else {
-    console.log('[ENVIRONMENT] Configuration:', info);
-  }
+	if (logger) {
+		logger.info('[ENVIRONMENT] Configuration loaded', info);
+	} else {
+		console.log('[ENVIRONMENT] Configuration:', info);
+	}
 
-  return info;
+	return info;
 }

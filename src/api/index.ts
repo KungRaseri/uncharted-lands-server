@@ -22,31 +22,31 @@ const router = Router();
 
 // Request logging middleware
 router.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
+	const start = Date.now();
 
-  // Log request
-  logger.debug('[API] → Request', {
-    method: req.method,
-    path: req.path,
-    query: Object.keys(req.query).length > 0 ? req.query : undefined,
-    ip: req.ip,
-  });
+	// Log request
+	logger.debug('[API] → Request', {
+		method: req.method,
+		path: req.path,
+		query: Object.keys(req.query).length > 0 ? req.query : undefined,
+		ip: req.ip,
+	});
 
-  // Log response when finished
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    const level = res.statusCode >= 400 ? 'warn' : 'debug';
+	// Log response when finished
+	res.on('finish', () => {
+		const duration = Date.now() - start;
+		const level = res.statusCode >= 400 ? 'warn' : 'debug';
 
-    logger[level]('[API] ← Response', {
-      method: req.method,
-      path: req.path,
-      status: res.statusCode,
-      durationMs: duration,
-      durationFormatted: `${duration}ms`,
-    });
-  });
+		logger[level]('[API] ← Response', {
+			method: req.method,
+			path: req.path,
+			status: res.statusCode,
+			durationMs: duration,
+			durationFormatted: `${duration}ms`,
+		});
+	});
 
-  next();
+	next();
 });
 
 // Mount route handlers
@@ -64,11 +64,11 @@ router.use('/test', testHelpersRouter); // Test cleanup endpoints (test/dev only
 
 // Health check for API
 router.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    api: 'REST API v1',
-    timestamp: new Date().toISOString(),
-  });
+	res.json({
+		status: 'healthy',
+		api: 'REST API v1',
+		timestamp: new Date().toISOString(),
+	});
 });
 
 export default router;

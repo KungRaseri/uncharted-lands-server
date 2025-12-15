@@ -17,7 +17,10 @@ import type {
 	SocketData,
 } from '../../src/types/socket-events.js';
 import { registerEventHandlers } from '../../src/events/handlers.js';
-import { loggingMiddleware, errorHandlingMiddleware } from '../../src/middleware/socket-middleware.js';
+import {
+	loggingMiddleware,
+	errorHandlingMiddleware,
+} from '../../src/middleware/socket-middleware.js';
 
 /**
  * Test-only authentication middleware

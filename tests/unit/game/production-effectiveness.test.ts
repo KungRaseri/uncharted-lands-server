@@ -72,7 +72,7 @@ describe('Production Effectiveness Integration (Part 6.7)', () => {
 			const production = calculateProduction(
 				tile,
 				[extractor],
-				1, // 1 tick
+				1 // 1 tick
 			);
 
 			// BaseRate (0.01) × TileFood (100) × BiomeEff (1) × Level (1) × Effectiveness (1) × Ticks (1) × WorldMultiplier (1)
@@ -156,22 +156,23 @@ describe('Production Effectiveness Integration (Part 6.7)', () => {
 
 	describe('Multiple Extractors with Different Health Levels', () => {
 		test('should use highest-level extractor only (implementation changed to Highest-Level-Wins)', () => {
-		const tile = createMockTile();
-		const extractors: StructureWithInfo[] = [
-			createFarmExtractor(100), // 1.0 × 1.0 = 1.0
-			createFarmExtractor(60), // 1.0 × 0.85 = 0.85 (not used)
-			createFarmExtractor(20), // 1.0 × 0.5 = 0.5 (not used)
-		];
+			const tile = createMockTile();
+			const extractors: StructureWithInfo[] = [
+				createFarmExtractor(100), // 1.0 × 1.0 = 1.0
+				createFarmExtractor(60), // 1.0 × 0.85 = 0.85 (not used)
+				createFarmExtractor(20), // 1.0 × 0.5 = 0.5 (not used)
+			];
 
-		const production = calculateProduction(tile, extractors, 1);
+			const production = calculateProduction(tile, extractors, 1);
 
-		// Implementation uses "Highest-Level-Wins" logic (see resource-calculator.ts line 213-225)
-		// When multiple extractors of same type exist, only the one with highest level is used
-		// All three farms are level 1, so it picks the first one (100% health)
-		// Expected: Only the 100% health farm produces: 1.0
-		expect(production.food).toBeCloseTo(1, 5);
+			// Implementation uses "Highest-Level-Wins" logic (see resource-calculator.ts line 213-225)
+			// When multiple extractors of same type exist, only the one with highest level is used
+			// All three farms are level 1, so it picks the first one (100% health)
+			// Expected: Only the 100% health farm produces: 1.0
+			expect(production.food).toBeCloseTo(1, 5);
+		});
 	});
-});	describe('Edge Cases & Real-World Scenarios', () => {
+	describe('Edge Cases & Real-World Scenarios', () => {
 		test('farm at 54% health produces correct amount', () => {
 			const tile = createMockTile();
 			const extractor = createFarmExtractor(54);
@@ -183,40 +184,42 @@ describe('Production Effectiveness Integration (Part 6.7)', () => {
 			expect(production.food).toBeCloseTo(0.7, 5);
 		});
 
-	test('multiple resource types with same health', () => {
-		const tile = createMockTile();
-		const farm = createFarmExtractor(60); // 85% effectiveness
-		const lumberMill: StructureWithInfo = {
-			...createFarmExtractor(60),
-			id: 'extractor-lumber',
-			structureId: 'structure-lumber',
-			extractorType: 'LUMBER_MILL',
-		};
+		test('multiple resource types with same health', () => {
+			const tile = createMockTile();
+			const farm = createFarmExtractor(60); // 85% effectiveness
+			const lumberMill: StructureWithInfo = {
+				...createFarmExtractor(60),
+				id: 'extractor-lumber',
+				structureId: 'structure-lumber',
+				extractorType: 'LUMBER_MILL',
+			};
 
-		const production = calculateProduction(tile, [farm, lumberMill], 1);
+			const production = calculateProduction(tile, [farm, lumberMill], 1);
 
-		// Both extractors use same tile quality and tier multiplier (5x)
-		// Food (FARM): base (same tile) × tier (5) × effectiveness (0.85) × ticks (1) = 0.85
-		// Wood (LUMBER_MILL): base (same tile) × tier (5) × effectiveness (0.85) × ticks (1) = 0.255 (woodQuality is 30)
-		// Implementation does NOT have per-extractor base rates - uses tile quality
-		expect(production.food).toBeCloseTo(0.85, 5);
-		expect(production.wood).toBeCloseTo(0.255, 5); // 30% quality = 0.3 × 0.85 effectiveness
-	});	test('health changes over time affect production proportionally', () => {
-		const tile = createMockTile();
-		const extractor = createFarmExtractor(100);
+			// Both extractors use same tile quality and tier multiplier (5x)
+			// Food (FARM): base (same tile) × tier (5) × effectiveness (0.85) × ticks (1) = 0.85
+			// Wood (LUMBER_MILL): base (same tile) × tier (5) × effectiveness (0.85) × ticks (1) = 0.255 (woodQuality is 30)
+			// Implementation does NOT have per-extractor base rates - uses tile quality
+			expect(production.food).toBeCloseTo(0.85, 5);
+			expect(production.wood).toBeCloseTo(0.255, 5); // 30% quality = 0.3 × 0.85 effectiveness
+		});
+		test('health changes over time affect production proportionally', () => {
+			const tile = createMockTile();
+			const extractor = createFarmExtractor(100);
 
-		// Start at full health
-		let production = calculateProduction(tile, [extractor], 1);
-		expect(production.food).toBeCloseTo(1, 5);
+			// Start at full health
+			let production = calculateProduction(tile, [extractor], 1);
+			expect(production.food).toBeCloseTo(1, 5);
 
-		// Damage to 50%
-		extractor.health = 50;
-		production = calculateProduction(tile, [extractor], 1);
-		expect(production.food).toBeLessThan(1);
-		// 50% health is in 40-59% range → 0.7x effectiveness (flat rate)
-		expect(production.food).toBeCloseTo(0.7, 5);
+			// Damage to 50%
+			extractor.health = 50;
+			production = calculateProduction(tile, [extractor], 1);
+			expect(production.food).toBeLessThan(1);
+			// 50% health is in 40-59% range → 0.7x effectiveness (flat rate)
+			expect(production.food).toBeCloseTo(0.7, 5);
+		});
 	});
-});	describe('Integration with Other Multipliers', () => {
+	describe('Integration with Other Multipliers', () => {
 		test('effectiveness stacks with tier multiplier (tier-based, not linear)', () => {
 			const tile = createMockTile();
 			const extractor = createFarmExtractor(60);
@@ -240,7 +243,7 @@ describe('Production Effectiveness Integration (Part 6.7)', () => {
 				[extractor],
 				1,
 				null, // biomeName
-				1.5, // world template multiplier (RELAXED mode)
+				1.5 // world template multiplier (RELAXED mode)
 			);
 
 			// 1.0 × 0.85 (60% health) × 1.5 (relaxed mode) = 1.275

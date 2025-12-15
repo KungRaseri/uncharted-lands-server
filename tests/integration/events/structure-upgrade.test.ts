@@ -57,7 +57,7 @@ describe('Structure Upgrade Socket.IO Events', () => {
 			})
 			.where(eq(settlementStorage.id, testStorageId))
 			.returning();
-		
+
 		// Verify update worked
 		if (!updatedStorage || updatedStorage.wood !== 50000) {
 			throw new Error(`Storage update failed! Storage: ${JSON.stringify(updatedStorage)}`);

@@ -42,39 +42,39 @@ import { MODIFIER_NAMES } from './modifier-names.js';
  * - Hourly ore: 5 × 0.9 = 4.5 units
  */
 export const CONSUMPTION_RATES = {
-  /** Food consumed per person per tick (GDD spec: 18/hour) */
-  FOOD_PER_PERSON_PER_TICK: 18 / 3600,
+	/** Food consumed per person per tick (GDD spec: 18/hour) */
+	FOOD_PER_PERSON_PER_TICK: 18 / 3600,
 
-  /** Water consumed per person per tick (GDD spec: 36/hour) */
-  WATER_PER_PERSON_PER_TICK: 36 / 3600,
+	/** Water consumed per person per tick (GDD spec: 36/hour) */
+	WATER_PER_PERSON_PER_TICK: 36 / 3600,
 
-  /** Base population capacity without structures */
-  BASE_POPULATION_CAPACITY: 10,
+	/** Base population capacity without structures */
+	BASE_POPULATION_CAPACITY: 10,
 
-  /** Wood maintenance per structure per tick (GDD spec: 3.6/hour) */
-  WOOD_PER_STRUCTURE_PER_TICK: 3.6 / 3600,
+	/** Wood maintenance per structure per tick (GDD spec: 3.6/hour) */
+	WOOD_PER_STRUCTURE_PER_TICK: 3.6 / 3600,
 
-  /** Stone maintenance per structure per tick (GDD spec: 1.8/hour) */
-  STONE_PER_STRUCTURE_PER_TICK: 1.8 / 3600,
+	/** Stone maintenance per structure per tick (GDD spec: 1.8/hour) */
+	STONE_PER_STRUCTURE_PER_TICK: 1.8 / 3600,
 
-  /** Ore maintenance per structure per tick (GDD spec: 0.9/hour) */
-  ORE_PER_STRUCTURE_PER_TICK: 0.9 / 3600,
+	/** Ore maintenance per structure per tick (GDD spec: 0.9/hour) */
+	ORE_PER_STRUCTURE_PER_TICK: 0.9 / 3600,
 };
 
 /**
  * Structure modifiers that affect population
  */
 export interface StructureModifier {
-  name: string;
-  value: number;
+	name: string;
+	value: number;
 }
 
 /**
  * Structure with modifiers
  */
 export interface Structure {
-  name: string;
-  modifiers: StructureModifier[];
+	name: string;
+	modifiers: StructureModifier[];
 }
 
 /**
@@ -89,48 +89,48 @@ export interface Structure {
  * @returns Total population capacity
  */
 export function calculatePopulationCapacity(structures: Structure[]): number {
-  let capacity = CONSUMPTION_RATES.BASE_POPULATION_CAPACITY;
+	let capacity = CONSUMPTION_RATES.BASE_POPULATION_CAPACITY;
 
-  logger.debug('[CAPACITY DEBUG] Starting calculation', {
-    baseCapacity: CONSUMPTION_RATES.BASE_POPULATION_CAPACITY,
-    structureCount: structures.length,
-    structures: structures.map((s) => ({
-      name: s.name,
-      modifierCount: s.modifiers?.length || 0,
-      modifiers: JSON.stringify(s.modifiers?.map((m) => ({ name: m.name, value: m.value }))),
-    })),
-  });
+	logger.debug('[CAPACITY DEBUG] Starting calculation', {
+		baseCapacity: CONSUMPTION_RATES.BASE_POPULATION_CAPACITY,
+		structureCount: structures.length,
+		structures: structures.map((s) => ({
+			name: s.name,
+			modifierCount: s.modifiers?.length || 0,
+			modifiers: JSON.stringify(s.modifiers?.map((m) => ({ name: m.name, value: m.value }))),
+		})),
+	});
 
-  for (const structure of structures) {
-    for (const modifier of structure.modifiers) {
-      // Check for standard snake_case name OR legacy names (backward compatibility)
-      const isPopulationCapacity = modifier.name === MODIFIER_NAMES.POPULATION_CAPACITY;
+	for (const structure of structures) {
+		for (const modifier of structure.modifiers) {
+			// Check for standard snake_case name OR legacy names (backward compatibility)
+			const isPopulationCapacity = modifier.name === MODIFIER_NAMES.POPULATION_CAPACITY;
 
-      logger.debug('[CAPACITY DEBUG] Checking modifier', {
-        structureName: structure.name,
-        modifierName: modifier.name,
-        modifierValue: modifier.value,
-        expectedName: MODIFIER_NAMES.POPULATION_CAPACITY,
-        isMatch: isPopulationCapacity,
-      });
+			logger.debug('[CAPACITY DEBUG] Checking modifier', {
+				structureName: structure.name,
+				modifierName: modifier.name,
+				modifierValue: modifier.value,
+				expectedName: MODIFIER_NAMES.POPULATION_CAPACITY,
+				isMatch: isPopulationCapacity,
+			});
 
-      if (isPopulationCapacity) {
-        capacity += modifier.value;
-        logger.debug('[CAPACITY DEBUG] Added capacity', {
-          modifierValue: modifier.value,
-          newCapacity: capacity,
-        });
-      }
-    }
-  }
+			if (isPopulationCapacity) {
+				capacity += modifier.value;
+				logger.debug('[CAPACITY DEBUG] Added capacity', {
+					modifierValue: modifier.value,
+					newCapacity: capacity,
+				});
+			}
+		}
+	}
 
-  const finalCapacity = Math.max(0, Math.floor(capacity));
-  logger.debug('[CAPACITY DEBUG] Final capacity', {
-    beforeFloor: capacity,
-    afterFloor: finalCapacity,
-  });
+	const finalCapacity = Math.max(0, Math.floor(capacity));
+	logger.debug('[CAPACITY DEBUG] Final capacity', {
+		beforeFloor: capacity,
+		afterFloor: finalCapacity,
+	});
 
-  return finalCapacity;
+	return finalCapacity;
 }
 
 /**
@@ -146,11 +146,11 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
  * @returns Current population count
  */
 export function calculatePopulation(structures: Structure[], _currentPopulation?: number): number {
-  const capacity = calculatePopulationCapacity(structures);
+	const capacity = calculatePopulationCapacity(structures);
 
-  // For now, assume settlements are at max capacity
-  // Future: Return Math.min(currentPopulation ?? capacity, capacity)
-  return capacity;
+	// For now, assume settlements are at max capacity
+	// Future: Return Math.min(currentPopulation ?? capacity, capacity)
+	return capacity;
 }
 
 /**
@@ -165,31 +165,31 @@ export function calculatePopulation(structures: Structure[], _currentPopulation?
  * @returns Resource consumption amounts
  */
 export function calculateConsumption(
-  population: number,
-  structureCount: number = 0,
-  tickCount: number = 1,
-  worldTemplateMultiplier: number = 1
+	population: number,
+	structureCount: number = 0,
+	tickCount: number = 1,
+	worldTemplateMultiplier: number = 1
 ): Resources {
-  // Calculate base consumption rates
-  const baseFoodConsumption = population * CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * tickCount;
-  const baseWaterConsumption = population * CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * tickCount;
+	// Calculate base consumption rates
+	const baseFoodConsumption = population * CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * tickCount;
+	const baseWaterConsumption = population * CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * tickCount;
 
-  // Structure maintenance costs (GDD Section 6.4)
-  const baseWoodMaintenance =
-    structureCount * CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * tickCount;
-  const baseStoneMaintenance =
-    structureCount * CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * tickCount;
-  const baseOreMaintenance =
-    structureCount * CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * tickCount;
+	// Structure maintenance costs (GDD Section 6.4)
+	const baseWoodMaintenance =
+		structureCount * CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * tickCount;
+	const baseStoneMaintenance =
+		structureCount * CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * tickCount;
+	const baseOreMaintenance =
+		structureCount * CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * tickCount;
 
-  // Apply world template multiplier (Phase 1D)
-  return {
-    food: baseFoodConsumption * worldTemplateMultiplier,
-    water: baseWaterConsumption * worldTemplateMultiplier,
-    wood: baseWoodMaintenance * worldTemplateMultiplier,
-    stone: baseStoneMaintenance * worldTemplateMultiplier,
-    ore: baseOreMaintenance * worldTemplateMultiplier,
-  };
+	// Apply world template multiplier (Phase 1D)
+	return {
+		food: baseFoodConsumption * worldTemplateMultiplier,
+		water: baseWaterConsumption * worldTemplateMultiplier,
+		wood: baseWoodMaintenance * worldTemplateMultiplier,
+		stone: baseStoneMaintenance * worldTemplateMultiplier,
+		ore: baseOreMaintenance * worldTemplateMultiplier,
+	};
 }
 
 /**
@@ -200,18 +200,18 @@ export function calculateConsumption(
  * @returns Morale value (0-100)
  */
 export function calculateMorale(structures: Structure[]): number {
-  let morale = 50; // Base morale
+	let morale = 50; // Base morale
 
-  for (const structure of structures) {
-    for (const modifier of structure.modifiers) {
-      if (modifier.name === MODIFIER_NAMES.MORALE_BONUS) {
-        morale += modifier.value;
-      }
-    }
-  }
+	for (const structure of structures) {
+		for (const modifier of structure.modifiers) {
+			if (modifier.name === MODIFIER_NAMES.MORALE_BONUS) {
+				morale += modifier.value;
+			}
+		}
+	}
 
-  // Clamp to 0-100 range
-  return Math.max(0, Math.min(100, morale));
+	// Clamp to 0-100 range
+	return Math.max(0, Math.min(100, morale));
 }
 
 /**
@@ -222,32 +222,32 @@ export function calculateMorale(structures: Structure[]): number {
  * @returns Consumption summary with rates and totals
  */
 export function getConsumptionSummary(structures: Structure[], currentPopulation?: number) {
-  const population = calculatePopulation(structures, currentPopulation);
-  const capacity = calculatePopulationCapacity(structures);
-  const structureCount = structures.length;
-  const consumption = calculateConsumption(population, structureCount, 60); // Per second
-  const morale = calculateMorale(structures);
+	const population = calculatePopulation(structures, currentPopulation);
+	const capacity = calculatePopulationCapacity(structures);
+	const structureCount = structures.length;
+	const consumption = calculateConsumption(population, structureCount, 60); // Per second
+	const morale = calculateMorale(structures);
 
-  return {
-    population,
-    capacity,
-    structureCount,
-    consumption,
-    morale,
-    perCapitaPerSecond: {
-      food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 60,
-      water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 60,
-    },
-    perCapitaPerHour: {
-      food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 3600,
-      water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 3600,
-    },
-    perStructurePerHour: {
-      wood: CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * 3600,
-      stone: CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * 3600,
-      ore: CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * 3600,
-    },
-  };
+	return {
+		population,
+		capacity,
+		structureCount,
+		consumption,
+		morale,
+		perCapitaPerSecond: {
+			food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 60,
+			water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 60,
+		},
+		perCapitaPerHour: {
+			food: CONSUMPTION_RATES.FOOD_PER_PERSON_PER_TICK * 3600,
+			water: CONSUMPTION_RATES.WATER_PER_PERSON_PER_TICK * 3600,
+		},
+		perStructurePerHour: {
+			wood: CONSUMPTION_RATES.WOOD_PER_STRUCTURE_PER_TICK * 3600,
+			stone: CONSUMPTION_RATES.STONE_PER_STRUCTURE_PER_TICK * 3600,
+			ore: CONSUMPTION_RATES.ORE_PER_STRUCTURE_PER_TICK * 3600,
+		},
+	};
 }
 
 /**
@@ -260,21 +260,21 @@ export function getConsumptionSummary(structures: Structure[], currentPopulation
  * @returns Whether resources are sufficient
  */
 export function hasResourcesForPopulation(
-  population: number,
-  structureCount: number,
-  resources: Resources
+	population: number,
+	structureCount: number,
+	resources: Resources
 ): boolean {
-  // Calculate consumption for 1 hour (3,600 ticks)
-  // Game time runs 60x faster: 60 ticks/sec × 60 seconds = 3,600 ticks/hour
-  const hourlyConsumption = calculateConsumption(population, structureCount, 3600);
+	// Calculate consumption for 1 hour (3,600 ticks)
+	// Game time runs 60x faster: 60 ticks/sec × 60 seconds = 3,600 ticks/hour
+	const hourlyConsumption = calculateConsumption(population, structureCount, 3600);
 
-  return (
-    resources.food >= hourlyConsumption.food &&
-    resources.water >= hourlyConsumption.water &&
-    resources.wood >= hourlyConsumption.wood &&
-    resources.stone >= hourlyConsumption.stone &&
-    resources.ore >= hourlyConsumption.ore
-  );
+	return (
+		resources.food >= hourlyConsumption.food &&
+		resources.water >= hourlyConsumption.water &&
+		resources.wood >= hourlyConsumption.wood &&
+		resources.stone >= hourlyConsumption.stone &&
+		resources.ore >= hourlyConsumption.ore
+	);
 }
 
 /**
@@ -284,37 +284,37 @@ export function hasResourcesForPopulation(
  * @returns True if all consumption rates match GDD spec within tolerance
  */
 export function verifyConsumptionRates(): boolean {
-  // Test case: 100 population, 10 structures, 1 hour (3,600 ticks)
-  const population = 100;
-  const structureCount = 10;
-  const ticksPerHour = 3600;
+	// Test case: 100 population, 10 structures, 1 hour (3,600 ticks)
+	const population = 100;
+	const structureCount = 10;
+	const ticksPerHour = 3600;
 
-  const consumption = calculateConsumption(population, structureCount, ticksPerHour);
+	const consumption = calculateConsumption(population, structureCount, ticksPerHour);
 
-  // Expected values (GDD Section 6.4):
-  const expectedFood = 100 * 18; // 1,800 food/hour
-  const expectedWater = 100 * 36; // 3,600 water/hour
-  const expectedWood = 10 * 3.6; // 36 wood/hour
-  const expectedStone = 10 * 1.8; // 18 stone/hour
-  const expectedOre = 10 * 0.9; // 9 ore/hour
+	// Expected values (GDD Section 6.4):
+	const expectedFood = 100 * 18; // 1,800 food/hour
+	const expectedWater = 100 * 36; // 3,600 water/hour
+	const expectedWood = 10 * 3.6; // 36 wood/hour
+	const expectedStone = 10 * 1.8; // 18 stone/hour
+	const expectedOre = 10 * 0.9; // 9 ore/hour
 
-  // Verify (allow 0.01% tolerance for floating point precision)
-  const tolerance = 0.01;
-  const foodMatch = Math.abs(consumption.food - expectedFood) < tolerance;
-  const waterMatch = Math.abs(consumption.water - expectedWater) < tolerance;
-  const woodMatch = Math.abs(consumption.wood - expectedWood) < tolerance;
-  const stoneMatch = Math.abs(consumption.stone - expectedStone) < tolerance;
-  const oreMatch = Math.abs(consumption.ore - expectedOre) < tolerance;
+	// Verify (allow 0.01% tolerance for floating point precision)
+	const tolerance = 0.01;
+	const foodMatch = Math.abs(consumption.food - expectedFood) < tolerance;
+	const waterMatch = Math.abs(consumption.water - expectedWater) < tolerance;
+	const woodMatch = Math.abs(consumption.wood - expectedWood) < tolerance;
+	const stoneMatch = Math.abs(consumption.stone - expectedStone) < tolerance;
+	const oreMatch = Math.abs(consumption.ore - expectedOre) < tolerance;
 
-  if (!foodMatch || !waterMatch || !woodMatch || !stoneMatch || !oreMatch) {
-    logger.error('Consumption rate verification failed:', {
-      food: { actual: consumption.food, expected: expectedFood, match: foodMatch },
-      water: { actual: consumption.water, expected: expectedWater, match: waterMatch },
-      wood: { actual: consumption.wood, expected: expectedWood, match: woodMatch },
-      stone: { actual: consumption.stone, expected: expectedStone, match: stoneMatch },
-      ore: { actual: consumption.ore, expected: expectedOre, match: oreMatch },
-    });
-  }
+	if (!foodMatch || !waterMatch || !woodMatch || !stoneMatch || !oreMatch) {
+		logger.error('Consumption rate verification failed:', {
+			food: { actual: consumption.food, expected: expectedFood, match: foodMatch },
+			water: { actual: consumption.water, expected: expectedWater, match: waterMatch },
+			wood: { actual: consumption.wood, expected: expectedWood, match: woodMatch },
+			stone: { actual: consumption.stone, expected: expectedStone, match: stoneMatch },
+			ore: { actual: consumption.ore, expected: expectedOre, match: oreMatch },
+		});
+	}
 
-  return foodMatch && waterMatch && woodMatch && stoneMatch && oreMatch;
+	return foodMatch && waterMatch && woodMatch && stoneMatch && oreMatch;
 }

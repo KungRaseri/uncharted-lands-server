@@ -16,24 +16,24 @@ import { logger } from '../utils/logger.js';
  * Structure modifiers that affect population
  */
 export interface Structure {
-  name: string;
-  modifiers: Array<{
-    name: string;
-    value: number;
-  }>;
+	name: string;
+	modifiers: Array<{
+		name: string;
+		value: number;
+	}>;
 }
 
 /**
  * Complete population state for a settlement
  */
 export interface PopulationState {
-  current: number;
-  capacity: number;
-  growthRate: number; // per hour
-  happiness: number; // 0-100
-  immigrationChance: number; // 0-1 probability per check
-  emigrationChance: number; // 0-1 probability per check
-  lastGrowthTick: number; // timestamp
+	current: number;
+	capacity: number;
+	growthRate: number; // per hour
+	happiness: number; // 0-100
+	immigrationChance: number; // 0-1 probability per check
+	emigrationChance: number; // 0-1 probability per check
+	lastGrowthTick: number; // timestamp
 }
 
 /**
@@ -48,12 +48,12 @@ export interface PopulationState {
  * - NPC Relations: 5%
  */
 export interface HappinessFactors {
-  resourceSufficiency: number; // 0-100, based on resource availability (30%)
-  housingQuality: number; // 0-100, based on housing structures (20%)
-  disasterPreparedness: number; // 0-100, based on defense/shelter structures (15%)
-  recentTrauma: number; // 0-100, penalty from recent disasters (15%)
-  moraleBonuses: number; // 0-100, from entertainment structures (15%)
-  npcRelations: number; // 0-100, from NPC settlement relationships (5%)
+	resourceSufficiency: number; // 0-100, based on resource availability (30%)
+	housingQuality: number; // 0-100, based on housing structures (20%)
+	disasterPreparedness: number; // 0-100, based on defense/shelter structures (15%)
+	recentTrauma: number; // 0-100, penalty from recent disasters (15%)
+	moraleBonuses: number; // 0-100, from entertainment structures (15%)
+	npcRelations: number; // 0-100, from NPC settlement relationships (5%)
 }
 
 // Growth constants
@@ -74,18 +74,18 @@ const EMIGRATION_MAX_POP = 3;
  * @returns Total morale bonus (0-100+)
  */
 export function calculateMorale(structures: Structure[]): number {
-  let morale = 0;
+	let morale = 0;
 
-  for (const structure of structures) {
-    // Look for morale modifiers
-    const moraleModifier = structure.modifiers.find((m) => m.name === MODIFIER_NAMES.MORALE_BONUS);
+	for (const structure of structures) {
+		// Look for morale modifiers
+		const moraleModifier = structure.modifiers.find((m) => m.name === MODIFIER_NAMES.MORALE_BONUS);
 
-    if (moraleModifier) {
-      morale += moraleModifier.value;
-    }
-  }
+		if (moraleModifier) {
+			morale += moraleModifier.value;
+		}
+	}
 
-  return morale;
+	return morale;
 }
 
 /**
@@ -96,25 +96,25 @@ export function calculateMorale(structures: Structure[]): number {
  * @returns Score from 0-100 indicating how well resourced the settlement is
  */
 export function calculateResourceSufficiency(population: number, resources: Resources): number {
-  // Calculate hours of food/water available
-  const FOOD_PER_PERSON_PER_HOUR = 0.3; // 0.005 per tick × 3600 ticks
-  const WATER_PER_PERSON_PER_HOUR = 0.6; // 0.01 per tick × 3600 ticks
+	// Calculate hours of food/water available
+	const FOOD_PER_PERSON_PER_HOUR = 0.3; // 0.005 per tick × 3600 ticks
+	const WATER_PER_PERSON_PER_HOUR = 0.6; // 0.01 per tick × 3600 ticks
 
-  const foodHoursAvailable =
-    population > 0 ? resources.food / (population * FOOD_PER_PERSON_PER_HOUR) : 100;
-  const waterHoursAvailable =
-    population > 0 ? resources.water / (population * WATER_PER_PERSON_PER_HOUR) : 100;
+	const foodHoursAvailable =
+		population > 0 ? resources.food / (population * FOOD_PER_PERSON_PER_HOUR) : 100;
+	const waterHoursAvailable =
+		population > 0 ? resources.water / (population * WATER_PER_PERSON_PER_HOUR) : 100;
 
-  // Score based on buffer size
-  // 0-6 hours: Critical (0-30)
-  // 6-24 hours: Low (30-60)
-  // 24-72 hours: Good (60-90)
-  // 72+ hours: Excellent (90-100)
-  const foodScore = Math.min(100, (foodHoursAvailable / 72) * 100);
-  const waterScore = Math.min(100, (waterHoursAvailable / 72) * 100);
+	// Score based on buffer size
+	// 0-6 hours: Critical (0-30)
+	// 6-24 hours: Low (30-60)
+	// 24-72 hours: Good (60-90)
+	// 72+ hours: Excellent (90-100)
+	const foodScore = Math.min(100, (foodHoursAvailable / 72) * 100);
+	const waterScore = Math.min(100, (waterHoursAvailable / 72) * 100);
 
-  // Average of food and water scores
-  return (foodScore + waterScore) / 2;
+	// Average of food and water scores
+	return (foodScore + waterScore) / 2;
 }
 
 /**
@@ -126,33 +126,33 @@ export function calculateResourceSufficiency(population: number, resources: Reso
  * @returns Score from 0-100 indicating housing quality
  */
 export function calculateHousingQuality(
-  structures: Structure[],
-  currentPop: number,
-  capacity: number
+	structures: Structure[],
+	currentPop: number,
+	capacity: number
 ): number {
-  // Overcrowding penalty
-  const crowdingRatio = currentPop / capacity;
-  let qualityScore = 100;
+	// Overcrowding penalty
+	const crowdingRatio = currentPop / capacity;
+	let qualityScore = 100;
 
-  if (crowdingRatio > 0.9) {
-    qualityScore -= 30; // Severely overcrowded
-  } else if (crowdingRatio > 0.75) {
-    qualityScore -= 15; // Overcrowded
-  } else if (crowdingRatio < 0.5) {
-    qualityScore += 10; // Lots of space
-  }
+	if (crowdingRatio > 0.9) {
+		qualityScore -= 30; // Severely overcrowded
+	} else if (crowdingRatio > 0.75) {
+		qualityScore -= 15; // Overcrowded
+	} else if (crowdingRatio < 0.5) {
+		qualityScore += 10; // Lots of space
+	}
 
-  // Bonus for quality housing structures
-  const hasHouses = structures.some((s) => s.name.toLowerCase().includes('house'));
-  const hasCottages = structures.some((s) => s.name.toLowerCase().includes('cottage'));
+	// Bonus for quality housing structures
+	const hasHouses = structures.some((s) => s.name.toLowerCase().includes('house'));
+	const hasCottages = structures.some((s) => s.name.toLowerCase().includes('cottage'));
 
-  if (hasHouses) {
-    qualityScore += 20;
-  } else if (hasCottages) {
-    qualityScore += 10;
-  }
+	if (hasHouses) {
+		qualityScore += 20;
+	} else if (hasCottages) {
+		qualityScore += 10;
+	}
 
-  return Math.min(100, Math.max(0, qualityScore));
+	return Math.min(100, Math.max(0, qualityScore));
 }
 
 /**
@@ -170,49 +170,49 @@ export function calculateHousingQuality(
  * @returns Score from 0-100 indicating disaster preparedness
  */
 export function calculateDisasterPreparedness(
-  structures: Structure[],
-  currentPop: number,
-  _capacity: number
+	structures: Structure[],
+	currentPop: number,
+	_capacity: number
 ): number {
-  let score = 0;
+	let score = 0;
 
-  // Shelter capacity coverage (up to 50 points)
-  // Check for Emergency Shelter structures
-  const shelterCapacity = structures.reduce((total, s) => {
-    if (s.name.toLowerCase().includes('shelter') || s.name.toLowerCase().includes('bunker')) {
-      // Each shelter protects 50 people (from GDD)
-      const capacityMod = s.modifiers.find((m) => m.name.toLowerCase().includes('capacity'));
-      return total + (capacityMod?.value || 50);
-    }
-    return total;
-  }, 0);
+	// Shelter capacity coverage (up to 50 points)
+	// Check for Emergency Shelter structures
+	const shelterCapacity = structures.reduce((total, s) => {
+		if (s.name.toLowerCase().includes('shelter') || s.name.toLowerCase().includes('bunker')) {
+			// Each shelter protects 50 people (from GDD)
+			const capacityMod = s.modifiers.find((m) => m.name.toLowerCase().includes('capacity'));
+			return total + (capacityMod?.value || 50);
+		}
+		return total;
+	}, 0);
 
-  const shelterCoverage = currentPop > 0 ? Math.min(1, shelterCapacity / currentPop) : 0;
-  score += shelterCoverage * 50;
+	const shelterCoverage = currentPop > 0 ? Math.min(1, shelterCapacity / currentPop) : 0;
+	score += shelterCoverage * 50;
 
-  // Warning systems (up to 15 points)
-  const hasWatchtower = structures.some(
-    (s) => s.name.toLowerCase().includes('watchtower') || s.name.toLowerCase().includes('warning')
-  );
-  if (hasWatchtower) {
-    score += 15;
-  }
+	// Warning systems (up to 15 points)
+	const hasWatchtower = structures.some(
+		(s) => s.name.toLowerCase().includes('watchtower') || s.name.toLowerCase().includes('warning')
+	);
+	if (hasWatchtower) {
+		score += 15;
+	}
 
-  // Hospital availability (up to 15 points)
-  const hasHospital = structures.some((s) => s.name.toLowerCase().includes('hospital'));
-  if (hasHospital) {
-    score += 15;
-  }
+	// Hospital availability (up to 15 points)
+	const hasHospital = structures.some((s) => s.name.toLowerCase().includes('hospital'));
+	if (hasHospital) {
+		score += 15;
+	}
 
-  // Defense structures (up to 20 points)
-  const defenseRating = structures.reduce((total, s) => {
-    const defenseModifier = s.modifiers.find((m) => m.name.toLowerCase().includes('defense'));
-    return total + (defenseModifier?.value || 0);
-  }, 0);
+	// Defense structures (up to 20 points)
+	const defenseRating = structures.reduce((total, s) => {
+		const defenseModifier = s.modifiers.find((m) => m.name.toLowerCase().includes('defense'));
+		return total + (defenseModifier?.value || 0);
+	}, 0);
 
-  score += Math.min(20, defenseRating * 0.2);
+	score += Math.min(20, defenseRating * 0.2);
 
-  return Math.min(100, score);
+	return Math.min(100, score);
 }
 
 /**
@@ -234,12 +234,12 @@ export function calculateDisasterPreparedness(
  * @returns Score from 0-100 (0 = max trauma, 100 = no trauma)
  */
 export function calculateRecentTrauma(
-  _lastDisasterTime?: number,
-  _disasterSeverity?: number
+	_lastDisasterTime?: number,
+	_disasterSeverity?: number
 ): number {
-  // Phase 3: Will implement disaster trauma tracking
-  // For now, return 100 (no trauma baseline) so formula works correctly
-  return 100;
+	// Phase 3: Will implement disaster trauma tracking
+	// For now, return 100 (no trauma baseline) so formula works correctly
+	return 100;
 }
 
 /**
@@ -261,9 +261,9 @@ export function calculateRecentTrauma(
  * @returns Score from 0-100 (50 = neutral baseline)
  */
 export function calculateNPCRelations(_npcRelationships?: Map<string, number>): number {
-  // Phase 4: Will implement NPC relationship tracking
-  // For now, return 50 (neutral baseline) so formula works correctly
-  return 50;
+	// Phase 4: Will implement NPC relationship tracking
+	// For now, return 50 (neutral baseline) so formula works correctly
+	return 50;
 }
 
 /**
@@ -275,25 +275,25 @@ export function calculateNPCRelations(_npcRelationships?: Map<string, number>): 
  * @returns Happiness score from 0-100
  */
 export function calculateHappiness(factors: HappinessFactors): number {
-  // GDD-specified weights (reweighted for PvE focus)
-  const weights = {
-    resourceSufficiency: 0.3, // Do we have food/water?
-    housingQuality: 0.2, // Is housing adequate?
-    disasterPreparedness: 0.15, // Shelters, warnings, defenses
-    recentTrauma: 0.15, // Penalty from recent disasters (decays)
-    moraleBonuses: 0.15, // Entertainment structures
-    npcRelations: 0.05, // Positive relations with NPCs
-  };
+	// GDD-specified weights (reweighted for PvE focus)
+	const weights = {
+		resourceSufficiency: 0.3, // Do we have food/water?
+		housingQuality: 0.2, // Is housing adequate?
+		disasterPreparedness: 0.15, // Shelters, warnings, defenses
+		recentTrauma: 0.15, // Penalty from recent disasters (decays)
+		moraleBonuses: 0.15, // Entertainment structures
+		npcRelations: 0.05, // Positive relations with NPCs
+	};
 
-  const happiness =
-    factors.resourceSufficiency * weights.resourceSufficiency +
-    factors.housingQuality * weights.housingQuality +
-    factors.disasterPreparedness * weights.disasterPreparedness +
-    factors.recentTrauma * weights.recentTrauma +
-    factors.moraleBonuses * weights.moraleBonuses +
-    factors.npcRelations * weights.npcRelations;
+	const happiness =
+		factors.resourceSufficiency * weights.resourceSufficiency +
+		factors.housingQuality * weights.housingQuality +
+		factors.disasterPreparedness * weights.disasterPreparedness +
+		factors.recentTrauma * weights.recentTrauma +
+		factors.moraleBonuses * weights.moraleBonuses +
+		factors.npcRelations * weights.npcRelations;
 
-  return Math.min(100, Math.max(0, happiness));
+	return Math.min(100, Math.max(0, happiness));
 }
 
 /**
@@ -305,34 +305,34 @@ export function calculateHappiness(factors: HappinessFactors): number {
  * @returns Growth rate as percentage per hour (can be negative)
  */
 export function calculateGrowthRate(
-  currentPop: number,
-  capacity: number,
-  happiness: number
+	currentPop: number,
+	capacity: number,
+	happiness: number
 ): number {
-  if (currentPop >= capacity) {
-    return 0; // No growth when at capacity
-  }
+	if (currentPop >= capacity) {
+		return 0; // No growth when at capacity
+	}
 
-  // Growth slows as population approaches capacity
-  const capacityFactor = 1 - currentPop / capacity;
+	// Growth slows as population approaches capacity
+	const capacityFactor = 1 - currentPop / capacity;
 
-  // Happiness affects growth rate
-  // 0-30: Negative growth (-2% to 0%)
-  // 30-50: Slow growth (0% to 1%)
-  // 50-75: Normal growth (1% to 2%)
-  // 75-100: Fast growth (2% to 4%)
-  let happinessFactor = 0;
-  if (happiness < 30) {
-    happinessFactor = -1 + happiness / 30; // -1 to 0
-  } else if (happiness < 50) {
-    happinessFactor = (happiness - 30) / 20; // 0 to 1
-  } else if (happiness < 75) {
-    happinessFactor = 1 + (happiness - 50) / 25; // 1 to 2
-  } else {
-    happinessFactor = 2 + (happiness - 75) / 12.5; // 2 to 4
-  }
+	// Happiness affects growth rate
+	// 0-30: Negative growth (-2% to 0%)
+	// 30-50: Slow growth (0% to 1%)
+	// 50-75: Normal growth (1% to 2%)
+	// 75-100: Fast growth (2% to 4%)
+	let happinessFactor = 0;
+	if (happiness < 30) {
+		happinessFactor = -1 + happiness / 30; // -1 to 0
+	} else if (happiness < 50) {
+		happinessFactor = (happiness - 30) / 20; // 0 to 1
+	} else if (happiness < 75) {
+		happinessFactor = 1 + (happiness - 50) / 25; // 1 to 2
+	} else {
+		happinessFactor = 2 + (happiness - 75) / 12.5; // 2 to 4
+	}
 
-  return BASE_GROWTH_RATE * happinessFactor * capacityFactor;
+	return BASE_GROWTH_RATE * happinessFactor * capacityFactor;
 }
 
 /**
@@ -344,25 +344,25 @@ export function calculateGrowthRate(
  * @returns Probability of immigration event (0-1)
  */
 export function calculateImmigrationChance(
-  happiness: number,
-  currentPop: number,
-  capacity: number
+	happiness: number,
+	currentPop: number,
+	capacity: number
 ): number {
-  if (currentPop >= capacity) {
-    return 0; // No room for immigrants
-  }
+	if (currentPop >= capacity) {
+		return 0; // No room for immigrants
+	}
 
-  if (happiness < HAPPINESS_THRESHOLD_HIGH) {
-    return 0; // Not attractive enough
-  }
+	if (happiness < HAPPINESS_THRESHOLD_HIGH) {
+		return 0; // Not attractive enough
+	}
 
-  // Higher happiness = higher chance
-  const happinessFactor = (happiness - HAPPINESS_THRESHOLD_HIGH) / (100 - HAPPINESS_THRESHOLD_HIGH);
+	// Higher happiness = higher chance
+	const happinessFactor = (happiness - HAPPINESS_THRESHOLD_HIGH) / (100 - HAPPINESS_THRESHOLD_HIGH);
 
-  // Lower population relative to capacity = higher chance
-  const capacityFactor = 1 - currentPop / capacity;
+	// Lower population relative to capacity = higher chance
+	const capacityFactor = 1 - currentPop / capacity;
 
-  return IMMIGRATION_BASE_CHANCE * happinessFactor * capacityFactor;
+	return IMMIGRATION_BASE_CHANCE * happinessFactor * capacityFactor;
 }
 
 /**
@@ -373,18 +373,18 @@ export function calculateImmigrationChance(
  * @returns Probability of emigration event (0-1)
  */
 export function calculateEmigrationChance(happiness: number, currentPop: number): number {
-  if (currentPop <= 1) {
-    return 0; // At least 1 person stays
-  }
+	if (currentPop <= 1) {
+		return 0; // At least 1 person stays
+	}
 
-  if (happiness > HAPPINESS_THRESHOLD_LOW) {
-    return 0; // People are content enough to stay
-  }
+	if (happiness > HAPPINESS_THRESHOLD_LOW) {
+		return 0; // People are content enough to stay
+	}
 
-  // Lower happiness = higher chance
-  const unhappinessFactor = (HAPPINESS_THRESHOLD_LOW - happiness) / HAPPINESS_THRESHOLD_LOW;
+	// Lower happiness = higher chance
+	const unhappinessFactor = (HAPPINESS_THRESHOLD_LOW - happiness) / HAPPINESS_THRESHOLD_LOW;
 
-  return EMIGRATION_BASE_CHANCE * unhappinessFactor;
+	return EMIGRATION_BASE_CHANCE * unhappinessFactor;
 }
 
 /**
@@ -396,18 +396,18 @@ export function calculateEmigrationChance(happiness: number, currentPop: number)
  * @returns New population after growth/decline
  */
 export function applyPopulationGrowth(
-  current: number,
-  growthRate: number,
-  timeSinceLastUpdate: number
+	current: number,
+	growthRate: number,
+	timeSinceLastUpdate: number
 ): number {
-  // Convert time to hours
-  const hoursElapsed = timeSinceLastUpdate / (1000 * 60 * 60);
+	// Convert time to hours
+	const hoursElapsed = timeSinceLastUpdate / (1000 * 60 * 60);
 
-  // Calculate population change
-  const change = Math.floor(current * growthRate * hoursElapsed);
+	// Calculate population change
+	const change = Math.floor(current * growthRate * hoursElapsed);
 
-  // Apply change (minimum 1 person)
-  return Math.max(1, current + change);
+	// Apply change (minimum 1 person)
+	return Math.max(1, current + change);
 }
 
 /**
@@ -416,9 +416,9 @@ export function applyPopulationGrowth(
  * @returns Number of immigrants arriving
  */
 export function calculateImmigrationAmount(): number {
-  return Math.floor(
-    Math.random() * (IMMIGRATION_MAX_POP - IMMIGRATION_MIN_POP + 1) + IMMIGRATION_MIN_POP
-  );
+	return Math.floor(
+		Math.random() * (IMMIGRATION_MAX_POP - IMMIGRATION_MIN_POP + 1) + IMMIGRATION_MIN_POP
+	);
 }
 
 /**
@@ -428,12 +428,12 @@ export function calculateImmigrationAmount(): number {
  * @returns Number of emigrants leaving
  */
 export function calculateEmigrationAmount(currentPop: number): number {
-  const baseAmount = Math.floor(
-    Math.random() * (EMIGRATION_MAX_POP - EMIGRATION_MIN_POP + 1) + EMIGRATION_MIN_POP
-  );
+	const baseAmount = Math.floor(
+		Math.random() * (EMIGRATION_MAX_POP - EMIGRATION_MIN_POP + 1) + EMIGRATION_MIN_POP
+	);
 
-  // Don't let everyone leave
-  return Math.min(baseAmount, Math.floor(currentPop * 0.2));
+	// Don't let everyone leave
+	return Math.min(baseAmount, Math.floor(currentPop * 0.2));
 }
 
 /**
@@ -451,63 +451,63 @@ export function calculateEmigrationAmount(currentPop: number): number {
  * @returns Complete population state
  */
 export function calculatePopulationState(
-  currentPop: number,
-  structures: Structure[],
-  resources: Resources,
-  lastGrowthTick: number = Date.now(),
-  lastDisasterTime?: number,
-  disasterSeverity?: number,
-  npcRelationships?: Map<string, number>
+	currentPop: number,
+	structures: Structure[],
+	resources: Resources,
+	lastGrowthTick: number = Date.now(),
+	lastDisasterTime?: number,
+	disasterSeverity?: number,
+	npcRelationships?: Map<string, number>
 ): PopulationState {
-  // Calculate capacity
-  const capacity = calculatePopulationCapacity(structures);
-  logger.debug('[CAPACITY ASSIGNMENT DEBUG]', {
-    capacityValue: capacity,
-    capacityType: typeof capacity,
-    capacityIsNaN: Number.isNaN(capacity),
-    structuresCount: structures.length,
-  });
+	// Calculate capacity
+	const capacity = calculatePopulationCapacity(structures);
+	logger.debug('[CAPACITY ASSIGNMENT DEBUG]', {
+		capacityValue: capacity,
+		capacityType: typeof capacity,
+		capacityIsNaN: Number.isNaN(capacity),
+		structuresCount: structures.length,
+	});
 
-  // Calculate happiness factors (GDD Section 3.3 weights)
-  const resourceSufficiency = calculateResourceSufficiency(currentPop, resources);
-  const housingQuality = calculateHousingQuality(structures, currentPop, capacity);
-  const disasterPreparedness = calculateDisasterPreparedness(structures, currentPop, capacity);
-  const recentTrauma = calculateRecentTrauma(lastDisasterTime, disasterSeverity);
-  const moraleBonuses = calculateMorale(structures); // Entertainment structures
-  const npcRelations = calculateNPCRelations(npcRelationships);
+	// Calculate happiness factors (GDD Section 3.3 weights)
+	const resourceSufficiency = calculateResourceSufficiency(currentPop, resources);
+	const housingQuality = calculateHousingQuality(structures, currentPop, capacity);
+	const disasterPreparedness = calculateDisasterPreparedness(structures, currentPop, capacity);
+	const recentTrauma = calculateRecentTrauma(lastDisasterTime, disasterSeverity);
+	const moraleBonuses = calculateMorale(structures); // Entertainment structures
+	const npcRelations = calculateNPCRelations(npcRelationships);
 
-  const happinessFactors: HappinessFactors = {
-    resourceSufficiency,
-    housingQuality,
-    disasterPreparedness,
-    recentTrauma,
-    moraleBonuses,
-    npcRelations,
-  };
+	const happinessFactors: HappinessFactors = {
+		resourceSufficiency,
+		housingQuality,
+		disasterPreparedness,
+		recentTrauma,
+		moraleBonuses,
+		npcRelations,
+	};
 
-  const happiness = calculateHappiness(happinessFactors);
+	const happiness = calculateHappiness(happinessFactors);
 
-  // Calculate rates and chances
-  const growthRate = calculateGrowthRate(currentPop, capacity, happiness);
-  const immigrationChance = calculateImmigrationChance(happiness, currentPop, capacity);
-  const emigrationChance = calculateEmigrationChance(happiness, currentPop);
+	// Calculate rates and chances
+	const growthRate = calculateGrowthRate(currentPop, capacity, happiness);
+	const immigrationChance = calculateImmigrationChance(happiness, currentPop, capacity);
+	const emigrationChance = calculateEmigrationChance(happiness, currentPop);
 
-  logger.debug('[RETURN VALUE DEBUG]', {
-    capacity_beforeReturn: capacity,
-    current_beforeReturn: currentPop,
-    growthRate_beforeReturn: growthRate,
-    happiness_beforeReturn: happiness,
-  });
+	logger.debug('[RETURN VALUE DEBUG]', {
+		capacity_beforeReturn: capacity,
+		current_beforeReturn: currentPop,
+		growthRate_beforeReturn: growthRate,
+		happiness_beforeReturn: happiness,
+	});
 
-  return {
-    current: currentPop,
-    capacity,
-    growthRate,
-    happiness,
-    immigrationChance,
-    emigrationChance,
-    lastGrowthTick,
-  };
+	return {
+		current: currentPop,
+		capacity,
+		growthRate,
+		happiness,
+		immigrationChance,
+		emigrationChance,
+		lastGrowthTick,
+	};
 }
 
 /**
@@ -517,36 +517,36 @@ export function calculatePopulationState(
  * @returns Description string
  */
 export function getHappinessDescription(happiness: number): string {
-  if (happiness >= 90) return 'Ecstatic';
-  if (happiness >= 75) return 'Very Happy';
-  if (happiness >= 60) return 'Happy';
-  if (happiness >= 45) return 'Content';
-  if (happiness >= 30) return 'Unhappy';
-  if (happiness >= 15) return 'Very Unhappy';
-  return 'Miserable';
+	if (happiness >= 90) return 'Ecstatic';
+	if (happiness >= 75) return 'Very Happy';
+	if (happiness >= 60) return 'Happy';
+	if (happiness >= 45) return 'Content';
+	if (happiness >= 30) return 'Unhappy';
+	if (happiness >= 15) return 'Very Unhappy';
+	return 'Miserable';
 }
 
 /**
  * Get a summary of population state for display
  */
 export function getPopulationSummary(state: PopulationState) {
-  // Determine population status
-  let status = 'Stable';
-  if (state.happiness >= HAPPINESS_THRESHOLD_HIGH) {
-    status = 'Growing';
-  } else if (state.happiness <= HAPPINESS_THRESHOLD_LOW) {
-    status = 'Declining';
-  }
+	// Determine population status
+	let status = 'Stable';
+	if (state.happiness >= HAPPINESS_THRESHOLD_HIGH) {
+		status = 'Growing';
+	} else if (state.happiness <= HAPPINESS_THRESHOLD_LOW) {
+		status = 'Declining';
+	}
 
-  return {
-    current: state.current,
-    capacity: state.capacity,
-    capacityPercent: Math.floor((state.current / state.capacity) * 100),
-    happiness: Math.floor(state.happiness),
-    happinessDescription: getHappinessDescription(state.happiness),
-    growthRate: state.growthRate.toFixed(2),
-    immigrationChance: Math.floor(state.immigrationChance * 100),
-    emigrationChance: Math.floor(state.emigrationChance * 100),
-    status,
-  };
+	return {
+		current: state.current,
+		capacity: state.capacity,
+		capacityPercent: Math.floor((state.current / state.capacity) * 100),
+		happiness: Math.floor(state.happiness),
+		happinessDescription: getHappinessDescription(state.happiness),
+		growthRate: state.growthRate.toFixed(2),
+		immigrationChance: Math.floor(state.immigrationChance * 100),
+		emigrationChance: Math.floor(state.emigrationChance * 100),
+		status,
+	};
 }

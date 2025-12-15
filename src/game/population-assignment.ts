@@ -20,44 +20,44 @@ type ExtractorType = (typeof extractorTypeEnum.enumValues)[number];
  * Structure with full type information for assignment
  */
 export interface StructureWithType extends SettlementStructure {
-  category: 'BUILDING' | 'EXTRACTOR';
-  buildingType?: BuildingType;
-  extractorType?: ExtractorType;
+	category: 'BUILDING' | 'EXTRACTOR';
+	buildingType?: BuildingType;
+	extractorType?: ExtractorType;
 }
 
 /**
  * Result of population assignment
  */
 export interface AssignmentResult {
-  /**
-   * Updated structures with new population assignments
-   */
-  assignments: Map<string, number>; // structureId → populationAssigned
+	/**
+	 * Updated structures with new population assignments
+	 */
+	assignments: Map<string, number>; // structureId → populationAssigned
 
-  /**
-   * Total population assigned across all structures
-   */
-  totalAssigned: number;
+	/**
+	 * Total population assigned across all structures
+	 */
+	totalAssigned: number;
 
-  /**
-   * Population remaining unassigned
-   */
-  remainingPopulation: number;
+	/**
+	 * Population remaining unassigned
+	 */
+	remainingPopulation: number;
 
-  /**
-   * Structures that couldn't be fully staffed
-   */
-  understaffedStructures: Array<{
-    structureId: string;
-    required: number;
-    assigned: number;
-    deficit: number;
-  }>;
+	/**
+	 * Structures that couldn't be fully staffed
+	 */
+	understaffedStructures: Array<{
+		structureId: string;
+		required: number;
+		assigned: number;
+		deficit: number;
+	}>;
 
-  /**
-   * Structures that are fully staffed
-   */
-  fullyStaffedStructures: string[];
+	/**
+	 * Structures that are fully staffed
+	 */
+	fullyStaffedStructures: string[];
 }
 
 /**
@@ -74,94 +74,94 @@ export interface AssignmentResult {
  * @returns Assignment result with updates
  */
 export function autoAssignPopulation(
-  totalPopulation: number,
-  structures: StructureWithType[]
+	totalPopulation: number,
+	structures: StructureWithType[]
 ): AssignmentResult {
-  const assignments = new Map<string, number>();
-  const understaffedStructures: AssignmentResult['understaffedStructures'] = [];
-  const fullyStaffedStructures: string[] = [];
-  let remainingPopulation = totalPopulation;
+	const assignments = new Map<string, number>();
+	const understaffedStructures: AssignmentResult['understaffedStructures'] = [];
+	const fullyStaffedStructures: string[] = [];
+	let remainingPopulation = totalPopulation;
 
-  // Get staffing requirements for each structure
-  const structuresWithRequirements = structures.map((structure) => {
-    const type =
-      structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
-    const staffing = getStaffingRequirement(structure.category, type);
-    return {
-      structure,
-      staffing,
-    };
-  });
+	// Get staffing requirements for each structure
+	const structuresWithRequirements = structures.map((structure) => {
+		const type =
+			structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
+		const staffing = getStaffingRequirement(structure.category, type);
+		return {
+			structure,
+			staffing,
+		};
+	});
 
-  // Sort by priority (highest first)
-  const sortedStructures = structuresWithRequirements
-    .filter(({ staffing }) => staffing.required > 0) // Only structures that need workers
-    .sort((a, b) => b.staffing.priority - a.staffing.priority);
+	// Sort by priority (highest first)
+	const sortedStructures = structuresWithRequirements
+		.filter(({ staffing }) => staffing.required > 0) // Only structures that need workers
+		.sort((a, b) => b.staffing.priority - a.staffing.priority);
 
-  // Phase 1: Assign required workers
-  for (const { structure, staffing } of sortedStructures) {
-    const required = staffing.required;
-    const canAssign = Math.min(required, remainingPopulation);
+	// Phase 1: Assign required workers
+	for (const { structure, staffing } of sortedStructures) {
+		const required = staffing.required;
+		const canAssign = Math.min(required, remainingPopulation);
 
-    // Only set assignment if we actually assigned workers
-    if (canAssign > 0) {
-      assignments.set(structure.id, canAssign);
-      remainingPopulation -= canAssign;
-    }
+		// Only set assignment if we actually assigned workers
+		if (canAssign > 0) {
+			assignments.set(structure.id, canAssign);
+			remainingPopulation -= canAssign;
+		}
 
-    if (canAssign < required) {
-      understaffedStructures.push({
-        structureId: structure.id,
-        required,
-        assigned: canAssign,
-        deficit: required - canAssign,
-      });
-    }
-  }
+		if (canAssign < required) {
+			understaffedStructures.push({
+				structureId: structure.id,
+				required,
+				assigned: canAssign,
+				deficit: required - canAssign,
+			});
+		}
+	}
 
-  // Phase 2: Assign optional workers (if bonuses available)
-  if (remainingPopulation > 0) {
-    // Sort by bonus value (highest bonus first)
-    const structuresWithBonuses = sortedStructures
-      .filter(({ staffing }) => staffing.optional && staffing.optional > 0)
-      .sort((a, b) => {
-        const bonusA = a.staffing.bonusPerWorker || 0;
-        const bonusB = b.staffing.bonusPerWorker || 0;
-        return bonusB - bonusA; // Highest bonus first
-      });
+	// Phase 2: Assign optional workers (if bonuses available)
+	if (remainingPopulation > 0) {
+		// Sort by bonus value (highest bonus first)
+		const structuresWithBonuses = sortedStructures
+			.filter(({ staffing }) => staffing.optional && staffing.optional > 0)
+			.sort((a, b) => {
+				const bonusA = a.staffing.bonusPerWorker || 0;
+				const bonusB = b.staffing.bonusPerWorker || 0;
+				return bonusB - bonusA; // Highest bonus first
+			});
 
-    for (const { structure, staffing } of structuresWithBonuses) {
-      const currentAssigned = assignments.get(structure.id) || 0;
-      const maxCapacity = staffing.required + (staffing.optional || 0);
-      const availableSlots = maxCapacity - currentAssigned;
+		for (const { structure, staffing } of structuresWithBonuses) {
+			const currentAssigned = assignments.get(structure.id) || 0;
+			const maxCapacity = staffing.required + (staffing.optional || 0);
+			const availableSlots = maxCapacity - currentAssigned;
 
-      if (availableSlots > 0 && remainingPopulation > 0) {
-        const toAssign = Math.min(availableSlots, remainingPopulation);
-        assignments.set(structure.id, currentAssigned + toAssign);
-        remainingPopulation -= toAssign;
-      }
-    }
-  }
+			if (availableSlots > 0 && remainingPopulation > 0) {
+				const toAssign = Math.min(availableSlots, remainingPopulation);
+				assignments.set(structure.id, currentAssigned + toAssign);
+				remainingPopulation -= toAssign;
+			}
+		}
+	}
 
-  // Identify fully staffed structures
-  for (const { structure, staffing } of sortedStructures) {
-    const assigned = assignments.get(structure.id) || 0;
-    const maxCapacity = staffing.required + (staffing.optional || 0);
+	// Identify fully staffed structures
+	for (const { structure, staffing } of sortedStructures) {
+		const assigned = assignments.get(structure.id) || 0;
+		const maxCapacity = staffing.required + (staffing.optional || 0);
 
-    if (assigned >= maxCapacity) {
-      fullyStaffedStructures.push(structure.id);
-    }
-  }
+		if (assigned >= maxCapacity) {
+			fullyStaffedStructures.push(structure.id);
+		}
+	}
 
-  const totalAssigned = totalPopulation - remainingPopulation;
+	const totalAssigned = totalPopulation - remainingPopulation;
 
-  return {
-    assignments,
-    totalAssigned,
-    remainingPopulation,
-    understaffedStructures,
-    fullyStaffedStructures,
-  };
+	return {
+		assignments,
+		totalAssigned,
+		remainingPopulation,
+		understaffedStructures,
+		fullyStaffedStructures,
+	};
 }
 
 /**
@@ -180,17 +180,17 @@ export function autoAssignPopulation(
  * @returns Production multiplier (1.0 = base, 1.2 = +20% bonus)
  */
 export function calculateStaffingBonus(assigned: number, staffing: StaffingRequirement): number {
-  // No bonus if not fully staffed (required workers)
-  if (assigned < staffing.required) {
-    return 1;
-  }
+	// No bonus if not fully staffed (required workers)
+	if (assigned < staffing.required) {
+		return 1;
+	}
 
-  // Calculate bonus from optional workers
-  const bonusWorkers = assigned - staffing.required;
-  const bonusPerWorker = staffing.bonusPerWorker || 0;
-  const totalBonus = bonusWorkers * bonusPerWorker;
+	// Calculate bonus from optional workers
+	const bonusWorkers = assigned - staffing.required;
+	const bonusPerWorker = staffing.bonusPerWorker || 0;
+	const totalBonus = bonusWorkers * bonusPerWorker;
 
-  return 1 + totalBonus;
+	return 1 + totalBonus;
 }
 
 /**
@@ -200,30 +200,30 @@ export function calculateStaffingBonus(assigned: number, staffing: StaffingRequi
  * @returns Understaffed structures with deficit information
  */
 export function getUnstaffedStructures(structures: StructureWithType[]): Array<{
-  structureId: string;
-  required: number;
-  assigned: number;
-  deficit: number;
+	structureId: string;
+	required: number;
+	assigned: number;
+	deficit: number;
 }> {
-  const understaffed: ReturnType<typeof getUnstaffedStructures> = [];
+	const understaffed: ReturnType<typeof getUnstaffedStructures> = [];
 
-  for (const structure of structures) {
-    const type =
-      structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
-    const staffing = getStaffingRequirement(structure.category, type);
-    const assigned = structure.populationAssigned || 0;
+	for (const structure of structures) {
+		const type =
+			structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
+		const staffing = getStaffingRequirement(structure.category, type);
+		const assigned = structure.populationAssigned || 0;
 
-    if (assigned < staffing.required) {
-      understaffed.push({
-        structureId: structure.id,
-        required: staffing.required,
-        assigned,
-        deficit: staffing.required - assigned,
-      });
-    }
-  }
+		if (assigned < staffing.required) {
+			understaffed.push({
+				structureId: structure.id,
+				required: staffing.required,
+				assigned,
+				deficit: staffing.required - assigned,
+			});
+		}
+	}
 
-  return understaffed;
+	return understaffed;
 }
 
 /**
@@ -234,11 +234,11 @@ export function getUnstaffedStructures(structures: StructureWithType[]): Array<{
  * @returns True if valid, false if over capacity
  */
 export function validateAssignment(structure: StructureWithType, assigned: number): boolean {
-  const type =
-    structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
-  const staffing = getStaffingRequirement(structure.category, type);
-  const maxCapacity = staffing.required + (staffing.optional || 0);
-  return assigned <= maxCapacity;
+	const type =
+		structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
+	const staffing = getStaffingRequirement(structure.category, type);
+	const maxCapacity = staffing.required + (staffing.optional || 0);
+	return assigned <= maxCapacity;
 }
 
 /**
@@ -248,16 +248,16 @@ export function validateAssignment(structure: StructureWithType, assigned: numbe
  * @returns Map of structureId → production multiplier
  */
 export function calculateAllStaffingBonuses(structures: StructureWithType[]): Map<string, number> {
-  const bonuses = new Map<string, number>();
+	const bonuses = new Map<string, number>();
 
-  for (const structure of structures) {
-    const type =
-      structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
-    const staffing = getStaffingRequirement(structure.category, type);
-    const assigned = structure.populationAssigned || 0;
-    const bonus = calculateStaffingBonus(assigned, staffing);
-    bonuses.set(structure.id, bonus);
-  }
+	for (const structure of structures) {
+		const type =
+			structure.category === 'BUILDING' ? structure.buildingType! : structure.extractorType!;
+		const staffing = getStaffingRequirement(structure.category, type);
+		const assigned = structure.populationAssigned || 0;
+		const bonus = calculateStaffingBonus(assigned, staffing);
+		bonuses.set(structure.id, bonus);
+	}
 
-  return bonuses;
+	return bonuses;
 }

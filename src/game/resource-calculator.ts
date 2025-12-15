@@ -38,33 +38,33 @@
  * // Returns: (80/100) × 1.2 × 0.2 = 0.192 units/tick
  */
 function calculateBaseProduction(
-  resourceType: keyof Resources,
-  tile: Tile,
-  biomeEfficiency: number
+	resourceType: keyof Resources,
+	tile: Tile,
+	biomeEfficiency: number
 ): number {
-  // Get quality for this specific resource type (0-100 scale)
-  const qualityField = `${resourceType}Quality` as keyof Tile;
-  const quality = (tile[qualityField] as number) || 50; // Default to 50 if not set
+	// Get quality for this specific resource type (0-100 scale)
+	const qualityField = `${resourceType}Quality` as keyof Tile;
+	const quality = (tile[qualityField] as number) || 50; // Default to 50 if not set
 
-  // Convert quality to 0-1 multiplier
-  const qualityMultiplier = quality / 100;
+	// Convert quality to 0-1 multiplier
+	const qualityMultiplier = quality / 100;
 
-  // Get base production modifier (disaster impacts like drought)
-  const baseModifier = tile.baseProductionModifier || 1;
+	// Get base production modifier (disaster impacts like drought)
+	const baseModifier = tile.baseProductionModifier || 1;
 
-  const result = qualityMultiplier * biomeEfficiency * baseModifier * 0.2;
+	const result = qualityMultiplier * biomeEfficiency * baseModifier * 0.2;
 
-  logger.debug(`[BASE PRODUCTION] Calculated for ${resourceType}`, {
-    tileId: tile.id,
-    quality,
-    qualityMultiplier,
-    biomeEfficiency,
-    baseModifier,
-    formula: `${qualityMultiplier} × ${biomeEfficiency} × ${baseModifier} × 0.2`,
-    result,
-  });
+	logger.debug(`[BASE PRODUCTION] Calculated for ${resourceType}`, {
+		tileId: tile.id,
+		quality,
+		qualityMultiplier,
+		biomeEfficiency,
+		baseModifier,
+		formula: `${qualityMultiplier} × ${biomeEfficiency} × ${baseModifier} × 0.2`,
+		result,
+	});
 
-  return result;
+	return result;
 }
 
 /**
@@ -89,9 +89,9 @@ function calculateBaseProduction(
  * getExtractorTierMultiplier(10) // Returns: 16 (Tier 3)
  */
 function getExtractorTierMultiplier(level: number): number {
-  if (level <= 3) return 5; // Tier 1: Basic
-  if (level <= 6) return 10; // Tier 2: Advanced
-  return 16; // Tier 3: Elite
+	if (level <= 3) return 5; // Tier 1: Basic
+	if (level <= 6) return 10; // Tier 2: Advanced
+	return 16; // Tier 3: Elite
 }
 
 import type { Tile, SettlementStructure } from '../db/schema.js';
@@ -103,11 +103,11 @@ import { logger } from '../utils/logger.js';
  * Resource types in the game
  */
 export interface Resources {
-  food: number;
-  water: number;
-  wood: number;
-  stone: number;
-  ore: number;
+	food: number;
+	water: number;
+	wood: number;
+	stone: number;
+	ore: number;
 }
 
 /**
@@ -120,26 +120,26 @@ export interface ProductionRates extends Resources {}
  * (Requires joining settlementStructures with structures table)
  */
 export interface StructureWithInfo extends SettlementStructure {
-  category?: 'EXTRACTOR' | 'BUILDING' | null;
-  extractorType?: string | null;
-  buildingType?: string | null;
+	category?: 'EXTRACTOR' | 'BUILDING' | null;
+	extractorType?: string | null;
+	buildingType?: string | null;
 }
 
 /**
  * Extractor type to resource mapping
  */
 const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
-  FARM: 'food',
-  WELL: 'water',
-  LUMBER_MILL: 'wood',
-  QUARRY: 'stone',
-  MINE: 'ore',
-  FISHING_DOCK: 'food', // Alternative food source
-  HUNTING_LODGE: 'food', // Alternative food source
-  HERB_GARDEN: 'food', // Special resource (treated as food for now)
-  // Tier 3 Extractors
-  DEEP_MINE: 'ore', // Advanced ore extraction
-  ADVANCED_FARM: 'food', // Advanced food production
+	FARM: 'food',
+	WELL: 'water',
+	LUMBER_MILL: 'wood',
+	QUARRY: 'stone',
+	MINE: 'ore',
+	FISHING_DOCK: 'food', // Alternative food source
+	HUNTING_LODGE: 'food', // Alternative food source
+	HERB_GARDEN: 'food', // Special resource (treated as food for now)
+	// Tier 3 Extractors
+	DEEP_MINE: 'ore', // Advanced ore extraction
+	ADVANCED_FARM: 'food', // Advanced food production
 };
 
 /**
@@ -154,19 +154,19 @@ const EXTRACTOR_RESOURCE_MAP: Record<string, keyof Resources> = {
  * Example: Tier 1 Level 5 = 5 + (5 - 1) × 1 = 9x
  */
 const EXTRACTOR_TIER_MAP: Record<string, number> = {
-  // Tier 1 Extractors (5x base)
-  FARM: 5,
-  WELL: 5,
-  LUMBER_MILL: 5,
-  QUARRY: 5,
-  MINE: 5,
-  // Tier 2 Extractors (8x base) - planned
-  FISHING_DOCK: 8,
-  HUNTING_LODGE: 8,
-  HERB_GARDEN: 8,
-  // Tier 3 Extractors (12x base) - planned
-  DEEP_MINE: 12,
-  ADVANCED_FARM: 12,
+	// Tier 1 Extractors (5x base)
+	FARM: 5,
+	WELL: 5,
+	LUMBER_MILL: 5,
+	QUARRY: 5,
+	MINE: 5,
+	// Tier 2 Extractors (8x base) - planned
+	FISHING_DOCK: 8,
+	HUNTING_LODGE: 8,
+	HERB_GARDEN: 8,
+	// Tier 3 Extractors (12x base) - planned
+	DEEP_MINE: 12,
+	ADVANCED_FARM: 12,
 };
 
 /**
@@ -184,9 +184,9 @@ const EXTRACTOR_TIER_MAP: Record<string, number> = {
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getExtractorMultiplier(extractorType: string, level: number): number {
-  const tierBase = EXTRACTOR_TIER_MAP[extractorType] || 5; // Default to Tier 1 if unknown
-  const levelBonus = (level - 1) * 1; // +1 per level above 1
-  return tierBase + levelBonus;
+	const tierBase = EXTRACTOR_TIER_MAP[extractorType] || 5; // Default to Tier 1 if unknown
+	const levelBonus = (level - 1) * 1; // +1 per level above 1
+	return tierBase + levelBonus;
 }
 
 /**
@@ -276,113 +276,113 @@ function getExtractorMultiplier(extractorType: string, level: number): number {
  * console.log(boostedProduction.food); // e.g., 90 food/tick (60 × 1.5)
  */
 export function calculateProduction(
-  tile: Tile,
-  extractors: StructureWithInfo[],
-  tickCount: number = 1,
-  biomeName?: string | null,
-  worldTemplateMultiplier: number = 1
+	tile: Tile,
+	extractors: StructureWithInfo[],
+	tickCount: number = 1,
+	biomeName?: string | null,
+	worldTemplateMultiplier: number = 1
 ): Resources {
-  // Get biome efficiency multipliers for all resources
-  const biomeEfficiency = getBiomeEfficiency(biomeName);
+	// Get biome efficiency multipliers for all resources
+	const biomeEfficiency = getBiomeEfficiency(biomeName);
 
-  // Initialize production object
-  const production: Resources = {
-    food: 0,
-    water: 0,
-    wood: 0,
-    stone: 0,
-    ore: 0,
-  };
+	// Initialize production object
+	const production: Resources = {
+		food: 0,
+		water: 0,
+		wood: 0,
+		stone: 0,
+		ore: 0,
+	};
 
-  // Log production calculation start
-  logger.debug('[RESOURCE CALC] Starting production calculation', {
-    tileId: tile.id,
-    biomeName,
-    extractorCount: extractors.length,
-    tickCount,
-    worldTemplateMultiplier,
-  });
+	// Log production calculation start
+	logger.debug('[RESOURCE CALC] Starting production calculation', {
+		tileId: tile.id,
+		biomeName,
+		extractorCount: extractors.length,
+		tickCount,
+		worldTemplateMultiplier,
+	});
 
-  // BLOCKER 2 FIX: Process EACH resource type independently
-  // Base production (20%) happens even WITHOUT extractors
-  const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
+	// BLOCKER 2 FIX: Process EACH resource type independently
+	// Base production (20%) happens even WITHOUT extractors
+	const resourceTypes: (keyof Resources)[] = ['food', 'water', 'wood', 'stone', 'ore'];
 
-  for (const resourceType of resourceTypes) {
-    // Check if tile has this resource (quality > 0 means resource available)
-    const qualityField = `${resourceType}Quality` as keyof Tile;
-    const resourceQuality = (tile[qualityField] as number) || 0;
+	for (const resourceType of resourceTypes) {
+		// Check if tile has this resource (quality > 0 means resource available)
+		const qualityField = `${resourceType}Quality` as keyof Tile;
+		const resourceQuality = (tile[qualityField] as number) || 0;
 
-    if (resourceQuality === 0) {
-      // Tile doesn't have this resource - skip
-      logger.debug(`[RESOURCE CALC] Skipping ${resourceType} (quality = 0)`);
-      continue;
-    }
+		if (resourceQuality === 0) {
+			// Tile doesn't have this resource - skip
+			logger.debug(`[RESOURCE CALC] Skipping ${resourceType} (quality = 0)`);
+			continue;
+		}
 
-    // Step 1: Calculate base production (20% of max potential - ALWAYS active)
-    const baseProduction = calculateBaseProduction(
-      resourceType,
-      tile,
-      biomeEfficiency[resourceType]
-    );
+		// Step 1: Calculate base production (20% of max potential - ALWAYS active)
+		const baseProduction = calculateBaseProduction(
+			resourceType,
+			tile,
+			biomeEfficiency[resourceType]
+		);
 
-    // Step 2: Find extractor for this specific resource (if any)
-    // If multiple extractors of same type, use HIGHEST level only
-    const extractor = extractors
-      ?.filter(
-        (e) =>
-          e.category === 'EXTRACTOR' &&
-          e.extractorType &&
-          EXTRACTOR_RESOURCE_MAP[e.extractorType] === resourceType
-      )
-      .reduce(
-        (highest, current) => {
-          return !highest || (current.level || 1) > (highest.level || 1) ? current : highest;
-        },
-        undefined as StructureWithInfo | undefined
-      );
+		// Step 2: Find extractor for this specific resource (if any)
+		// If multiple extractors of same type, use HIGHEST level only
+		const extractor = extractors
+			?.filter(
+				(e) =>
+					e.category === 'EXTRACTOR' &&
+					e.extractorType &&
+					EXTRACTOR_RESOURCE_MAP[e.extractorType] === resourceType
+			)
+			.reduce(
+				(highest, current) => {
+					return !highest || (current.level || 1) > (highest.level || 1) ? current : highest;
+				},
+				undefined as StructureWithInfo | undefined
+			);
 
-    // Step 3: Determine tier multiplier
-    let tierMultiplier = 1; // Default: No extractor = 1x (base production only)
-    let healthModifier = 1; // Default: No structure = 100% health
+		// Step 3: Determine tier multiplier
+		let tierMultiplier = 1; // Default: No extractor = 1x (base production only)
+		let healthModifier = 1; // Default: No structure = 100% health
 
-    if (extractor) {
-      // Apply tier-based multiplier (5x/10x/16x based on level)
-      tierMultiplier = getExtractorTierMultiplier(extractor.level || 1);
+		if (extractor) {
+			// Apply tier-based multiplier (5x/10x/16x based on level)
+			tierMultiplier = getExtractorTierMultiplier(extractor.level || 1);
 
-      // Apply structure health modifier (disaster damage impact)
-      healthModifier = getEffectiveness(extractor.health);
+			// Apply structure health modifier (disaster damage impact)
+			healthModifier = getEffectiveness(extractor.health);
 
-      logger.debug(`[RESOURCE CALC] ${resourceType} extractor found`, {
-        extractorType: extractor.extractorType,
-        level: extractor.level,
-        health: extractor.health,
-        tierMultiplier,
-        healthModifier,
-      });
-    } else {
-      logger.debug(`[RESOURCE CALC] ${resourceType} - NO extractor (base production only)`);
-    }
+			logger.debug(`[RESOURCE CALC] ${resourceType} extractor found`, {
+				extractorType: extractor.extractorType,
+				level: extractor.level,
+				health: extractor.health,
+				tierMultiplier,
+				healthModifier,
+			});
+		} else {
+			logger.debug(`[RESOURCE CALC] ${resourceType} - NO extractor (base production only)`);
+		}
 
-    // Step 4: Calculate final production for this resource
-    // Formula: BaseProduction × TierMultiplier × HealthModifier × Ticks × WorldTemplate
-    production[resourceType] =
-      baseProduction * tierMultiplier * healthModifier * tickCount * worldTemplateMultiplier;
+		// Step 4: Calculate final production for this resource
+		// Formula: BaseProduction × TierMultiplier × HealthModifier × Ticks × WorldTemplate
+		production[resourceType] =
+			baseProduction * tierMultiplier * healthModifier * tickCount * worldTemplateMultiplier;
 
-    logger.debug(`[RESOURCE CALC] ${resourceType} production calculated`, {
-      baseProduction,
-      tierMultiplier,
-      healthModifier,
-      tickCount,
-      worldTemplateMultiplier,
-      finalProduction: production[resourceType],
-    });
-  }
+		logger.debug(`[RESOURCE CALC] ${resourceType} production calculated`, {
+			baseProduction,
+			tierMultiplier,
+			healthModifier,
+			tickCount,
+			worldTemplateMultiplier,
+			finalProduction: production[resourceType],
+		});
+	}
 
-  logger.debug('[RESOURCE CALC] Total production', {
-    production,
-  });
+	logger.debug('[RESOURCE CALC] Total production', {
+		production,
+	});
 
-  return production;
+	return production;
 }
 
 /**
@@ -397,21 +397,21 @@ export function calculateProduction(
  * @returns Total resources produced since last collection
  */
 export function calculateTimedProduction(
-  tile: Tile,
-  extractors: StructureWithInfo[],
-  lastCollectionTime: number,
-  currentTime: number = Date.now(),
-  biomeName?: string | null,
-  worldTemplateMultiplier: number = 1
+	tile: Tile,
+	extractors: StructureWithInfo[],
+	lastCollectionTime: number,
+	currentTime: number = Date.now(),
+	biomeName?: string | null,
+	worldTemplateMultiplier: number = 1
 ): Resources {
-  // Calculate elapsed time in milliseconds
-  const elapsedMs = currentTime - lastCollectionTime;
+	// Calculate elapsed time in milliseconds
+	const elapsedMs = currentTime - lastCollectionTime;
 
-  // Convert to ticks (60 ticks per second)
-  const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
+	// Convert to ticks (60 ticks per second)
+	const ticksElapsed = Math.floor(elapsedMs / (1000 / 60));
 
-  // Calculate production for elapsed ticks
-  return calculateProduction(tile, extractors, ticksElapsed, biomeName, worldTemplateMultiplier);
+	// Calculate production for elapsed ticks
+	return calculateProduction(tile, extractors, ticksElapsed, biomeName, worldTemplateMultiplier);
 }
 
 /**
@@ -423,30 +423,30 @@ export function calculateTimedProduction(
  * @returns Updated storage amounts
  */
 export function addResources(
-  storage: Resources,
-  resources: Resources,
-  maxCapacity?: number
+	storage: Resources,
+	resources: Resources,
+	maxCapacity?: number
 ): Resources {
-  const updated = {
-    food: storage.food + resources.food,
-    water: storage.water + resources.water,
-    wood: storage.wood + resources.wood,
-    stone: storage.stone + resources.stone,
-    ore: storage.ore + resources.ore,
-  };
+	const updated = {
+		food: storage.food + resources.food,
+		water: storage.water + resources.water,
+		wood: storage.wood + resources.wood,
+		stone: storage.stone + resources.stone,
+		ore: storage.ore + resources.ore,
+	};
 
-  // Apply capacity limits if specified
-  if (maxCapacity) {
-    return {
-      food: Math.min(updated.food, maxCapacity),
-      water: Math.min(updated.water, maxCapacity),
-      wood: Math.min(updated.wood, maxCapacity),
-      stone: Math.min(updated.stone, maxCapacity),
-      ore: Math.min(updated.ore, maxCapacity),
-    };
-  }
+	// Apply capacity limits if specified
+	if (maxCapacity) {
+		return {
+			food: Math.min(updated.food, maxCapacity),
+			water: Math.min(updated.water, maxCapacity),
+			wood: Math.min(updated.wood, maxCapacity),
+			stone: Math.min(updated.stone, maxCapacity),
+			ore: Math.min(updated.ore, maxCapacity),
+		};
+	}
 
-  return updated;
+	return updated;
 }
 
 /**
@@ -457,13 +457,13 @@ export function addResources(
  * @returns Updated storage amounts (won't go below 0)
  */
 export function subtractResources(storage: Resources, resources: Resources): Resources {
-  return {
-    food: Math.max(0, storage.food - resources.food),
-    water: Math.max(0, storage.water - resources.water),
-    wood: Math.max(0, storage.wood - resources.wood),
-    stone: Math.max(0, storage.stone - resources.stone),
-    ore: Math.max(0, storage.ore - resources.ore),
-  };
+	return {
+		food: Math.max(0, storage.food - resources.food),
+		water: Math.max(0, storage.water - resources.water),
+		wood: Math.max(0, storage.wood - resources.wood),
+		stone: Math.max(0, storage.stone - resources.stone),
+		ore: Math.max(0, storage.ore - resources.ore),
+	};
 }
 
 /**
@@ -474,13 +474,13 @@ export function subtractResources(storage: Resources, resources: Resources): Res
  * @returns True if storage has enough of all resources
  */
 export function hasEnoughResources(storage: Resources, required: Resources): boolean {
-  return (
-    storage.food >= required.food &&
-    storage.water >= required.water &&
-    storage.wood >= required.wood &&
-    storage.stone >= required.stone &&
-    storage.ore >= required.ore
-  );
+	return (
+		storage.food >= required.food &&
+		storage.water >= required.water &&
+		storage.wood >= required.wood &&
+		storage.stone >= required.stone &&
+		storage.ore >= required.ore
+	);
 }
 
 /**
@@ -492,23 +492,23 @@ export function hasEnoughResources(storage: Resources, required: Resources): boo
  * @returns Consumption rates per tick
  */
 export function calculateConsumption(
-  populationCount: number = 0,
-  structureCount: number = 0
+	populationCount: number = 0,
+	structureCount: number = 0
 ): Resources {
-  // Base consumption per person per tick
-  const FOOD_PER_PERSON_PER_TICK = 0.005;
-  const WATER_PER_PERSON_PER_TICK = 0.01;
+	// Base consumption per person per tick
+	const FOOD_PER_PERSON_PER_TICK = 0.005;
+	const WATER_PER_PERSON_PER_TICK = 0.01;
 
-  // Maintenance cost per structure per tick
-  const MAINTENANCE_PER_STRUCTURE_PER_TICK = 0.001;
+	// Maintenance cost per structure per tick
+	const MAINTENANCE_PER_STRUCTURE_PER_TICK = 0.001;
 
-  return {
-    food: populationCount * FOOD_PER_PERSON_PER_TICK,
-    water: populationCount * WATER_PER_PERSON_PER_TICK,
-    wood: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK,
-    stone: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK * 0.5,
-    ore: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK * 0.25,
-  };
+	return {
+		food: populationCount * FOOD_PER_PERSON_PER_TICK,
+		water: populationCount * WATER_PER_PERSON_PER_TICK,
+		wood: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK,
+		stone: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK * 0.5,
+		ore: structureCount * MAINTENANCE_PER_STRUCTURE_PER_TICK * 0.25,
+	};
 }
 
 /**
@@ -523,23 +523,23 @@ export function calculateConsumption(
  * @returns Net resources (can be negative if consumption exceeds production)
  */
 export function calculateNetProduction(
-  tile: Tile,
-  extractors: StructureWithInfo[],
-  populationCount: number = 0,
-  structureCount: number = 0,
-  tickCount: number = 1,
-  biomeName?: string | null
+	tile: Tile,
+	extractors: StructureWithInfo[],
+	populationCount: number = 0,
+	structureCount: number = 0,
+	tickCount: number = 1,
+	biomeName?: string | null
 ): Resources {
-  const production = calculateProduction(tile, extractors, tickCount, biomeName);
-  const consumption = calculateConsumption(populationCount, structureCount);
+	const production = calculateProduction(tile, extractors, tickCount, biomeName);
+	const consumption = calculateConsumption(populationCount, structureCount);
 
-  return {
-    food: production.food - consumption.food * tickCount,
-    water: production.water - consumption.water * tickCount,
-    wood: production.wood - consumption.wood * tickCount,
-    stone: production.stone - consumption.stone * tickCount,
-    ore: production.ore - consumption.ore * tickCount,
-  };
+	return {
+		food: production.food - consumption.food * tickCount,
+		water: production.water - consumption.water * tickCount,
+		wood: production.wood - consumption.wood * tickCount,
+		stone: production.stone - consumption.stone * tickCount,
+		ore: production.ore - consumption.ore * tickCount,
+	};
 }
 
 // ===========================
@@ -553,7 +553,7 @@ export function calculateNetProduction(
  * @returns True if the structure is an extractor
  */
 export function isExtractor(structure: StructureWithInfo): boolean {
-  return structure.category === 'EXTRACTOR' && !!structure.extractorType;
+	return structure.category === 'EXTRACTOR' && !!structure.extractorType;
 }
 
 /**
@@ -565,10 +565,10 @@ export function isExtractor(structure: StructureWithInfo): boolean {
  * @returns Average level, or 0 if no extractors
  */
 export function getAverageLevel(extractors: StructureWithInfo[]): number {
-  if (extractors.length === 0) return 0;
+	if (extractors.length === 0) return 0;
 
-  const totalLevel = extractors.reduce((sum, extractor) => sum + extractor.level, 0);
-  return totalLevel / extractors.length;
+	const totalLevel = extractors.reduce((sum, extractor) => sum + extractor.level, 0);
+	return totalLevel / extractors.length;
 }
 
 /**
@@ -580,9 +580,9 @@ export function getAverageLevel(extractors: StructureWithInfo[]): number {
  * @returns Maximum level, or 0 if no extractors
  */
 export function getMaxLevel(extractors: StructureWithInfo[]): number {
-  if (extractors.length === 0) return 0;
+	if (extractors.length === 0) return 0;
 
-  return Math.max(...extractors.map((extractor) => extractor.level));
+	return Math.max(...extractors.map((extractor) => extractor.level));
 }
 
 /**
@@ -593,13 +593,13 @@ export function getMaxLevel(extractors: StructureWithInfo[]): number {
  * @returns Array of extractors that produce the specified resource
  */
 export function getExtractorsByResource(
-  extractors: StructureWithInfo[],
-  resourceType: keyof Resources
+	extractors: StructureWithInfo[],
+	resourceType: keyof Resources
 ): StructureWithInfo[] {
-  return extractors.filter((extractor) => {
-    if (!extractor.extractorType) return false;
-    return EXTRACTOR_RESOURCE_MAP[extractor.extractorType] === resourceType;
-  });
+	return extractors.filter((extractor) => {
+		if (!extractor.extractorType) return false;
+		return EXTRACTOR_RESOURCE_MAP[extractor.extractorType] === resourceType;
+	});
 }
 
 /**
@@ -609,5 +609,5 @@ export function getExtractorsByResource(
  * @returns Formatted string
  */
 export function formatResources(resources: Resources): string {
-  return `Food: ${Math.floor(resources.food)}, Water: ${Math.floor(resources.water)}, Wood: ${Math.floor(resources.wood)}, Stone: ${Math.floor(resources.stone)}, Ore: ${Math.floor(resources.ore)}`;
+	return `Food: ${Math.floor(resources.food)}, Water: ${Math.floor(resources.water)}, Wood: ${Math.floor(resources.wood)}, Stone: ${Math.floor(resources.stone)}, Ore: ${Math.floor(resources.ore)}`;
 }
