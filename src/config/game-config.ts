@@ -221,6 +221,7 @@ export interface GameConfig {
   biomeDisplay: Record<BiomeType, BiomeDisplayConfig>;
   qualityDisplay: QualityDisplayConfig[];
   accumulation: AccumulationConfig;
+  gameLoopTimingConfig: GameLoopTimingConfig;
 }
 
 // ===========================
@@ -340,5 +341,11 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
     tier2Multiplier: 0.25,
     tier2Hours: 96,
     maxHours: 96,
+  },
+  gameLoopTimingConfig: {
+    tickRate: Number.parseInt(process.env.TICK_RATE || '60', 10),
+    resourceIntervalSec: Number.parseInt(process.env.RESOURCE_INTERVAL_SEC || '3600', 10),
+    populationIntervalSec: Number.parseInt(process.env.POPULATION_INTERVAL_SEC || '3600', 10),
+    socketEmitIntervalSec: Number.parseInt(process.env.SOCKET_EMIT_INTERVAL_SEC || '5', 10),
   },
 };
