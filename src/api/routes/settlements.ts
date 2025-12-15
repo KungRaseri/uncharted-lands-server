@@ -15,6 +15,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import { MODIFIER_NAMES } from '../../game/modifier-names.js';
 
 const router = Router();
 
@@ -431,7 +432,7 @@ router.post('/', authenticate, async (req, res) => {
     await db.insert(structureModifiers).values({
       id: tentModifierId,
       settlementStructureId: tentId,
-      name: 'population_capacity',
+      name: MODIFIER_NAMES.POPULATION_CAPACITY,
       description: 'Provides shelter for 2 people',
       value: 2,
     });
