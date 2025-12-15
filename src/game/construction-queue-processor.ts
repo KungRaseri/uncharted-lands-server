@@ -21,6 +21,7 @@ import {
 import { eq, and, lte } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import type { Server as SocketIOServer } from 'socket.io';
+import { logger } from '../utils/logger.js';
 
 /**
  * Process construction queues for all settlements in a world
@@ -122,14 +123,14 @@ async function completeConstruction(
       timestamp: currentTime,
     });
 
-    console.log(
+    logger.debug(
       `[CONSTRUCTION] Completed ${construction.structureType} for settlement ${settlement.id}`
     );
 
     // 4. Start next queued construction if slots available
     await startNextQueuedConstruction(settlement.id, worldId, currentTime, io);
   } catch (error) {
-    console.error(`[CONSTRUCTION] Error completing construction ${construction.id}:`, error);
+    logger.error(`[CONSTRUCTION] Error completing construction ${construction.id}:`, error);
   }
 }
 
@@ -200,13 +201,13 @@ async function startNextQueuedConstruction(
           timestamp: currentTime,
         });
 
-        console.log(
+        logger.debug(
           `[CONSTRUCTION] Started ${construction.structureType} for settlement ${settlementId}`
         );
       }
     }
   } catch (error) {
-    console.error(
+    logger.error(
       `[CONSTRUCTION] Error starting next construction for settlement ${settlementId}:`,
       error
     );

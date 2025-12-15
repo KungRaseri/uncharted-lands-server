@@ -98,7 +98,7 @@ router.get('/game', async (_req, res) => {
     // For now, return the default configuration from code
     res.json(DEFAULT_GAME_CONFIG);
   } catch (error) {
-    console.error('Error fetching game config:', error);
+    logger.error('Error fetching game config:', error);
     res.status(500).json({ error: 'Failed to fetch game configuration' });
   }
 });
@@ -113,7 +113,7 @@ router.get('/version', async (_req, res) => {
     // For now, use a static version
     res.json({ version: '1.0.0', lastUpdated: new Date().toISOString() });
   } catch (error) {
-    console.error('Error fetching config version:', error);
+    logger.error('Error fetching config version:', error);
     res.status(500).json({ error: 'Failed to fetch configuration version' });
   }
 });

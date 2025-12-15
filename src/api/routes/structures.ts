@@ -405,7 +405,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 
     // Emit Socket.IO event for real-time updates
     const worldId = settlement.tile?.region?.worldId;
-    console.log('[SERVER] Attempting to emit structure:built event', {
+    logger.debug('[SERVER] Attempting to emit structure:built event', {
       worldId,
       settlementId,
       hasIo: !!req.app.get('io'),
@@ -413,7 +413,9 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
     });
     if (worldId && req.app.get('io')) {
       const io = req.app.get('io');
-      console.log('[SERVER] Emitting structure:built to room:', `world:${worldId}`);
+      logger.debug('[SERVER] Emitting structure:built to room:', {
+        world: `world:${worldId}`,
+      });
       io.to(`world:${worldId}`).emit('structure:built', {
         settlementId,
         structure: result.structure,
@@ -421,9 +423,9 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
         structureName: result.structureDefinition.name,
         resourcesDeducted: result.validation.deductedResources,
       });
-      console.log('[SERVER] structure:built event emitted successfully');
+      logger.debug('[SERVER] structure:built event emitted successfully');
     } else {
-      console.log('[SERVER] FAILED to emit - missing worldId or io instance');
+      logger.debug('[SERVER] FAILED to emit - missing worldId or io instance');
     }
 
     // ✅ Phase 4: Trigger settlement modifier recalculation after structure creation

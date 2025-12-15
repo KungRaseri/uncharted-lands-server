@@ -11,6 +11,7 @@ import express from 'express';
 import { db } from '../../db';
 import { accounts } from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { logger } from '../../utils/logger.js';
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post('/elevate-user', authenticateTestToken, async (req, res) => {
       role: updatedAccount.role,
     });
   } catch (error) {
-    console.error('[TEST-ADMIN] Error elevating user:', error);
+    logger.error('[TEST-ADMIN] Error elevating user:', error);
     res.status(500).json({
       error: 'INTERNAL_ERROR',
       message: 'Failed to elevate user',
@@ -141,7 +142,7 @@ router.post('/reset-user-role', authenticateTestToken, async (req, res) => {
       accountId: result[0].id,
     });
   } catch (error) {
-    console.error('[TEST-ADMIN] Error resetting user role:', error);
+    logger.error('[TEST-ADMIN] Error resetting user role:', error);
     res.status(500).json({
       error: 'INTERNAL_ERROR',
       message: 'Failed to reset user role',

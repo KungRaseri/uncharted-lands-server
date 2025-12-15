@@ -364,7 +364,7 @@ export async function getSettlementStructures(settlementId: string) {
     )
     .where(eq(settlementStructures.settlementId, settlementId));
 
-  console.log('[QUERY DEBUG] getSettlementStructures raw result', {
+  logger.debug('[QUERY DEBUG] getSettlementStructures raw result', {
     settlementId,
     rowCount: result.length,
     rows: result.map((row, index) => ({

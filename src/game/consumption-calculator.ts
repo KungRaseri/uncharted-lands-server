@@ -18,6 +18,7 @@
  */
 
 import type { Resources } from './resource-calculator.js';
+import { logger } from '../utils/logger.js';
 import { MODIFIER_NAMES } from './modifier-names.js';
 
 /**
@@ -90,7 +91,7 @@ export interface Structure {
 export function calculatePopulationCapacity(structures: Structure[]): number {
   let capacity = CONSUMPTION_RATES.BASE_POPULATION_CAPACITY;
 
-  console.log('[CAPACITY DEBUG] Starting calculation', {
+  logger.debug('[CAPACITY DEBUG] Starting calculation', {
     baseCapacity: CONSUMPTION_RATES.BASE_POPULATION_CAPACITY,
     structureCount: structures.length,
     structures: structures.map((s) => ({
@@ -105,7 +106,7 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
       // Check for standard snake_case name OR legacy names (backward compatibility)
       const isPopulationCapacity = modifier.name === MODIFIER_NAMES.POPULATION_CAPACITY;
 
-      console.log('[CAPACITY DEBUG] Checking modifier', {
+      logger.debug('[CAPACITY DEBUG] Checking modifier', {
         structureName: structure.name,
         modifierName: modifier.name,
         modifierValue: modifier.value,
@@ -115,7 +116,7 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
 
       if (isPopulationCapacity) {
         capacity += modifier.value;
-        console.log('[CAPACITY DEBUG] Added capacity', {
+        logger.debug('[CAPACITY DEBUG] Added capacity', {
           modifierValue: modifier.value,
           newCapacity: capacity,
         });
@@ -124,7 +125,7 @@ export function calculatePopulationCapacity(structures: Structure[]): number {
   }
 
   const finalCapacity = Math.max(0, Math.floor(capacity));
-  console.log('[CAPACITY DEBUG] Final capacity', {
+  logger.debug('[CAPACITY DEBUG] Final capacity', {
     beforeFloor: capacity,
     afterFloor: finalCapacity,
   });
@@ -306,7 +307,7 @@ export function verifyConsumptionRates(): boolean {
   const oreMatch = Math.abs(consumption.ore - expectedOre) < tolerance;
 
   if (!foodMatch || !waterMatch || !woodMatch || !stoneMatch || !oreMatch) {
-    console.error('Consumption rate verification failed:', {
+    logger.error('Consumption rate verification failed:', {
       food: { actual: consumption.food, expected: expectedFood, match: foodMatch },
       water: { actual: consumption.water, expected: expectedWater, match: waterMatch },
       wood: { actual: consumption.wood, expected: expectedWood, match: woodMatch },

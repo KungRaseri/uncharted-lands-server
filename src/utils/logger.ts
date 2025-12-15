@@ -99,7 +99,7 @@ class Logger {
   private initializeLogFile(): void {
     const now = new Date();
     const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const time = now.toISOString().split('T')[1].replace(/:/g, '-').split('.')[0]; // HH-MM-SS
+    const time = now.toISOString().split('T')[1].replaceAll(':', '-').split('.')[0]; // HH-MM-SS
     this.logStartTime = `${date}-${time}`;
     this.currentLogFile = path.join(this.logDir, `${this.logStartTime}.latest.log`);
 
@@ -203,32 +203,28 @@ class Logger {
    * Write log to file
    */
   private writeToFile(level: string, message: string, context?: LogContext): void {
-    if (!this.logToFile) return;
+    if (!this.logToFile || !this.currentLogFile) return;
 
     try {
       const timestamp = this.timestamp();
-      const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-      // Write to daily log file
-      const logFile = path.join(this.logDir, `${date}.log`);
+      // Write to the current .latest.log file
       const logEntry = `[${timestamp}] [${level.padEnd(5)}] ${message}${
         context ? ' ' + JSON.stringify(context) : ''
       }\n`;
 
-      fs.appendFileSync(logFile, logEntry, 'utf8');
+      fs.appendFileSync(this.currentLogFile, logEntry, 'utf8');
 
-      // Also write errors to separate error log
+      // Also write errors to separate timestamped error log
       if (level === 'ERROR') {
-        const errorFile = path.join(this.logDir, `${date}-error.log`);
+        const errorFile = path.join(this.logDir, `${this.logStartTime}.error.log`);
         fs.appendFileSync(errorFile, logEntry, 'utf8');
       }
     } catch (err) {
       // Don't crash if file writing fails
       console.error('Failed to write log to file:', err);
     }
-  }
-
-  /**
+  } /**
    * Log debug messages (verbose, for development)
    */
   debug(message: string, context?: LogContext): void {
@@ -338,7 +334,14 @@ class Logger {
     duration: number,
     context?: LogContext
   ): void {
-    const emoji = statusCode >= 500 ? '❌' : statusCode >= 400 ? '⚠️' : '✓';
+    let emoji: string;
+    if (statusCode >= 500) {
+      emoji = '❌';
+    } else if (statusCode >= 400) {
+      emoji = '⚠️';
+    } else {
+      emoji = '✓';
+    }
     this.info(`${emoji} ${method} ${path}`, { ...context, statusCode, duration });
   }
 
