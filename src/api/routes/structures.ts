@@ -9,7 +9,14 @@
 
 import { Router, Request, Response } from 'express';
 import { eq, and } from 'drizzle-orm';
-import { db, settlementStructures, settlements, structures, tiles } from '../../db/index.js';
+import {
+	db,
+	settlementStructures,
+	settlements,
+	structures,
+	tiles,
+	structureModifiers,
+} from '../../db/index.js';
 import type { Structure, Settlement } from '../../db/schema.js';
 import { authenticate } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
@@ -391,6 +398,20 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 					level: 1,
 				})
 				.returning();
+
+			// Create structure modifiers
+			const modifiers = calculateStructureModifiers(structureDefinition.name, 1);
+			if (modifiers.length > 0) {
+				await tx.insert(structureModifiers).values(
+					modifiers.map((mod) => ({
+						id: createId(),
+						settlementStructureId: structure.id,
+						name: mod.name,
+						description: mod.description,
+						value: mod.value,
+					}))
+				);
+			}
 
 			return { structure, structureDefinition, validation };
 		});
