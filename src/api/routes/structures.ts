@@ -503,7 +503,7 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 				// Emit updated population state with new capacity
 				io.to(`world:${worldId}`).emit('population-state', {
 					settlementId,
-					population: popData.currentPopulation,
+					current: popData.currentPopulation,
 					capacity: popState.capacity,
 					happiness: Math.floor(popState.happiness),
 					growthRate: popState.growthRate,
