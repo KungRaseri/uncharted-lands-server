@@ -400,13 +400,15 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 				.returning();
 
 			// Create structure modifiers
+			// Convert type (e.g., 'POPULATION_CAPACITY') to snake_case name (e.g., 'population_capacity')
+			// This matches the MODIFIER_NAMES constants used by game logic calculators
 			const modifiers = calculateStructureModifiers(structureDefinition.name, 1);
 			if (modifiers.length > 0) {
 				await tx.insert(structureModifiers).values(
 					modifiers.map((mod) => ({
 						id: createId(),
 						settlementStructureId: structure.id,
-						name: mod.name,
+						name: mod.type.toLowerCase(), // Use snake_case type, not human-readable name
 						description: mod.description,
 						value: mod.value,
 					}))
@@ -512,6 +514,19 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 					};
 				});
 
+				// DEBUG: Log mapped structures to see modifiers
+				logger.debug('[API] Structures mapped for capacity calculation:', {
+					settlementId,
+					structureCount: mappedStructures.length,
+					structures: mappedStructures.map((s) => ({
+						id: s.id,
+						name: s.name,
+						level: s.level,
+						modifierCount: s.modifiers?.length || 0,
+						modifiers: s.modifiers || [],
+					})),
+				});
+
 				// Calculate updated population state with new capacity
 				const { calculatePopulationState } = await import('../../game/population-calculator.js');
 				const popState = calculatePopulationState(
@@ -520,6 +535,15 @@ router.post('/create', authenticate, async (req: Request, res: Response) => {
 					{ food: 0, water: 0, wood: 0, stone: 0, ore: 0 }, // Resources not needed for capacity calc
 					popData.lastGrowthTick.getTime()
 				);
+
+				// DEBUG: Log capacity calculation result
+				logger.debug('[API] Capacity calculation completed:', {
+					settlementId,
+					currentPopulation: popData.currentPopulation,
+					calculatedCapacity: popState.capacity,
+					expectedAfterHouse: 17,
+					capacityDifference: 17 - popState.capacity,
+				});
 
 				// Emit updated population state with new capacity
 				io.to(`world:${worldId}`).emit('population-state', {
