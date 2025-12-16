@@ -5,10 +5,12 @@
  */
 
 import { Router } from 'express';
-import { sql } from 'drizzle-orm';
-import { db, servers, worlds, accounts, settlements } from '../../db/index.js';
+import { sql, eq } from 'drizzle-orm';
+import { db, servers, worlds, accounts, settlements, disasterEvents } from '../../db/index.js';
 import { authenticateAdmin } from '../middleware/auth.js';
 import { logger } from '../../utils/logger.js';
+import { getSeverityLevel } from '../../game/disaster-scheduler.js';
+import type { DisasterType } from '../../db/schema.js';
 
 const router = Router();
 
@@ -88,6 +90,83 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
 		res.status(500).json({
 			error: 'Failed to fetch dashboard statistics',
 			code: 'FETCH_FAILED',
+		});
+	}
+});
+
+/**
+ * POST /api/admin/disasters/trigger
+ * Manually trigger a disaster for testing purposes
+ */
+router.post('/disasters/trigger', authenticateAdmin, async (req, res) => {
+	try {
+		const { worldId, type, severity, duration } = req.body;
+
+		// Validate required fields
+		if (!worldId || !type) {
+			return res.status(400).json({
+				error: 'Missing required fields',
+				code: 'MISSING_FIELDS',
+				required: ['worldId', 'type'],
+			});
+		}
+
+		// Verify world exists
+		const world = await db.query.worlds.findFirst({
+			where: eq(worlds.id, worldId),
+		});
+
+		if (!world) {
+			return res.status(404).json({
+				error: 'World not found',
+				code: 'WORLD_NOT_FOUND',
+			});
+		}
+
+		// Default values
+		const disasterSeverity = severity || 50; // Default moderate severity
+		const warningTime = 60; // 1 minute warning for testing
+		const impactDuration = duration || 600; // 10 minutes default
+		const currentTime = Date.now();
+		const scheduledAt = new Date(currentTime + warningTime * 1000);
+
+		// Create disaster event
+		const [disasterEvent] = await db
+			.insert(disasterEvents)
+			.values({
+				worldId: worldId,
+				type: type as DisasterType,
+				severity: disasterSeverity,
+				severityLevel: getSeverityLevel(disasterSeverity),
+				affectedRegionId: null,
+				affectedBiomes: ['GRASSLAND'], // Default to grassland for testing
+				status: 'SCHEDULED',
+				scheduledAt: scheduledAt,
+				warningIssuedAt: null,
+				warningTime: warningTime,
+				impactDuration: impactDuration,
+			})
+			.returning();
+
+		logger.info('[API] Manual disaster triggered', {
+			disasterId: disasterEvent.id,
+			worldId,
+			type,
+			severity: disasterSeverity,
+			scheduledAt: scheduledAt.toISOString(),
+		});
+
+		res.json({
+			success: true,
+			disasterId: disasterEvent.id,
+			scheduledAt: scheduledAt.toISOString(),
+			warningTime: warningTime,
+		});
+	} catch (error) {
+		logger.error('[API] Error triggering disaster:', error);
+		res.status(500).json({
+			error: 'Failed to trigger disaster',
+			code: 'TRIGGER_FAILED',
 		});
 	}
 });
