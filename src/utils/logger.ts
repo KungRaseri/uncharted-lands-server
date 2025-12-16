@@ -99,6 +99,36 @@ class Logger {
 	}
 
 	/**
+	 * Clean up old log files, keeping only the 10 most recent
+	 */
+	private cleanupOldLogs(): void {
+		try {
+			const MAX_LOG_FILES = 10;
+			const files = fs
+				.readdirSync(this.logDir)
+				.filter((f) => f.endsWith('.log') && !f.endsWith('.latest.log'))
+				.sort((a, b) => b.localeCompare(a)); // Most recent first
+
+			// Remove old files beyond the limit
+			if (files.length > MAX_LOG_FILES) {
+				const filesToRemove = files.slice(MAX_LOG_FILES);
+				console.log(`[LOGGER] Cleaning up ${filesToRemove.length} old log file(s)...`);
+
+				for (const file of filesToRemove) {
+					try {
+						fs.unlinkSync(path.join(this.logDir, file));
+						console.log(`[LOGGER] Deleted old log: ${file}`);
+					} catch (err) {
+						console.error(`[LOGGER] Failed to delete ${file}:`, err);
+					}
+				}
+			}
+		} catch (err) {
+			console.error('[LOGGER] Failed to cleanup old logs:', err);
+		}
+	}
+
+	/**
 	 * Initialize new timestamped .latest.log file
 	 */
 	private initializeLogFile(): void {
