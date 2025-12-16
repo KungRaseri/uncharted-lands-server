@@ -78,6 +78,7 @@ router.get('/:id', async (req, res) => {
 				},
 				structures: {
 					with: {
+						structure: true,
 						modifiers: true,
 					},
 				},
