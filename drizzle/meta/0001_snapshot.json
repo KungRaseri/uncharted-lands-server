@@ -1,6 +1,6 @@
 {
-  "id": "2021869f-883f-477d-be59-c22f8c33807a",
-  "prevId": "c8867fa2-eb52-4a4a-bbc4-d66bfcef845b",
+  "id": "0a3199f2-c5e1-4ba7-9ff6-99a6c8b854fa",
+  "prevId": "4b09258b-763f-4a8c-b4d7-4bf0d2a0b1b7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -212,8 +212,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.Plot": {
-      "name": "Plot",
+    "public.ConstructionQueue": {
+      "name": "ConstructionQueue",
       "schema": "",
       "columns": {
         "id": {
@@ -222,75 +222,113 @@
           "primaryKey": true,
           "notNull": true
         },
-        "tileId": {
-          "name": "tileId",
+        "settlementId": {
+          "name": "settlementId",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "area": {
-          "name": "area",
-          "type": "integer",
+        "structureType": {
+          "name": "structureType",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 30
+          "notNull": true
         },
-        "solar": {
-          "name": "solar",
-          "type": "integer",
+        "startedAt": {
+          "name": "startedAt",
+          "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": false
         },
-        "wind": {
-          "name": "wind",
-          "type": "integer",
+        "completesAt": {
+          "name": "completesAt",
+          "type": "timestamp",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": false
         },
-        "food": {
-          "name": "food",
-          "type": "integer",
+        "resourcesCost": {
+          "name": "resourcesCost",
+          "type": "json",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
-        "water": {
-          "name": "water",
-          "type": "integer",
+        "status": {
+          "name": "status",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": "'QUEUED'"
         },
-        "wood": {
-          "name": "wood",
+        "position": {
+          "name": "position",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
-        "stone": {
-          "name": "stone",
+        "isEmergency": {
+          "name": "isEmergency",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": 0
         },
-        "ore": {
-          "name": "ore",
-          "type": "integer",
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {
-        "Plot_tileId_idx": {
-          "name": "Plot_tileId_idx",
+        "construction_queue_settlement_idx": {
+          "name": "construction_queue_settlement_idx",
           "columns": [
             {
-              "expression": "tileId",
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "construction_queue_status_idx": {
+          "name": "construction_queue_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "construction_queue_active_idx": {
+          "name": "construction_queue_active_idx",
+          "columns": [
+            {
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -303,12 +341,360 @@
         }
       },
       "foreignKeys": {
-        "Plot_tileId_Tile_id_fk": {
-          "name": "Plot_tileId_Tile_id_fk",
-          "tableFrom": "Plot",
-          "tableTo": "Tile",
+        "ConstructionQueue_settlementId_Settlement_id_fk": {
+          "name": "ConstructionQueue_settlementId_Settlement_id_fk",
+          "tableFrom": "ConstructionQueue",
+          "tableTo": "Settlement",
           "columnsFrom": [
-            "tileId"
+            "settlementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.DisasterEvent": {
+      "name": "DisasterEvent",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "worldId": {
+          "name": "worldId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "DisasterType",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severityLevel": {
+          "name": "severityLevel",
+          "type": "DisasterSeverity",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "affectedRegionId": {
+          "name": "affectedRegionId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "affectedBiomes": {
+          "name": "affectedBiomes",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scheduledAt": {
+          "name": "scheduledAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "warningTime": {
+          "name": "warningTime",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 7200
+        },
+        "impactDuration": {
+          "name": "impactDuration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 3600
+        },
+        "status": {
+          "name": "status",
+          "type": "DisasterStatus",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'SCHEDULED'"
+        },
+        "warningIssuedAt": {
+          "name": "warningIssuedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impactStartedAt": {
+          "name": "impactStartedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impactEndedAt": {
+          "name": "impactEndedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "imminentWarningIssued": {
+          "name": "imminentWarningIssued",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "disaster_world_idx": {
+          "name": "disaster_world_idx",
+          "columns": [
+            {
+              "expression": "worldId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disaster_status_idx": {
+          "name": "disaster_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disaster_scheduled_idx": {
+          "name": "disaster_scheduled_idx",
+          "columns": [
+            {
+              "expression": "scheduledAt",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disaster_active_idx": {
+          "name": "disaster_active_idx",
+          "columns": [
+            {
+              "expression": "worldId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "DisasterEvent_worldId_World_id_fk": {
+          "name": "DisasterEvent_worldId_World_id_fk",
+          "tableFrom": "DisasterEvent",
+          "tableTo": "World",
+          "columnsFrom": [
+            "worldId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "DisasterEvent_affectedRegionId_Region_id_fk": {
+          "name": "DisasterEvent_affectedRegionId_Region_id_fk",
+          "tableFrom": "DisasterEvent",
+          "tableTo": "Region",
+          "columnsFrom": [
+            "affectedRegionId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.DisasterHistory": {
+      "name": "DisasterHistory",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "settlementId": {
+          "name": "settlementId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "disasterId": {
+          "name": "disasterId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "casualties": {
+          "name": "casualties",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "structuresDamaged": {
+          "name": "structuresDamaged",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "structuresDestroyed": {
+          "name": "structuresDestroyed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "resourcesLost": {
+          "name": "resourcesLost",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "resilienceGained": {
+          "name": "resilienceGained",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "disaster_history_settlement_idx": {
+          "name": "disaster_history_settlement_idx",
+          "columns": [
+            {
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "disaster_history_disaster_idx": {
+          "name": "disaster_history_disaster_idx",
+          "columns": [
+            {
+              "expression": "disasterId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "DisasterHistory_settlementId_Settlement_id_fk": {
+          "name": "DisasterHistory_settlementId_Settlement_id_fk",
+          "tableFrom": "DisasterHistory",
+          "tableTo": "Settlement",
+          "columnsFrom": [
+            "settlementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "DisasterHistory_disasterId_DisasterEvent_id_fk": {
+          "name": "DisasterHistory_disasterId_DisasterEvent_id_fk",
+          "tableFrom": "DisasterHistory",
+          "tableTo": "DisasterEvent",
+          "columnsFrom": [
+            "disasterId"
           ],
           "columnsTo": [
             "id"
@@ -341,36 +727,6 @@
         }
       },
       "indexes": {
-        "ProfileServerData_profileId_key": {
-          "name": "ProfileServerData_profileId_key",
-          "columns": [
-            {
-              "expression": "profileId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "ProfileServerData_serverId_key": {
-          "name": "ProfileServerData_serverId_key",
-          "columns": [
-            {
-              "expression": "serverId",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "ProfileServerData_profileId_serverId_key": {
           "name": "ProfileServerData_profileId_serverId_key",
           "columns": [
@@ -640,6 +996,57 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.Resource": {
+      "name": "Resource",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.Server": {
       "name": "Server",
       "schema": "",
@@ -731,6 +1138,88 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.SettlementPopulation": {
+      "name": "SettlementPopulation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "settlementId": {
+          "name": "settlementId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currentPopulation": {
+          "name": "currentPopulation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 10
+        },
+        "happiness": {
+          "name": "happiness",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "lastGrowthTick": {
+          "name": "lastGrowthTick",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SettlementPopulation_settlementId_Settlement_id_fk": {
+          "name": "SettlementPopulation_settlementId_Settlement_id_fk",
+          "tableFrom": "SettlementPopulation",
+          "tableTo": "Settlement",
+          "columnsFrom": [
+            "settlementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "SettlementPopulation_settlementId_unique": {
+          "name": "SettlementPopulation_settlementId_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "settlementId"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.SettlementStorage": {
       "name": "SettlementStorage",
       "schema": "",
@@ -740,6 +1229,12 @@
           "type": "text",
           "primaryKey": true,
           "notNull": true
+        },
+        "settlementId": {
+          "name": "settlementId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "food": {
           "name": "food",
@@ -772,8 +1267,38 @@
           "notNull": true
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "SettlementStorage_settlementId_idx": {
+          "name": "SettlementStorage_settlementId_idx",
+          "columns": [
+            {
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "SettlementStorage_settlementId_Settlement_id_fk": {
+          "name": "SettlementStorage_settlementId_Settlement_id_fk",
+          "tableFrom": "SettlementStorage",
+          "tableTo": "Settlement",
+          "columnsFrom": [
+            "settlementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -790,8 +1315,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "structureRequirementsId": {
-          "name": "structureRequirementsId",
+        "structureId": {
+          "name": "structureId",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -802,32 +1327,125 @@
           "primaryKey": false,
           "notNull": true
         },
-        "name": {
-          "name": "name",
-          "type": "text",
+        "level": {
+          "name": "level",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": 1
         },
-        "description": {
-          "name": "description",
+        "tileId": {
+          "name": "tileId",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "slotPosition": {
+          "name": "slotPosition",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "populationAssigned": {
+          "name": "populationAssigned",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "health": {
+          "name": "health",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 100
+        },
+        "damagedAt": {
+          "name": "damagedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lastRepairedAt": {
+          "name": "lastRepairedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "SettlementStructure_settlementId_idx": {
+          "name": "SettlementStructure_settlementId_idx",
+          "columns": [
+            {
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "SettlementStructure_structureId_idx": {
+          "name": "SettlementStructure_structureId_idx",
+          "columns": [
+            {
+              "expression": "structureId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "SettlementStructure_tileId_idx": {
+          "name": "SettlementStructure_tileId_idx",
+          "columns": [
+            {
+              "expression": "tileId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "SettlementStructure_structureRequirementsId_StructureRequirements_id_fk": {
-          "name": "SettlementStructure_structureRequirementsId_StructureRequirements_id_fk",
+        "SettlementStructure_structureId_Structure_id_fk": {
+          "name": "SettlementStructure_structureId_Structure_id_fk",
           "tableFrom": "SettlementStructure",
-          "tableTo": "StructureRequirements",
+          "tableTo": "Structure",
           "columnsFrom": [
-            "structureRequirementsId"
+            "structureId"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         },
         "SettlementStructure_settlementId_Settlement_id_fk": {
@@ -842,18 +1460,23 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "SettlementStructure_tileId_Tile_id_fk": {
+          "name": "SettlementStructure_tileId_Tile_id_fk",
+          "tableFrom": "SettlementStructure",
+          "tableTo": "Tile",
+          "columnsFrom": [
+            "tileId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "SettlementStructure_structureRequirementsId_unique": {
-          "name": "SettlementStructure_structureRequirementsId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "structureRequirementsId"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -868,8 +1491,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "plotId": {
-          "name": "plotId",
+        "tileId": {
+          "name": "tileId",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -892,6 +1515,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'Home Settlement'"
+        },
+        "resilience": {
+          "name": "resilience",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "createdAt": {
           "name": "createdAt",
@@ -924,11 +1554,11 @@
           "method": "btree",
           "with": {}
         },
-        "Settlement_plotId_idx": {
-          "name": "Settlement_plotId_idx",
+        "Settlement_tileId_idx": {
+          "name": "Settlement_tileId_idx",
           "columns": [
             {
-              "expression": "plotId",
+              "expression": "tileId",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -941,12 +1571,12 @@
         }
       },
       "foreignKeys": {
-        "Settlement_plotId_Plot_id_fk": {
-          "name": "Settlement_plotId_Plot_id_fk",
+        "Settlement_tileId_Tile_id_fk": {
+          "name": "Settlement_tileId_Tile_id_fk",
           "tableFrom": "Settlement",
-          "tableTo": "Plot",
+          "tableTo": "Tile",
           "columnsFrom": [
-            "plotId"
+            "tileId"
           ],
           "columnsTo": [
             "id"
@@ -983,13 +1613,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "Settlement_plotId_unique": {
-          "name": "Settlement_plotId_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "plotId"
-          ]
-        },
         "Settlement_settlementStorageId_unique": {
           "name": "Settlement_settlementStorageId_unique",
           "nullsNotDistinct": false,
@@ -1059,8 +1682,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.StructureRequirements": {
-      "name": "StructureRequirements",
+    "public.StructurePrerequisite": {
+      "name": "StructurePrerequisite",
       "schema": "",
       "columns": {
         "id": {
@@ -1069,61 +1692,263 @@
           "primaryKey": true,
           "notNull": true
         },
-        "area": {
-          "name": "area",
+        "structureId": {
+          "name": "structureId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requiredStructureId": {
+          "name": "requiredStructureId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requiredResearchId": {
+          "name": "requiredResearchId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requiredLevel": {
+          "name": "requiredLevel",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 1
         },
-        "solar": {
-          "name": "solar",
-          "type": "integer",
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "StructurePrerequisite_structureId_idx": {
+          "name": "StructurePrerequisite_structureId_idx",
+          "columns": [
+            {
+              "expression": "structureId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
-        "wind": {
-          "name": "wind",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
+        "StructurePrerequisite_requiredStructureId_idx": {
+          "name": "StructurePrerequisite_requiredStructureId_idx",
+          "columns": [
+            {
+              "expression": "requiredStructureId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "StructurePrerequisite_structureId_Structure_id_fk": {
+          "name": "StructurePrerequisite_structureId_Structure_id_fk",
+          "tableFrom": "StructurePrerequisite",
+          "tableTo": "Structure",
+          "columnsFrom": [
+            "structureId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
-        "food": {
-          "name": "food",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
+        "StructurePrerequisite_requiredStructureId_Structure_id_fk": {
+          "name": "StructurePrerequisite_requiredStructureId_Structure_id_fk",
+          "tableFrom": "StructurePrerequisite",
+          "tableTo": "Structure",
+          "columnsFrom": [
+            "requiredStructureId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.StructureRequirement": {
+      "name": "StructureRequirement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
         },
-        "water": {
-          "name": "water",
-          "type": "integer",
+        "structureId": {
+          "name": "structureId",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
-        "wood": {
-          "name": "wood",
-          "type": "integer",
+        "resourceId": {
+          "name": "resourceId",
+          "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
         },
-        "stone": {
-          "name": "stone",
+        "quantity": {
+          "name": "quantity",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": 1
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "StructureRequirement_structureId_idx": {
+          "name": "StructureRequirement_structureId_idx",
+          "columns": [
+            {
+              "expression": "structureId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
-        "ore": {
-          "name": "ore",
+        "StructureRequirement_resourceId_idx": {
+          "name": "StructureRequirement_resourceId_idx",
+          "columns": [
+            {
+              "expression": "resourceId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "StructureRequirement_structureId_Structure_id_fk": {
+          "name": "StructureRequirement_structureId_Structure_id_fk",
+          "tableFrom": "StructureRequirement",
+          "tableTo": "Structure",
+          "columnsFrom": [
+            "structureId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "StructureRequirement_resourceId_Resource_id_fk": {
+          "name": "StructureRequirement_resourceId_Resource_id_fk",
+          "tableFrom": "StructureRequirement",
+          "tableTo": "Resource",
+          "columnsFrom": [
+            "resourceId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.Structure": {
+      "name": "Structure",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "StructureCategory",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "extractorType": {
+          "name": "extractorType",
+          "type": "ExtractorType",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "buildingType": {
+          "name": "buildingType",
+          "type": "BuildingType",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "maxLevel": {
+          "name": "maxLevel",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 1
+          "default": 10
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -1156,6 +1981,20 @@
           "primaryKey": false,
           "notNull": true
         },
+        "xCoord": {
+          "name": "xCoord",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "yCoord": {
+          "name": "yCoord",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "elevation": {
           "name": "elevation",
           "type": "double precision",
@@ -1180,6 +2019,68 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
+        },
+        "foodQuality": {
+          "name": "foodQuality",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "waterQuality": {
+          "name": "waterQuality",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "woodQuality": {
+          "name": "woodQuality",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "stoneQuality": {
+          "name": "stoneQuality",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "oreQuality": {
+          "name": "oreQuality",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 50
+        },
+        "specialResource": {
+          "name": "specialResource",
+          "type": "SpecialResource",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settlementId": {
+          "name": "settlementId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plotSlots": {
+          "name": "plotSlots",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "baseProductionModifier": {
+          "name": "baseProductionModifier",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {
@@ -1227,6 +2128,42 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "Tile_coords_idx": {
+          "name": "Tile_coords_idx",
+          "columns": [
+            {
+              "expression": "xCoord",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "yCoord",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "Tile_settlementId_idx": {
+          "name": "Tile_settlementId_idx",
+          "columns": [
+            {
+              "expression": "settlementId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -1254,6 +2191,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "Tile_settlementId_Settlement_id_fk": {
+          "name": "Tile_settlementId_Settlement_id_fk",
+          "tableFrom": "Tile",
+          "tableTo": "Settlement",
+          "columnsFrom": [
+            "settlementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1296,6 +2246,26 @@
           "type": "json",
           "primaryKey": false,
           "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'generating'"
+        },
+        "worldTemplateType": {
+          "name": "worldTemplateType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'STANDARD'"
+        },
+        "worldTemplateConfig": {
+          "name": "worldTemplateConfig",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
         },
         "serverId": {
           "name": "serverId",
@@ -1373,6 +2343,104 @@
         "ADMINISTRATOR"
       ]
     },
+    "public.BiomeType": {
+      "name": "BiomeType",
+      "schema": "public",
+      "values": [
+        "GRASSLAND",
+        "FOREST",
+        "DESERT",
+        "MOUNTAIN",
+        "TUNDRA",
+        "SWAMP",
+        "COASTAL",
+        "OCEAN"
+      ]
+    },
+    "public.BuildingType": {
+      "name": "BuildingType",
+      "schema": "public",
+      "values": [
+        "HOUSE",
+        "STORAGE",
+        "BARRACKS",
+        "WORKSHOP",
+        "MARKETPLACE",
+        "TOWN_HALL",
+        "WALL"
+      ]
+    },
+    "public.DisasterSeverity": {
+      "name": "DisasterSeverity",
+      "schema": "public",
+      "values": [
+        "MILD",
+        "MODERATE",
+        "MAJOR",
+        "CATASTROPHIC"
+      ]
+    },
+    "public.DisasterStatus": {
+      "name": "DisasterStatus",
+      "schema": "public",
+      "values": [
+        "SCHEDULED",
+        "WARNING",
+        "IMPACT",
+        "AFTERMATH",
+        "RESOLVED"
+      ]
+    },
+    "public.DisasterType": {
+      "name": "DisasterType",
+      "schema": "public",
+      "values": [
+        "DROUGHT",
+        "FLOOD",
+        "BLIZZARD",
+        "HURRICANE",
+        "TORNADO",
+        "SANDSTORM",
+        "HEATWAVE",
+        "EARTHQUAKE",
+        "VOLCANO",
+        "LANDSLIDE",
+        "AVALANCHE",
+        "WILDFIRE",
+        "INSECT_PLAGUE",
+        "BLIGHT",
+        "LOCUST_SWARM"
+      ]
+    },
+    "public.ExtractorType": {
+      "name": "ExtractorType",
+      "schema": "public",
+      "values": [
+        "FARM",
+        "WELL",
+        "LUMBER_MILL",
+        "QUARRY",
+        "MINE",
+        "FISHING_DOCK",
+        "HUNTING_LODGE",
+        "HERB_GARDEN"
+      ]
+    },
+    "public.ResourceType": {
+      "name": "ResourceType",
+      "schema": "public",
+      "values": [
+        "FOOD",
+        "WOOD",
+        "STONE",
+        "ORE",
+        "CLAY",
+        "HERBS",
+        "PELTS",
+        "GEMS",
+        "EXOTIC_WOOD"
+      ]
+    },
     "public.ServerStatus": {
       "name": "ServerStatus",
       "schema": "public",
@@ -1380,6 +2448,24 @@
         "OFFLINE",
         "MAINTENANCE",
         "ONLINE"
+      ]
+    },
+    "public.SpecialResource": {
+      "name": "SpecialResource",
+      "schema": "public",
+      "values": [
+        "GEMS",
+        "EXOTIC_WOOD",
+        "MAGICAL_HERBS",
+        "ANCIENT_STONE"
+      ]
+    },
+    "public.StructureCategory": {
+      "name": "StructureCategory",
+      "schema": "public",
+      "values": [
+        "EXTRACTOR",
+        "BUILDING"
       ]
     },
     "public.TileType": {

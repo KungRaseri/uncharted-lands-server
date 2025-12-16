@@ -1,1 +1,0 @@
-ALTER TABLE "World" ADD COLUMN "status" text DEFAULT 'generating' NOT NULL;
