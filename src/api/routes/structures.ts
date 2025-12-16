@@ -680,6 +680,42 @@ router.post('/:id/upgrade', authenticate, async (req: Request, res: Response) =>
 			});
 		}
 
+		// Emit Socket.IO event for real-time updates
+		// Get world ID from settlement's tile (need to fetch with relations)
+		const settlementWithTile = await db.query.settlements.findFirst({
+			where: eq(settlements.id, settlementData.id),
+			with: {
+				tile: {
+					with: {
+						region: true,
+					},
+				},
+			},
+		});
+		const worldId = settlementWithTile?.tile?.region?.worldId;
+		logger.debug('[SERVER] Attempting to emit structure:upgraded event', {
+			worldId,
+			settlementId: settlementData.id,
+			hasIo: !!req.app.get('io'),
+			structureName: structureDef?.name,
+		});
+		if (worldId && req.app.get('io')) {
+			const io = req.app.get('io');
+			logger.debug('[SERVER] Emitting structure:upgraded to room:', {
+				world: `world:${worldId}`,
+			});
+			io.to(`world:${worldId}`).emit('structure:upgraded', {
+				settlementId: settlementData.id,
+				structureId: id,
+				level: nextLevel,
+				category: structureDef?.category,
+				structureName: structureDef?.name,
+			});
+			logger.debug('[SERVER] structure:upgraded event emitted successfully');
+		} else {
+			logger.debug('[SERVER] FAILED to emit - missing worldId or io instance');
+		}
+
 		return res.json(upgraded);
 	} catch (error) {
 		logger.error('[API] Failed to upgrade structure', { error, structureId: req.params.id });

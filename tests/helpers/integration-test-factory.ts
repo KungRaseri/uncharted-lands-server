@@ -427,6 +427,13 @@ export async function createTestSettlement(
 		options
 	);
 
+	// ✅ CRITICAL FIX: Update storage to link it to the settlement
+	// The settlementStorage table has a settlementId foreign key that must be set
+	await db
+		.update(settlementStorage)
+		.set({ settlementId })
+		.where(eq(settlementStorage.id, chain.settlementStorageId));
+
 	return {
 		...chain,
 		settlementId,

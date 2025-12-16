@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../../../src/index.js';
 import { db } from '../../../src/db/index.js';
-import { settlementStructures } from '../../../src/db/schema.js';
+import { settlementStructures, settlementStorage } from '../../../src/db/schema.js';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import {
@@ -216,6 +216,135 @@ describe('Structures API Routes', () => {
 			expect(response.body.code).toBe('NOT_SETTLEMENT_OWNER');
 
 			await cleanupTestChain(structureChain);
+			await cleanupTestChain(otherChain);
+		});
+	});
+
+	describe('POST /api/structures/create', () => {
+		it('should create structure and deduct resources from settlement storage', async () => {
+			// Get initial storage values
+			const initialStorage = await db.query.settlementStorage.findFirst({
+				where: (storage, { eq }) => eq(storage.settlementId, testChain!.settlement.id),
+			});
+
+			expect(initialStorage).toBeDefined();
+			const initialWood = initialStorage!.wood;
+			const initialStone = initialStorage!.stone;
+			const initialOre = initialStorage!.ore;
+
+			// Get the Farm structure definition from database
+			const farmStructure = await db.query.structures.findFirst({
+				where: (structure, { eq }) => eq(structure.name, 'Farm'),
+			});
+			expect(farmStructure).toBeDefined();
+
+			// Create a Farm (costs: wood 20, stone 10)
+			const response = await request(app)
+				.post('/api/structures/create')
+				.set('Cookie', `session=${testChain!.account.userAuthToken}`)
+				.send({
+					settlementId: testChain!.settlement.id,
+					structureId: farmStructure!.id,
+					tileId: testChain!.settlement.tileId,
+					slotPosition: 0,
+				})
+				.expect(201); // 201 Created for successful resource creation
+
+			expect(response.body).toHaveProperty('success', true);
+			expect(response.body).toHaveProperty('structure');
+			expect(response.body.structure).toHaveProperty('id');
+			expect(response.body.structure.structureId).toBe(farmStructure!.id);
+
+		// Verify structure was created in database
+		const dbStructure = await db.query.settlementStructures.findFirst({
+			where: eq(settlementStructures.id, response.body.structure.id),
+		});
+		expect(dbStructure).toBeDefined();
+		expect(dbStructure!.settlementId).toBe(testChain!.settlement.id);			// Verify resources were deducted from storage
+			const updatedStorage = await db.query.settlementStorage.findFirst({
+				where: (storage, { eq }) => eq(storage.settlementId, testChain!.settlement.id),
+			});
+
+			expect(updatedStorage).toBeDefined();
+			// Farm costs: wood 20, stone 10, ore 0
+			expect(updatedStorage!.wood).toBe(initialWood - 20);
+			expect(updatedStorage!.stone).toBe(initialStone - 10);
+			expect(updatedStorage!.ore).toBe(initialOre); // Ore not used for Farm
+		});
+
+		it('should return 400 if insufficient resources', async () => {
+			// Set storage to very low values
+			await db
+				.update(settlementStorage)
+				.set({ wood: 5, stone: 3, ore: 0 })
+				.where(eq(settlementStorage.settlementId, testChain!.settlement.id));
+
+			// Get the Farm structure definition
+			const farmStructure = await db.query.structures.findFirst({
+				where: (structure, { eq }) => eq(structure.name, 'Farm'),
+			});
+			expect(farmStructure).toBeDefined();
+
+			// Try to create a Farm (costs: wood 20, stone 10)
+			const response = await request(app)
+				.post('/api/structures/create')
+				.set('Cookie', `session=${testChain!.account.userAuthToken}`)
+				.send({
+					settlementId: testChain!.settlement.id,
+					structureId: farmStructure!.id,
+					tileId: testChain!.settlement.tileId,
+					slotPosition: 0,
+				})
+				.expect(400);
+
+			expect(response.body.success).toBe(false);
+			expect(response.body).toHaveProperty('shortages');
+			expect(response.body.shortages.length).toBeGreaterThan(0);
+		});
+
+		it('should return 404 if settlement not found', async () => {
+			// Get a structure to use
+			const farmStructure = await db.query.structures.findFirst({
+				where: (structure, { eq }) => eq(structure.name, 'Farm'),
+			});
+			expect(farmStructure).toBeDefined();
+
+			const response = await request(app)
+				.post('/api/structures/create')
+				.set('Cookie', `session=${testChain!.account.userAuthToken}`)
+				.send({
+					settlementId: 'nonexistent-id',
+					structureId: farmStructure!.id,
+					tileId: testChain!.settlement.tileId,
+					slotPosition: 0,
+				})
+				.expect(404);
+
+			expect(response.body.code).toBe('SETTLEMENT_NOT_FOUND');
+		});
+
+		it('should return 403 if user does not own settlement', async () => {
+			const otherChain = await createTestSettlement();
+
+			// Get a structure to use
+			const farmStructure = await db.query.structures.findFirst({
+				where: (structure, { eq }) => eq(structure.name, 'Farm'),
+			});
+			expect(farmStructure).toBeDefined();
+
+			const response = await request(app)
+				.post('/api/structures/create')
+				.set('Cookie', `session=${otherChain.account.userAuthToken}`)
+				.send({
+					settlementId: testChain!.settlement.id,
+					structureId: farmStructure!.id,
+					tileId: testChain!.settlement.tileId,
+					slotPosition: 0,
+				})
+				.expect(403);
+
+			expect(response.body.code).toBe('NOT_SETTLEMENT_OWNER');
+
 			await cleanupTestChain(otherChain);
 		});
 	});
