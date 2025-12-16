@@ -58,6 +58,11 @@ class Logger {
 			this.rotateExistingLatestLogs();
 		}
 
+		// Clean up old log files (keep only 10 most recent)
+		if (this.logToFile) {
+			this.cleanupOldLogs();
+		}
+
 		// Initialize new log file
 		if (this.logToFile) {
 			this.initializeLogFile();
